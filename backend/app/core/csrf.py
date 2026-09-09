@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+from urllib.parse import urlparse
+
+from fastapi import HTTPException, Request, status
+
+from app.core.config import get_settings
+
+CSRF_HEADER_VALUE = "Docwise"
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def _origin_allowed(origin: str, allowed: list[str]) -> bool:
+    return origin.rstrip("/") in {item.rstrip("/") for item in allowed}
+
+
+def request_origin(request: Request) -> str | None:
+    origin = (request.headers.get("origin") or "").strip()
+    if origin:
+        return origin
+    referer = (request.headers.get("referer") or "").strip()
+    if not referer:
+        return None
+    parsed = urlparse(referer)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def enforce_csrf(request: Request) -> None:
+    """Require Origin allowlist or X-Requested-With when cookies are cross-site (SameSite=None)."""
+    if request.method in SAFE_METHODS:
+        return
+    if not request.url.path.startswith("/api/v1"):
+        return
+
+    settings = get_settings()
+    samesite = (settings.cookie_samesite or "lax").strip().lower()
+    if samesite in {"lax", "strict"}:
+        return
+
+    header = (request.headers.get("x-requested-with") or "").strip()
+    if header == CSRF_HEADER_VALUE:
+        return
+
+    origin = request_origin(request)
+    if origin and _origin_allowed(origin, settings.cors_origin_list()):
+        return
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF check failed")

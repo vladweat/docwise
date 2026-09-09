@@ -1,0 +1,41 @@
+---
+description: Docwise product identity, stack lock, and non-negotiable architecture invariants
+alwaysApply: true
+---
+
+# Docwise
+
+Enterprise RAG workspace: permission-aware search and Q&A over PDF/DOCX with hybrid retrieval, reranking, and exact PDF page citations.
+
+Canonical product spec: `docs/srs.md`. Implementation deviations: `docs/decisions.md`. Do not invent APIs, tables, or payload fields that contradict `docs/`. If spec and code diverge, update docs in the same change.
+
+## Stack lock (do not substitute without an explicit request)
+
+- Backend: Python 3.12, FastAPI, Uvicorn, Pydantic v2, SQLAlchemy 2 **sync Session** (ChainWise style; not asyncpg in v1)
+- Queue/cache: Redis 7, Celery 5
+- DB: PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`, same image as ChainWise)
+- Vectors: pgvector in PostgreSQL (`vector(384)` cosine; FTS/BM25 on retrieved candidates)
+- Origin: adapt `../chainwise` per `docs/reuse-from-chainwise.md`
+- Parse: PyMuPDF (`fitz`) + pdfplumber for tables
+- Embeddings/rerank: fastembed `BAAI/bge-small-en-v1.5` and `BAAI/bge-reranker-base`
+- LLM: OpenAI/Anthropic via async `httpx` (default `gpt-4o-mini`)
+- Frontend: Next.js 15 App Router, React 19, TypeScript 5, Tailwind 4, shadcn/ui
+- Infra: Docker Compose, MinIO, GitHub Actions (ruff + pytest)
+
+## Invariants
+
+- This is production-grade Enterprise RAG, not a naive chatbot over 500-char splits.
+- Access control is enforced in SQL (`access_roles && allowed_roles`) **before** the LLM sees any chunk. Prompt-only RBAC is forbidden.
+- Every answer fact must be citeable to `{document_id, page_number}`. If context is insufficient, refuse — do not guess.
+- Chunks stay inside one page/section. Inject a meta header before embedding.
+- Chat streaming is SSE JSON envelopes (ChainWise): `citations` → `token` → `meta` → `[DONE]`.
+- Primary keys are UUID (API and Postgres), not ChainWise integer ids.
+
+## Layout
+
+```
+backend/    FastAPI app + Celery worker
+frontend/   Next.js 15 app
+eval/       Ragas golden set + runner
+docs/       architecture and SRS
+```

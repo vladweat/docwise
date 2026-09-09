@@ -1,0 +1,34 @@
+---
+description: How to reuse ChainWise — copy the skeleton, do not copy Solidity retrieval topology
+alwaysApply: true
+---
+
+# Reuse from `../chainwise`
+
+Docwise is an adaptation of ChainWise, not a greenfield app. Canonical inventory: `docs/reuse-from-chainwise.md`.
+
+## Copy (adapt names/payload)
+
+- Auth cookies + `get_current_user` / `require_admin` (rename `cw_*` cookies to `dw_*`)
+- Redis rate limit, JSON log redaction, `/health` + `/ready`
+- Celery task wrapper, `last_error`, Redis indexing lock (key = UUID document id)
+- FastEmbed client; pgvector upsert/search in Postgres (`vector(384)` cosine)
+- `bm25_scores`, `reciprocal_rank_fusion` (`k=60`), `stream_openai`, SSE JSON envelopes
+- Frontend `api.ts` cookie fetch + SSE reader (`type: citations | token | meta | error | done`)
+- docker-compose minus `slither` and Qdrant, plus MinIO
+
+Keep **sync** SQLAlchemy `Session` like ChainWise. Do not rewrite the backend to asyncpg in v1.
+
+## Do not copy
+
+- `semantic_splitter.py`, solc, Slither, Etherscan, risk XGBoost, PDF **report** generator
+- `load_search_pool` / `scroll_contract_chunks` as the retrieval path (that is one-contract RAM BM25)
+- Solidity prompt, interface-stub heuristics, findings-in-context
+- Coverage/CI hooks for `pragma_parser` and `risk_scorer`
+
+## Must change on first port
+
+- Search is **corpus-wide** with SQL `access_roles && allowed_roles` on every query. Never `SELECT` the full chunk table into RAM.
+- LLM cache key must include the caller's allowed roles (or do not share cache across users).
+- Citations: `{doc_id, doc_title, page, snippet}` with UUID `doc_id` — not `file.sol:L10-20`.
+- Chunking: page/section bounds + meta header, not AST functions.
