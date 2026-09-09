@@ -20,6 +20,7 @@ from app.core.config import DEFAULT_SECRET_KEY, get_settings
 from app.core.csrf import enforce_csrf
 from app.core.database import check_pgvector, check_postgres
 from app.core.sentry import init_sentry
+from app.services.storage import ensure_documents_bucket, get_object_storage
 from app.utils.logging import setup_logging
 from app.utils.redis_lock import get_redis_client
 
@@ -54,6 +55,7 @@ async def lifespan(_app: FastAPI):
     except Exception as exc:
         logger.error("Migration failed: %s", exc)
         raise
+    ensure_documents_bucket()
     yield
 
 
@@ -110,7 +112,9 @@ def _check_minio() -> bool:
         timeout=5.0,
         trust_env=False,
     )
-    return response.status_code == 200
+    if response.status_code != 200:
+        return False
+    return get_object_storage().bucket_is_ready()
 
 
 @app.get("/")

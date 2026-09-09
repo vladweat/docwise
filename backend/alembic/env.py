@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.core.database import Base
-from app.models import User  # noqa: F401
+from app.models import Document, DocumentChunk, User  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

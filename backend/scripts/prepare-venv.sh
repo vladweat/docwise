@@ -17,14 +17,18 @@ if [ "$PY_MINOR" != "3.12" ]; then
   exit 1
 fi
 
+# An already-activated venv (e.g. ../chainwise) would steal a bare `pip install`.
+if [ -n "${VIRTUAL_ENV:-}" ]; then
+  echo "Note: ignoring active VIRTUAL_ENV=$VIRTUAL_ENV"
+  unset VIRTUAL_ENV
+fi
+
 echo "Creating venv with $PYTHON ..."
 "$PYTHON" -m venv .venv
 
-# shellcheck disable=SC1091
-source .venv/bin/activate
-
-pip install -U pip
-pip install -r requirements.txt
+VENV_PY="$(pwd)/.venv/bin/python"
+"$VENV_PY" -m pip install -U pip
+"$VENV_PY" -m pip install -r requirements.txt
 
 mkdir -p .libs .models
 if [ ! -f .libs/libgomp.so.1 ]; then
@@ -41,5 +45,5 @@ if [ ! -f .libs/libgomp.so.1 ]; then
 fi
 
 echo ""
-echo "OK: backend/.venv ready ($(pip list | wc -l) packages)"
+echo "OK: backend/.venv ready ($("$VENV_PY" -m pip list | wc -l) packages)"
 echo "Next (offline): make up"

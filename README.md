@@ -56,7 +56,7 @@ Production-grade Enterprise RAG: FastAPI, PostgreSQL/pgvector, Celery, Next.js. 
 | [docs/frontend.md](docs/frontend.md) | UI/UX |
 | [docs/nfr.md](docs/nfr.md) | Безопасность, надёжность, perf |
 | [docs/evaluation.md](docs/evaluation.md) | Ragas и бенчмарки |
-| [docs/milestones.md](docs/milestones.md) | Этапы реализации |
+| [docs/milestones.md](docs/milestones.md) | Roadmap v1 с чекбоксами |
 | [docs/conventions.md](docs/conventions.md) | Соглашения по коду и репозиторию |
 | [docs/reuse-from-chainwise.md](docs/reuse-from-chainwise.md) | Что копировать из ChainWise и чего нельзя |
 

@@ -2,7 +2,7 @@
 
 Enterprise RAG workspace (repo `docwise`), adapted from sibling `../chainwise`.
 
-Start here: `docs/srs.md` (product), `docs/decisions.md` (TZ vs ChainWise), `docs/reuse-from-chainwise.md` (file map). Cursor rules in `.cursor/rules/` restates the same invariants.
+Start here: `docs/srs.md` (product), `docs/milestones.md` (roadmap checkboxes), `docs/decisions.md` (TZ vs ChainWise), `docs/reuse-from-chainwise.md` (file map). Cursor rules in `.cursor/rules/` restates the same invariants.
 
 Non-negotiables:
 
