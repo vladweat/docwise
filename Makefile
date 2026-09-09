@@ -1,10 +1,13 @@
-.PHONY: venv deps deps-frontend up up-fast up-frontend down build logs logs-frontend test lint health migrate
+.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test lint health migrate
 
 # Шаг 1 (нужен интернет): скачать зависимости backend + frontend
-deps: venv deps-frontend
+deps: venv embeddings deps-frontend
 
 venv:
 	bash backend/scripts/prepare-venv.sh
+
+embeddings:
+	backend/.venv/bin/python backend/scripts/prepare_embeddings.py
 
 deps-frontend:
 	bash frontend/scripts/prepare-deps.sh

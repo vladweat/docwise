@@ -356,3 +356,92 @@ def test_upload_rate_limit(admin_client: TestClient, storage: FakeStorage, monke
     second = _upload(admin_client, filename="B.pdf", content=_pdf("rl2"), roles=["all"])
     assert second.status_code == 429
     get_settings.cache_clear()
+
+
+def test_patch_acl_updates_document_and_chunks(admin_client: TestClient, storage: FakeStorage):
+    response = _upload(admin_client, filename="Policy.pdf", content=_pdf("acl"), roles=["hr"])
+    assert response.status_code == 201
+    doc_id = UUID(response.json()["id"])
+    db = SessionLocal()
+    db.add(
+        DocumentChunk(
+            document_id=doc_id,
+            chunk_id=make_chunk_id(doc_id, 1, 0),
+            page_number=1,
+            access_roles=["hr"],
+            content="secret",
+            embedding=[0.1] * 384,
+        )
+    )
+    db.add(
+        DocumentChunk(
+            document_id=doc_id,
+            chunk_id=make_chunk_id(doc_id, 2, 0),
+            page_number=2,
+            access_roles=["hr"],
+            content="also secret",
+            embedding=[0.2] * 384,
+        )
+    )
+    db.commit()
+    db.close()
+
+    patched = admin_client.patch(
+        f"/api/v1/documents/{doc_id}",
+        json={"access_roles": ["engineering", "admin"]},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["access_roles"] == ["engineering", "admin"]
+    assert patched.json()["id"] == str(doc_id)
+
+    db = SessionLocal()
+    stored = db.get(Document, doc_id)
+    chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == doc_id).all()
+    assert stored is not None
+    assert stored.access_roles == ["engineering", "admin"]
+    assert len(chunks) == 2
+    assert all(chunk.access_roles == ["engineering", "admin"] for chunk in chunks)
+    assert {chunk.content for chunk in chunks} == {"secret", "also secret"}
+    assert all(chunk.embedding is not None for chunk in chunks)
+    db.close()
+
+    hr = _register_user(UserRole.employee.value, departments=["hr"])
+    listed = hr.get("/api/v1/documents")
+    assert listed.status_code == 200
+    assert listed.json()["total"] == 0
+
+    eng = _register_user(UserRole.employee.value, departments=["engineering"])
+    visible = eng.get("/api/v1/documents")
+    assert visible.status_code == 200
+    assert visible.json()["total"] == 1
+    assert visible.json()["items"][0]["id"] == str(doc_id)
+
+
+def test_patch_acl_requires_admin(admin_client: TestClient, storage: FakeStorage):
+    response = _upload(admin_client, filename="Policy.pdf", content=_pdf("no-acl"), roles=["all"])
+    doc_id = response.json()["id"]
+    employee = _register_user(UserRole.employee.value)
+    denied = employee.patch(f"/api/v1/documents/{doc_id}", json={"access_roles": ["hr"]})
+    assert denied.status_code == 403
+    db = SessionLocal()
+    stored = db.get(Document, UUID(doc_id))
+    assert stored is not None
+    assert stored.access_roles == ["all"]
+    db.close()
+
+
+def test_patch_acl_missing_is_404(admin_client: TestClient):
+    missing = uuid4()
+    response = admin_client.patch(
+        f"/api/v1/documents/{missing}",
+        json={"access_roles": ["hr"]},
+    )
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Document not found"
+
+
+def test_patch_acl_rejects_empty_roles(admin_client: TestClient, storage: FakeStorage):
+    response = _upload(admin_client, filename="Policy.pdf", content=_pdf("empty-acl"), roles=["hr"])
+    doc_id = response.json()["id"]
+    empty = admin_client.patch(f"/api/v1/documents/{doc_id}", json={"access_roles": []})
+    assert empty.status_code == 422

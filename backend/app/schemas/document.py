@@ -23,6 +23,10 @@ class DocumentListResponse(BaseModel):
     offset: int
 
 
+class DocumentAccessUpdate(BaseModel):
+    access_roles: list[str] = Field(min_length=1)
+
+
 class DocumentStatusResponse(BaseModel):
     id: UUID
     status: str

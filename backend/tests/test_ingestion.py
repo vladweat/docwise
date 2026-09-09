@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.celery_config import process_document_task
 from app.core.database import SessionLocal
-from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
+from app.models.document import EMBEDDING_DIM, Document, DocumentChunk, DocumentStatus, make_chunk_id
+from app.services.embeddings import EmbeddingError
 from app.services.ingestion import (
     IndexResult,
     IngestionError,
@@ -53,6 +54,21 @@ def db():
 @pytest.fixture
 def storage() -> FakeStorage:
     return FakeStorage()
+
+
+@pytest.fixture(autouse=True)
+def stub_embeddings(monkeypatch):
+    captured: dict[str, list[str]] = {"texts": []}
+
+    def fake_embed_texts(texts, *, embedder=None):
+        captured["texts"] = list(texts)
+        return [
+            [float((index + offset) % 7) for offset in range(EMBEDDING_DIM)]
+            for index in range(len(texts))
+        ]
+
+    monkeypatch.setattr("app.services.ingestion.embed_texts", fake_embed_texts)
+    return captured
 
 
 @pytest.fixture(autouse=True)
@@ -344,7 +360,7 @@ def test_index_pdf_blank_pdf_fails(db: Session):
         index_pdf(db, document, blank_pdf_bytes())
 
 
-def test_index_pdf_persists_page_chunks_and_acl(db: Session):
+def test_index_pdf_persists_page_chunks_acl_and_embeddings(db: Session, stub_embeddings):
     document = _seed(db, FakeStorage(), pdf=policy_pdf_bytes())
     result = index_pdf(db, document, policy_pdf_bytes())
     db.flush()
@@ -364,7 +380,35 @@ def test_index_pdf_persists_page_chunks_and_acl(db: Session):
     assert all("[Document:" not in row.content for row in rows)
     assert any(row.is_table and "Vacation" in row.content and "|" in row.content for row in rows)
     assert any(row.bbox and "page_width" in row.bbox for row in rows)
-    assert all(row.embedding is None for row in rows)
+    assert all(row.embedding is not None and len(row.embedding) == EMBEDDING_DIM for row in rows)
+    assert stub_embeddings["texts"]
+    assert all(text.startswith("[Document: Policy.pdf |") for text in stub_embeddings["texts"])
+    for text in stub_embeddings["texts"]:
+        header, body = text.split("\n", 1)
+        assert header.startswith("[Document:")
+        assert not body.startswith("[Document:")
+
+
+def test_index_pdf_rejects_wrong_embedding_dim(db: Session, monkeypatch):
+    document = _seed(db, FakeStorage(), pdf=policy_pdf_bytes())
+
+    def bad_embed(texts, *, embedder=None):
+        return [[0.0] * 8 for _ in texts]
+
+    monkeypatch.setattr("app.services.ingestion.embed_texts", bad_embed)
+    with pytest.raises(IngestionError, match="384"):
+        index_pdf(db, document, policy_pdf_bytes())
+
+
+def test_index_pdf_wraps_embedding_error(db: Session, monkeypatch):
+    document = _seed(db, FakeStorage(), pdf=policy_pdf_bytes())
+
+    def boom(texts, *, embedder=None):
+        raise EmbeddingError("Embedding model not found")
+
+    monkeypatch.setattr("app.services.ingestion.embed_texts", boom)
+    with pytest.raises(IngestionError, match="Embedding model not found"):
+        index_pdf(db, document, policy_pdf_bytes())
 
 
 def test_run_ingestion_parser_reingest_does_not_duplicate(db: Session, storage: FakeStorage):
@@ -382,3 +426,5 @@ def test_run_ingestion_parser_reingest_does_not_duplicate(db: Session, storage: 
     assert len(rows) == first
     chunk_ids = [row.chunk_id for row in rows]
     assert len(chunk_ids) == len(set(chunk_ids))
+    assert all(row.embedding is not None and len(row.embedding) == EMBEDDING_DIM for row in rows)
+    assert all(row.access_roles == ["hr", "admin"] for row in rows)

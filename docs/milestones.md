@@ -7,7 +7,7 @@
 | Веха | Статус | Ориентир |
 | --- | --- | --- |
 | [M0 Скелет](#milestone-0--скелет-из-chainwise) | готово | 0.5–1 день |
-| [M1 PDF ingest](#milestone-1--pdf-ingest) | открыто | 2–3 дня |
+| [M1 PDF ingest](#milestone-1--pdf-ingest) | готово | 2–3 дня |
 | [M2 Retrieval + RBAC + SSE](#milestone-2--corpus-retrieval--rbac--sse) | открыто | 3–4 дня |
 | [M3 Split-screen UI](#milestone-3--split-screen-ui) | открыто | 2–3 дня |
 | [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | открыто | 1–2 дня |
@@ -101,10 +101,10 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Эмбеддинги
 
-- [ ] FastEmbed `BAAI/bge-small-en-v1.5`, `vector(384)` cosine
-- [ ] Перед insert удалять строки `document_chunks` по `document_id`
-- [ ] Скопировать `access_roles` документа на каждый чанк
-- [ ] Смена ACL файла обновляет документ **и** все его чанки (или полный re-upsert)
+- [x] FastEmbed `BAAI/bge-small-en-v1.5`, `vector(384)` cosine
+- [x] Перед insert удалять строки `document_chunks` по `document_id`
+- [x] Скопировать `access_roles` документа на каждый чанк
+- [x] Смена ACL файла обновляет документ **и** все его чанки (или полный re-upsert)
 
 ### Тесты M1
 
@@ -113,7 +113,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 - [x] Re-ingest того же `document_id` / `file_hash` не плодит дубли чанков
 - [x] `/raw` и list не отдают чужой файл (404, не 403 с title)
 
-**Критерий вехи:** [ ] upload → `ready`, точки с `page_number` и `access_roles`
+**Критерий вехи:** [x] upload → `ready`, точки с `page_number` и `access_roles`
 
 ---
 

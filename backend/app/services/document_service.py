@@ -1,4 +1,4 @@
-"""Document upload, ACL-filtered reads, and KB delete. PDF parsing stays in Celery."""
+"""Document upload, ACL-filtered reads, ACL patch, and KB delete. PDF parsing stays in Celery."""
 
 from __future__ import annotations
 
@@ -17,9 +17,14 @@ from sqlalchemy.orm import Session
 
 from app.celery_config import process_document_task
 from app.core.config import get_settings
-from app.models.document import Document, DocumentStatus
+from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.user import User
-from app.schemas.document import DocumentListResponse, DocumentResponse, DocumentStatusResponse
+from app.schemas.document import (
+    DocumentAccessUpdate,
+    DocumentListResponse,
+    DocumentResponse,
+    DocumentStatusResponse,
+)
 from app.services.storage import ObjectStorage, StorageError, get_object_storage, object_key_for_document
 
 logger = logging.getLogger(__name__)
@@ -268,6 +273,29 @@ def document_pdf_bytes(
         logger.warning("MinIO get failed document_id=%s", document_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL) from exc
     return data, document.title
+
+
+def update_document_access_roles(
+    db: Session,
+    document_id: UUID,
+    payload: DocumentAccessUpdate,
+) -> Document:
+    """Set document ACL and copy it onto every chunk. Does not re-embed."""
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
+
+    roles = parse_access_roles(payload.access_roles)
+    document.access_roles = list(roles)
+    (
+        db.query(DocumentChunk)
+        .filter(DocumentChunk.document_id == document_id)
+        .update({DocumentChunk.access_roles: list(roles)}, synchronize_session=False)
+    )
+    db.commit()
+    db.refresh(document)
+    logger.info("document ACL updated id=%s roles=%s", document.id, roles)
+    return document
 
 
 def delete_document(
