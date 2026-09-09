@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.core.config import get_settings
 from app.models.document import EMBEDDING_DIM
+from app.services.onnx_cache import has_cached_onnx
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,7 @@ def embedding_model_dir() -> Path:
 
 
 def is_embedder_available() -> bool:
-    path = embedding_model_dir()
-    return path.is_dir() and any(path.rglob("*.onnx"))
+    return has_cached_onnx(embedding_model_dir(), "bge-small")
 
 
 def reset_embedder_cache() -> None:
