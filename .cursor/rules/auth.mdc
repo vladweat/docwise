@@ -1,0 +1,24 @@
+---
+description: Cookie auth, role assembly, and ACL identity — never trust the client body
+globs: backend/**/{auth,deps,security,auth_cookies}*.py,backend/app/core/**/*.py,backend/app/api/auth*.py
+alwaysApply: false
+---
+
+# Auth
+
+Canonical: `docs/auth.md`. Cookies `dw_*` (renamed from ChainWise `cw_*`). `get_current_user` / `require_admin` stay; roles become `admin | manager | employee` plus `departments[]`.
+
+```python
+# ❌ BAD — client chooses visibility
+def search(body: Query):
+    roles = body.access_roles
+
+# ✅ GOOD — server-side allowed_roles
+def allowed_roles(user) -> list[str]:
+    return list({user.role, *user.departments, "all"})
+```
+
+- Do not put `role` / `departments` in the request body as authorization input.
+- KB write (upload/delete): admin (or the single manage-KB rule documented in OpenAPI). Retrieval still uses document ACL unless SRS adds an explicit override.
+- Raw PDF bytes only after the same intersection check as `GET /documents`. Prefer `404` over confirming a hidden title.
+- LLM Redis cache key must include the caller's `allowed_roles`.

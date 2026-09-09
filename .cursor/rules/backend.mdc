@@ -1,0 +1,32 @@
+---
+description: FastAPI / SQLAlchemy / Celery conventions for the Python backend
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Backend (Python 3.12)
+
+- SQLAlchemy 2 **sync** `Session` (same as ChainWise). FastAPI handlers may be sync. PDF/CPU work still belongs in Celery — never inside the upload request.
+- Pydantic v2 schemas for every request/response. No raw `dict` API contracts.
+- Auth via JWT/session on all `/api/v1/*` except health. Load `role` and `departments` from the DB/token, not from the body.
+- Alembic for every schema change. Do not create tables ad hoc in app startup for production paths.
+- Config through env/Pydantic settings (`DATABASE_URL`, `REDIS_URL`, `S3_*`, `OPENAI_API_KEY`). No secrets in code.
+- Lint/format: ruff. Tests: pytest. Prefer services (`ingestion`, `retrieval`, `chat`) over fat routers.
+
+```python
+# ❌ BAD — parse PDF inside the upload request
+@router.post("/documents/upload")
+async def upload(file: UploadFile):
+    text = fitz.open(stream=await file.read()).get_text()
+
+# ✅ GOOD — persist + enqueue
+@router.post("/documents/upload")
+def upload(file: UploadFile, session: DbSession, user: CurrentUser):
+    doc = documents_svc.save_upload(session, user, file)
+    process_document.delay(doc.id)
+    return DocumentStatus.model_validate(doc)
+```
+
+- Celery task: `process_document(doc_id)` is the only ingestion entry (port of `load_contract_task`). Idempotent: re-run deletes old `document_chunks` for that `document_id`. Lock: `indexing_lock:{document_id}`.
+- Cascade delete: Postgres row + chunk rows + object storage.
+- Audit every retrieval: `rag_audit_logs` with `query`, `user_id`, `retrieved_chunk_ids`, `latency_ms`, `tokens_used`.

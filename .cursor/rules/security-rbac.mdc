@@ -1,0 +1,34 @@
+---
+description: Permission-aware retrieval — never leak unauthorized document chunks into search or LLM context
+alwaysApply: true
+---
+
+# RBAC for retrieval
+
+Canonical: `docs/auth.md`. A junior employee must never receive answers derived from documents they cannot open. This is the core enterprise requirement.
+
+## Enforcement
+
+- Persist `access_roles` on the `documents` row **and** on every `document_chunks` row.
+- On every search/chat/inspect request, filter with the authenticated user's `role` and `departments`:
+
+```sql
+WHERE access_roles && ARRAY['employee', 'all']::text[]
+```
+
+- Apply the filter to **both** dense and sparse/FTS queries. Do not fuse, rerank, or send to the LLM any row that failed the filter.
+- `GET /documents` and `GET /documents/{id}/raw` use the same rule. No file bytes without access.
+- Never “explain why a document was omitted” if that would confirm a restricted file exists.
+
+## Forbidden
+
+- Filtering only in the prompt (“ignore chunks the user should not see”)
+- Client-supplied `access_roles` / `document_ids` that bypass the token
+- Logging full chunk text of restricted docs in audit trails visible to the same user
+- Admin-only debug payloads on production chat endpoints
+
+## Roles
+
+Users: `admin` | `manager` | `employee`, plus `departments[]` (e.g. `engineering`, `hr`). 
+Documents: `access_roles[]` (e.g. `admin`, `hr`, `all`). 
+`admin` may manage the knowledge base; retrieval still respects document ACLs unless an explicit admin override exists in the SRS.

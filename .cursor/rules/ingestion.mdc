@@ -1,0 +1,39 @@
+---
+description: Structure-aware PDF ingestion, chunking, embedding, and pgvector upsert
+globs: backend/**/{ingestion,chunking,embeddings,tasks}/**/*.py
+alwaysApply: false
+---
+
+# Ingestion pipeline
+
+Entry: Celery `process_document(doc_id)`. Status: `pending → processing → ready | failed` with `last_error` on failure.
+
+## Extraction
+
+- Open PDF with PyMuPDF (`fitz`). Keep **physical page numbers**.
+- Extract text per page. If a table grid is detected, extract with pdfplumber as GitHub-flavored Markdown (`| col | col |`).
+- Preserve coordinates when available — the PDF viewer highlight depends on them later.
+
+## Chunking (not naive RAG)
+
+- A chunk **must not cross a page boundary**. Prefer section boundaries when headings exist.
+- Size: 400–600 tokens, overlap: 50 tokens, overlap only within the same page/section.
+- Prefix every chunk **before** embedding:
+
+```
+[Document: HR_Policy.pdf | Section: Expenses | Page: 12]
+{content}
+```
+
+- Payload must include: `document_id`, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles`, `content`, `token_count`.
+
+## Embed & upsert
+
+- Batch `fastembed` dense vectors (`BAAI/bge-small-en-v1.5`, 384d cosine) and BM25 sparse vectors.
+- Delete existing rows for `document_id` before insert (replace, do not duplicate).
+- Index `document_id` and GIN on `access_roles`; HNSW on `embedding`.
+- Copy `access_roles` from the parent document at ingest time; if ACLs change, update chunk rows.
+
+## Tests to keep green
+
+Upload a PDF that contains a table; assert chunks stay on one page, tables survive as Markdown, and payload `access_roles` match the document.

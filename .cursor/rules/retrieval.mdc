@@ -1,0 +1,40 @@
+---
+description: Hybrid search, RRF, reranking, grounded generation, and SSE chat protocol
+globs: backend/**/{search,chat,rag,retrieval}/**/*.py
+alwaysApply: false
+---
+
+# Retrieval and generation
+
+Pipeline order is fixed: **RBAC filter → dense+sparse → RRF → rerank → generate**.
+
+1. Dense search: query embedding, Top-25, cosine, with access filter.
+2. Sparse/BM25: same filter, Top-25 (exact terms, numbers, codes).
+3. RRF with `k=60`: `score(d) = Σ 1/(60 + rank_m(d))`. Keep Top-15.
+4. Cross-encoder `BAAI/bge-reranker-base` on `(query, chunk_text)`. Drop score `< 0.25`. Keep **Top-4**.
+5. Generate only from those 4 chunks. System prompt: answer strictly from context; if missing, say so in the product language; cite `[^page]` / document+page for every fact.
+
+Do not skip rerank to “make it faster” on the default path. Do not send Top-25 raw chunks to the LLM.
+
+Do not port ChainWise `scroll_contract_chunks` / in-memory BM25 over a whole document set. BM25+RRF run only on SQL candidate lists (or FTS), always with the same ACL filter.
+
+## SSE `POST /api/v1/chat/stream`
+
+Reuse ChainWise envelopes (`data: {json}\n\n`, then `data: [DONE]`):
+
+1. `{type: "citations", citations: [{doc_id, doc_title, page, snippet}, ...]}`
+2. `{type: "token", content: "..."}` (repeated)
+3. `{type: "meta", tokens_used, ...}` then `[DONE]`
+4. On failure: `{type: "error", content: "..."}` (no stack, no foreign titles)
+
+Inspect (`POST /api/v1/search/inspect`) returns pre- and post-rerank lists with scores. Dev/admin only.
+
+```python
+# ❌ BAD
+context = dense_hits[:20]
+
+# ✅ GOOD
+filtered = Chunk.access_roles.overlap(user.allowed_roles)
+fused = rrf(dense(query, 25, filtered), sparse(query, 25, filtered), k=60)[:15]
+top = [c for c in rerank(query, fused) if c.score >= 0.25][:4]
+```

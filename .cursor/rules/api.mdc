@@ -1,0 +1,34 @@
+---
+description: REST and SSE API contracts — keep handlers aligned with docs/api.md
+globs: backend/**/api/**/*.py,backend/app/schemas/**/*.py
+alwaysApply: false
+---
+
+# API contracts
+
+Canonical spec: `docs/api.md`. Prefix `/api/v1`. Errors `{ "detail": "..." }`.
+
+- Pydantic v2 for every request/response. No ad-hoc dict contracts.
+- Auth on all `/api/v1/*` except login/register/google. Identity from cookies (`dw_*`) only — ignore `Authorization: Bearer`. Never from body `user_id` / `access_roles`.
+- Resource ids are UUID strings, including chat citations `doc_id`.
+- Upload returns `201` + `pending` and enqueues Celery. Do not parse PDF in the handler.
+- `GET /documents` and `/raw` apply the same ACL as search. Missing-or-forbidden → `404`, not a leaky `403` with the title.
+- Delete is cascade: Postgres (document + chunks) + MinIO.
+
+## SSE `POST /api/v1/chat/stream`
+
+ChainWise envelopes (not named `event:` from the draft TZ):
+
+```
+data: {"type":"citations","citations":[{"doc_id":"<uuid>","doc_title":"Travel.pdf","page":4,"snippet":"..."}]}
+
+data: {"type":"token","content":"..."}
+
+data: {"type":"meta","tokens_used":640}
+
+data: [DONE]
+```
+
+Citations first, then tokens. On failure: `{"type":"error","content":"..."}` — no stack, no foreign document titles.
+
+Inspect is admin/dev only (`ENABLE_SEARCH_INSPECT`). Same ACL filter as chat.

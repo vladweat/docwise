@@ -1,0 +1,16 @@
+---
+description: Ragas evaluation suite, golden dataset, and CI expectations
+globs: eval/**/*.{py,json,md}
+alwaysApply: false
+---
+
+# Evaluation
+
+- Golden set: `eval/golden_dataset.json` — at least 30 items: `question`, `ground_truth_answer`, `target_doc_id` (optional `target_page`).
+- Runner: `python eval/run_eval.py` executes the **real** retrieval+generation path (including RBAC of the eval user), not a mocked LLM-only loop.
+- Metrics (Ragas): Faithfulness, Context Precision, Answer Relevance.
+- Write `reports/rag_benchmark.md` (create `reports/` if needed). Do not commit secrets; do commit the latest benchmark table when metrics change intentionally.
+
+When you change chunking, hybrid fusion, rerank threshold, or the system prompt, run or update eval and mention metric impact.
+
+CI (GitHub Actions): ruff + pytest. Unit-test RRF fusion and the parser (table PDF fixture). Do not require GPU or live OpenAI in default unit tests — mock embeddings/LLM there; eval is a separate job/script.
