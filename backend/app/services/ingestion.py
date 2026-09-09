@@ -1,7 +1,7 @@
 """Celery ingestion worker: lock, MinIO download, status machine, idempotent re-run.
 
-Parse + page-bounded chunking run here. FastEmbed upsert is the next M1 item
-(`embedding` stays null until then). This module owns
+Parse, page-bounded chunking, FastEmbed (`BAAI/bge-small-en-v1.5`, 384d cosine),
+then replace `document_chunks` for the document. Owns
 `pending → processing → ready | failed`, the Redis lock, and rollback of chunks.
 """
 
@@ -14,8 +14,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
+from app.models.document import EMBEDDING_DIM, Document, DocumentChunk, DocumentStatus, make_chunk_id
 from app.services.chunker import chunk_parsed_document
+from app.services.embeddings import EmbeddingError, embed_texts
 from app.services.pdf_parser import PdfParserError, parse_pdf
 from app.services.storage import ObjectStorage, StorageError, get_object_storage
 from app.utils.redis_lock import acquire_indexing_lock, release_indexing_lock
@@ -70,11 +71,17 @@ def persist_ingestion_failure(db: Session, document_id: str | UUID, exc: BaseExc
     )
 
 
-def index_pdf(db: Session, document: Document, pdf_bytes: bytes) -> IndexResult:
+def index_pdf(
+    db: Session,
+    document: Document,
+    pdf_bytes: bytes,
+    *,
+    embedder=None,
+) -> IndexResult:
     """Replace `document_chunks` for this PDF. Must not commit; the worker commits.
 
-    `content` is the UI/LLM fragment (no meta header). Embeddings are filled
-    later from `PreparedChunk.embed_text`; they stay null in this step.
+    `content` is the UI/LLM fragment (no meta header). Dense vectors come from
+    `PreparedChunk.embed_text` via FastEmbed. Caller must delete old rows first.
     """
     if not pdf_bytes.startswith(PDF_MAGIC):
         raise IngestionError("Downloaded object is not a PDF")
@@ -87,9 +94,20 @@ def index_pdf(db: Session, document: Document, pdf_bytes: bytes) -> IndexResult:
     if not chunks:
         raise IngestionError("PDF produced no extractable text")
 
+    texts = [chunk.embed_text(document.title) for chunk in chunks]
+    try:
+        vectors = embed_texts(texts, embedder=embedder)
+    except EmbeddingError as exc:
+        raise IngestionError(str(exc)) from exc
+    if len(vectors) != len(chunks):
+        raise IngestionError("Embedding count does not match chunk count")
+    for vector in vectors:
+        if len(vector) != EMBEDDING_DIM:
+            raise IngestionError(f"Expected {EMBEDDING_DIM}-dim embeddings, got {len(vector)}")
+
     ordinal_by_page: dict[int, int] = {}
     roles = list(document.access_roles)
-    for chunk in chunks:
+    for chunk, vector in zip(chunks, vectors, strict=True):
         ordinal = ordinal_by_page.get(chunk.page_number, 0)
         ordinal_by_page[chunk.page_number] = ordinal + 1
         db.add(
@@ -102,7 +120,7 @@ def index_pdf(db: Session, document: Document, pdf_bytes: bytes) -> IndexResult:
                 access_roles=list(roles),
                 content=chunk.content,
                 token_count=chunk.token_count,
-                embedding=None,
+                embedding=vector,
                 doc_title=document.title,
                 bbox=chunk.bbox,
                 highlight_rects=chunk.highlight_rects,

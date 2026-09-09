@@ -9,13 +9,19 @@ from app.core.config import get_settings
 from app.core.deps import get_current_user, get_db, require_admin
 from app.models.document import DocumentStatus
 from app.models.user import User
-from app.schemas.document import DocumentListResponse, DocumentResponse, DocumentStatusResponse
+from app.schemas.document import (
+    DocumentAccessUpdate,
+    DocumentListResponse,
+    DocumentResponse,
+    DocumentStatusResponse,
+)
 from app.services.document_service import (
     create_document_from_upload,
     delete_document,
     document_pdf_bytes,
     document_status,
     list_documents,
+    update_document_access_roles,
 )
 from app.services.storage import ObjectStorage, get_object_storage
 from app.utils.rate_limit import enforce_rate_limit
@@ -118,6 +124,23 @@ def get_document_raw(
             "Cache-Control": "private, no-store",
         },
     )
+
+
+@router.patch(
+    "/{document_id}",
+    response_model=DocumentResponse,
+    summary="Update document ACL (admin)",
+    description="Requires admin. Copies access_roles onto every chunk in the same transaction.",
+    responses={404: {"description": "Document row is missing"}},
+)
+def patch_document_access(
+    document_id: UUID,
+    payload: DocumentAccessUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> DocumentResponse:
+    _ = current_user
+    return update_document_access_roles(db, document_id, payload)
 
 
 @router.delete(

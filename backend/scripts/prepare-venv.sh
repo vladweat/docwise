@@ -46,4 +46,6 @@ fi
 
 echo ""
 echo "OK: backend/.venv ready ($("$VENV_PY" -m pip list | wc -l) packages)"
+echo "Downloading bge-small embeddings into .models ..."
+"$VENV_PY" scripts/prepare_embeddings.py
 echo "Next (offline): make up"

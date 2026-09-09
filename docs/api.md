@@ -59,6 +59,13 @@ GET /api/v1/documents/{id}/status
 Опрос обработки: `pending | processing | ready | failed`, плюс `last_error` если failed. `404` если нет прав / нет записи.
 
 ```http
+PATCH /api/v1/documents/{id}
+Content-Type: application/json
+```
+
+Тело: `{ "access_roles": ["hr", "admin"] }`. Только `require_admin`. В одной транзакции обновляет `documents.access_roles` и все `document_chunks.access_roles` этого файла (без re-embed). Пустой список → `422`. Документ без строки → `404` с тем же `detail`. Manager не может. Retrieval после смены ACL сразу видит новые роли чанков.
+
+```http
 DELETE /api/v1/documents/{id}
 ```
 

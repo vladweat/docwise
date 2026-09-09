@@ -14,6 +14,7 @@ Canonical spec: `docs/api.md`. Prefix `/api/v1`. Errors `{ "detail": "..." }`.
 - Upload returns `201` + `pending` and enqueues Celery. Do not parse PDF in the handler.
 - `GET /documents` and `/raw` apply the same ACL as search. Missing-or-forbidden → `404`, not a leaky `403` with the title.
 - Delete is cascade: Postgres (document + chunks) + MinIO.
+- `PATCH /documents/{id}` (admin): `{ "access_roles": [...] }` updates the document **and** every chunk row. Do not re-embed.
 
 ## SSE `POST /api/v1/chat/stream`
 

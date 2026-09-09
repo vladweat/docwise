@@ -45,11 +45,14 @@ DOCX (если поддерживается в вехе): конвертация
 
 ## 3. Embed & upsert
 
-1. Батч dense-векторов FastEmbed `BAAI/bge-small-en-v1.5` (384d).
-2. Батч sparse BM25 для тех же текстов.
-3. `delete` по фильтру `document_id`.
-4. Upsert points: vectors + payload (`document_id`, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` с документа, `content`, `token_count`).
-5. `documents.status = ready`. Любое исключение: `failed` + `last_error`, без «частично готового» индекса (либо явный rollback delete).
+1. Батч dense-векторов FastEmbed `BAAI/bge-small-en-v1.5` (384d cosine) по `embed_text`.
+2. `delete` строк `document_chunks` по `document_id`.
+3. Insert: vectors + payload (`document_id`, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` с документа, `content`, `token_count`).
+4. `documents.status = ready`. Любое исключение: `failed` + `last_error`, без «частично готового» индекса (либо явный rollback delete).
+
+Sparse BM25/FTS — в M2 (пока dense-кандидаты, затем in-memory BM25, см. [decisions.md](decisions.md) ADR-005).
+
+Смена ACL без re-ingest: `PATCH /documents/{id}` копирует `access_roles` на документ и все его чанки.
 
 ## 4. Тест качества парсера
 

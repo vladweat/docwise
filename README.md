@@ -68,7 +68,7 @@ Production-grade Enterprise RAG: FastAPI, PostgreSQL/pgvector, Celery, Next.js. 
 
 ```bash
 cp .env.example .env   # прокси, куки SameSite=None, секреты — как в ChainWise
-make deps              # backend/.venv + frontend/node_modules
+make deps              # backend/.venv + FastEmbed ONNX + frontend/node_modules
 make up                # postgres 15+pgvector, redis, minio, backend, worker, frontend
 make health            # GET http://localhost:8001/health
 ```
