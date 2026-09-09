@@ -84,7 +84,33 @@ def test_embedding_model_dir_uses_settings(monkeypatch, tmp_path: Path):
     reset_embedder_cache()
     assert embedding_model_dir() == tmp_path
     assert is_embedder_available() is False
-    (tmp_path / "model.onnx").write_bytes(b"onnx")
+    (tmp_path / "models--qdrant--bge-small-en-v1.5-onnx-q").mkdir()
+    (tmp_path / "models--qdrant--bge-small-en-v1.5-onnx-q" / "model_optimized.onnx").write_bytes(b"onnx")
     assert is_embedder_available() is True
     get_settings.cache_clear()
     reset_embedder_cache()
+
+
+def test_has_cached_onnx_matches_fastembed_hf_layout(monkeypatch, tmp_path: Path):
+    from app.services.onnx_cache import has_cached_onnx
+    from app.services.reranker import is_reranker_available, reset_reranker_cache
+
+    embed_dir = tmp_path / "models--qdrant--bge-small-en-v1.5-onnx-q" / "snapshots" / "abc"
+    embed_dir.mkdir(parents=True)
+    (embed_dir / "model_optimized.onnx").write_bytes(b"onnx")
+    assert has_cached_onnx(tmp_path, "bge-small") is True
+    assert has_cached_onnx(tmp_path, "bge-reranker", "reranker-base") is False
+
+    rerank_dir = tmp_path / "models--BAAI--bge-reranker-base" / "snapshots" / "def"
+    rerank_dir.mkdir(parents=True)
+    (rerank_dir / "model.onnx").write_bytes(b"onnx")
+    assert has_cached_onnx(tmp_path, "bge-reranker", "reranker-base") is True
+
+    monkeypatch.setenv("EMBEDDING_MODEL_PATH", str(tmp_path))
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    reset_reranker_cache()
+    assert is_reranker_available() is True
+    get_settings.cache_clear()
+    reset_reranker_cache()

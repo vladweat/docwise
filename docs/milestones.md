@@ -125,24 +125,24 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Retrieval
 
-- [ ] Вырезать Solidity-эвристики, overview-аудит, interface stubs, findings-in-context
-- [ ] Dense Top-25: `embedding <=> query`, SQL `access_roles && allowed_roles`
-- [ ] Sparse/FTS Top-25 с тем же ACL (или BM25 только по dense-кандидатам, пока нет отдельного sparse-индекса — [ADR-005](decisions.md))
-- [ ] Порт `bm25_scores` + `reciprocal_rank_fusion` (`k=60`) → Top-15
-- [ ] Cross-encoder `BAAI/bge-reranker-base`: порог 0.25 → Top-4
-- [ ] Пустой список после порога → отказ, без вызова «творчества» LLM
-- [ ] `allowed_roles` = `{role} ∪ departments ∪ {all}`; роли не из тела запроса
+- [x] Вырезать Solidity-эвристики, overview-аудит, interface stubs, findings-in-context
+- [x] Dense Top-25: `embedding <=> query`, SQL `access_roles && allowed_roles`
+- [x] Sparse/FTS Top-25 с тем же ACL (или BM25 только по dense-кандидатам, пока нет отдельного sparse-индекса — [ADR-005](decisions.md))
+- [x] Порт `bm25_scores` + `reciprocal_rank_fusion` (`k=60`) → Top-15
+- [x] Cross-encoder `BAAI/bge-reranker-base`: порог 0.25 → Top-4
+- [x] Пустой список после порога → отказ, без вызова «творчества» LLM
+- [x] `allowed_roles` = `{role} ∪ departments ∪ {all}`; роли не из тела запроса
 
 ### Чат и SSE
 
-- [ ] `POST /api/v1/chat/stream` — cookie session, rate limit chat
-- [ ] SSE JSON-конверты ChainWise: `citations` → `token` → `meta` → `[DONE]`; ошибки `type: error`
-- [ ] Цитаты `{doc_id: UUID, doc_title, page, snippet}` до первого токена
-- [ ] Каждый факт в ответе цитируем; иначе отказ фиксированной фразой
-- [ ] `session_id` пустой → создать `chat_sessions`; история не обходит ACL
-- [ ] `GET /api/v1/chat/sessions` (+ детали сессии)
-- [ ] `POST /api/v1/chat/feedback` — `+1/-1` только на свои сообщения
-- [ ] LLM cache key включает канонический набор `allowed_roles` (или кэш не шарить)
+- [x] `POST /api/v1/chat/stream` — cookie session, rate limit chat
+- [x] SSE JSON-конверты ChainWise: `citations` → `token` → `meta` → `[DONE]`; ошибки `type: error`
+- [x] Цитаты `{doc_id: UUID, doc_title, page, snippet}` до первого токена
+- [x] Каждый факт в ответе цитируем; иначе отказ фиксированной фразой
+- [x] `session_id` пустой → создать `chat_sessions`; история не обходит ACL
+- [x] `GET /api/v1/chat/sessions` (+ детали сессии)
+- [x] `POST /api/v1/chat/feedback` — `+1/-1` только на свои сообщения
+- [x] LLM cache key включает канонический набор `allowed_roles` (или кэш не шарить)
 
 ### Inspect и аудит
 
@@ -153,10 +153,10 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Тесты M2
 
-- [ ] Порт `test_rag_engine.py`: BM25 и RRF `k=60` без GPU / без живого LLM
-- [ ] Пользователь, чей `allowed_roles` не пересекается с чанком, отсутствует в fused / reranked / промпте
+- [x] Порт `test_rag_engine.py`: BM25 и RRF `k=60` без GPU / без живого LLM
+- [x] Пользователь, чей `allowed_roles` не пересекается с чанком, отсутствует в fused / reranked / промпте
 - [ ] Inspect и chat не подтверждают существование чужого файла
-- [ ] Кэш, прогретый под admin, не отдаёт HR-чанки employee
+- [x] Кэш, прогретый под admin, не отдаёт HR-чанки employee
 
 **Критерий вехи:** [ ] страница находится; ACL держит inspect и cache
 

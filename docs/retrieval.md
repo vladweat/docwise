@@ -30,6 +30,7 @@ LIMIT 25
 
 1. **Dense:** эмбеддинг вопроса, Top-25, cosine (`embedding <=> query`), фильтр ACL.
 2. **Sparse / BM25:** Top-25 с тем же ACL (Postgres FTS или BM25 **только** по объединению dense-кандидатов).
+   Пока нет колонки `tsvector`, код берёт dense Top-50 с ACL и считает `bm25_scores` только по этим строкам ([ADR-005](decisions.md)).
 3. **RRF** (`k = 60`) — функция из ChainWise `reciprocal_rank_fusion` без изменений:
 
 \[
@@ -42,7 +43,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 
 Модель: `BAAI/bge-reranker-base` (fastembed). Пары `(query, chunk_text)`.
 
-- Отбросить score **< 0.25** (порог конфигурируемый, дефолт 0.25).
+- Отбросить score **< 0.25** (порог конфигурируемый, `RERANK_THRESHOLD`, дефолт 0.25). Сырой логит bge-reranker пропускается через sigmoid в `(0, 1)`.
 - В контекст LLM: **Top-4**.
 
 Пустой список после порога → отказ по правилам шага 4, без «творчества» модели.
@@ -65,10 +66,10 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 | --- | --- | --- |
 | 1 | `citations` | `{citations: [{doc_id, doc_title, page, snippet}, ...]}` |
 | 2 | `token` | `{content}` — дельты текста |
-| 3 | `meta` | `{tokens_used, cached, ...}` затем `[DONE]` |
+| 3 | `meta` | `{tokens_used, cached, session_id, message_id, ...}` затем `[DONE]` |
 | ошибка | `error` | `{content}` без стека и без названий чужих файлов |
 
-Цитаты уходят **до** токенов, чтобы UI сразу открыл PDF. Кеш LLM (`llm_cache:...`) обязан включать роли вызывающего пользователя.
+Цитаты уходят **до** токенов, чтобы UI сразу открыл PDF. Кеш LLM (`llm_cache:{version}:{roles_hash}:{question_hash}`) обязан включать канонический набор `allowed_roles` вызывающего; кэш, прогретый под admin, не отдаётся employee.
 
 После ответа: строка в `chat_messages` + `rag_audit_logs`.
 

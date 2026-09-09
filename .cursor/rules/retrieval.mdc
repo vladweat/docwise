@@ -1,6 +1,6 @@
 ---
 description: Hybrid search, RRF, reranking, grounded generation, and SSE chat protocol
-globs: backend/**/{search,chat,rag,retrieval}/**/*.py
+globs: backend/app/services/{retrieval,reranker}.py,backend/**/{search,chat,rag,retrieval}/**/*.py
 alwaysApply: false
 ---
 
@@ -8,8 +8,8 @@ alwaysApply: false
 
 Pipeline order is fixed: **RBAC filter → dense+sparse → RRF → rerank → generate**.
 
-1. Dense search: query embedding, Top-25, cosine, with access filter.
-2. Sparse/BM25: same filter, Top-25 (exact terms, numbers, codes).
+1. Dense search: query embedding, cosine (`embedding <=> query`), SQL ACL, Top-25 (candidate pool Top-50 until FTS exists).
+2. Sparse/BM25: same ACL. Until a `tsvector` index exists, BM25 runs **only** on the dense candidate pool (not the whole corpus).
 3. RRF with `k=60`: `score(d) = Σ 1/(60 + rank_m(d))`. Keep Top-15.
 4. Cross-encoder `BAAI/bge-reranker-base` on `(query, chunk_text)`. Drop score `< 0.25`. Keep **Top-4**.
 5. Generate only from those 4 chunks. System prompt: answer strictly from context; if missing, say so in the product language; cite `[^page]` / document+page for every fact.
@@ -24,7 +24,7 @@ Reuse ChainWise envelopes (`data: {json}\n\n`, then `data: [DONE]`):
 
 1. `{type: "citations", citations: [{doc_id, doc_title, page, snippet}, ...]}`
 2. `{type: "token", content: "..."}` (repeated)
-3. `{type: "meta", tokens_used, ...}` then `[DONE]`
+3. `{type: "meta", tokens_used, cached, session_id, message_id, ...}` then `[DONE]`
 4. On failure: `{type: "error", content: "..."}` (no stack, no foreign titles)
 
 Inspect (`POST /api/v1/search/inspect`) returns pre- and post-rerank lists with scores. Dev/admin only.

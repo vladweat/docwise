@@ -93,31 +93,37 @@ Content-Type: application/json
 }
 ```
 
-Ответ: `Content-Type: text/event-stream`. Формат как в ChainWise (не именованные `event:` из чернового ТЗ):
+Ответ: `Content-Type: text/event-stream`. Cookie-сессия, лимит `RATE_LIMIT_CHAT_PER_MINUTE` по `user.id`. Формат как в ChainWise (не именованные `event:` из чернового ТЗ):
 
 ```
 data: {"type":"citations","citations":[{"doc_id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","doc_title":"Travel.pdf","page":4,"snippet":"..."}]}
 
 data: {"type":"token","content":"Employees "}
 
-data: {"type":"meta","cached":false,"tokens_used":640}
+data: {"type":"meta","cached":false,"tokens_used":640,"session_id":"...","message_id":"..."}
 
 data: [DONE]
 ```
 
-`session_id` пустой — создать сессию. История предыдущих реплик может уточнять запрос, но retrieval всё равно с ACL.
+`session_id` пустой — создать сессию при сохранении хода. История предыдущих реплик может уточнять запрос в промпте, но retrieval всё равно с SQL ACL текущего пользователя; `access_roles` / `document_ids` в теле игнорируются. Ключ Redis-кэша LLM включает канонический набор `allowed_roles` (отсортиченный unique). `meta.session_id` и `meta.message_id` — UUID новой/текущей сессии и сообщения ассистента (для feedback).
 
 ```http
 GET /api/v1/chat/sessions
 ```
 
-Сессии текущего пользователя (id, title, updated_at). Детали сообщений — `GET /api/v1/chat/sessions/{id}` (добавить в реализации).
+Сессии текущего пользователя: `{ items: [{id, title, created_at, updated_at}], total, limit, offset }`. Пагинация `limit`/`offset`. Чужие сессии не видны.
+
+```http
+GET /api/v1/chat/sessions/{id}
+```
+
+Сообщения сессии (`id`, `role`, `content`, `sources`, `created_at`). Нет прав / нет записи → `404` с тем же `detail`, без подтверждения чужой сессии.
 
 ```http
 POST /api/v1/chat/feedback
 ```
 
-Тело: `{ "message_id": "<uuid>", "rating": 1 | -1, "comment": "..." }`. Пишет `rag_audit_logs.feedback`. Только свои сообщения.
+Тело: `{ "message_id": "<uuid>", "rating": 1 | -1, "comment": "..." }`. Пишет `rag_audit_logs.feedback`. Только свои **assistant**-сообщения. Успех `204`. Чужое / пользовательское сообщение → `404`.
 
 ## Инспекция (dev/admin)
 

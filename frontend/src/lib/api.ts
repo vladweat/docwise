@@ -1,4 +1,5 @@
 import type { LoginRequest, RegisterRequest, UserResponse } from "@/types/auth";
+import type { ChatSessionDetail, ChatSessionListResponse, ChatStreamEvent } from "@/types/chat";
 import type { HealthResponse } from "@/types/health";
 
 import { clearLegacyAuth } from "./auth-storage";
@@ -110,6 +111,89 @@ export async function loginWithGoogle(idToken: string): Promise<UserResponse> {
     method: "POST",
     body: JSON.stringify({ id_token: idToken }),
   });
+}
+
+export async function fetchChatSessions(
+  limit = 20,
+  offset = 0,
+): Promise<ChatSessionListResponse> {
+  return apiFetch<ChatSessionListResponse>(
+    `/api/v1/chat/sessions?limit=${limit}&offset=${offset}`,
+  );
+}
+
+export async function fetchChatSession(sessionId: string): Promise<ChatSessionDetail> {
+  return apiFetch<ChatSessionDetail>(`/api/v1/chat/sessions/${sessionId}`);
+}
+
+export async function sendChatFeedback(
+  messageId: string,
+  rating: 1 | -1,
+  comment?: string,
+): Promise<void> {
+  await apiFetch<undefined>("/api/v1/chat/feedback", {
+    method: "POST",
+    body: JSON.stringify({ message_id: messageId, rating, comment }),
+  });
+}
+
+export async function streamChat(
+  query: string,
+  onEvent: (event: ChatStreamEvent) => void,
+  options: { sessionId?: string | null; signal?: AbortSignal } = {},
+): Promise<void> {
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "X-Requested-With": "Docwise",
+  });
+  const response = await fetch(`${API_URL}/api/v1/chat/stream`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      query,
+      session_id: options.sessionId ?? null,
+    }),
+    cache: "no-store",
+    credentials: "include",
+    signal: options.signal,
+  });
+
+  if (!response.ok) {
+    throw new ApiRequestError(await parseError(response), response.status);
+  }
+  if (!response.body) {
+    throw new ApiRequestError("Empty chat stream", response.status);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const handleBlock = (block: string) => {
+    const line = block.split("\n").find((part) => part.startsWith("data: "));
+    if (!line) return;
+    const data = line.slice(6);
+    if (data === "[DONE]") {
+      onEvent({ type: "done" });
+      return;
+    }
+    try {
+      const parsed = JSON.parse(data) as ChatStreamEvent;
+      onEvent(parsed);
+    } catch {
+      // ignore malformed SSE chunks
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) handleBlock(part);
+  }
+  if (buffer.trim()) handleBlock(buffer);
 }
 
 export { API_URL };
