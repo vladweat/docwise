@@ -71,8 +71,29 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 
 Цитаты уходят **до** токенов, чтобы UI сразу открыл PDF. Кеш LLM (`llm_cache:{version}:{roles_hash}:{question_hash}`) обязан включать канонический набор `allowed_roles` вызывающего; кэш, прогретый под admin, не отдаётся employee.
 
-После ответа: строка в `chat_messages` + `rag_audit_logs`.
+После ответа: строка в `chat_messages` + `rag_audit_logs` (см. ниже).
+
+## Аудит retrieval
+
+Каждый успешный проход retrieval (чат и inspect) пишет `rag_audit_logs`:
+
+| Поле | Чат | Inspect |
+| --- | --- | --- |
+| `query` | вопрос | вопрос |
+| `user_id` | вызывающий | вызывающий |
+| `retrieved_chunk_ids` | UUID PK Top-4 после реранкера | то же |
+| `latency_ms` | да | да |
+| `tokens_used` | из LLM / кэша | null |
+| `session_id` / `message_id` | ход чата | null |
+| `feedback` | `POST /chat/feedback` `+1`/`-1` | null |
+
+В `retrieved_chunk_ids` только канонические UUID-строки. Текст чанка, `snippet`, `embed_text` в таблицу не пишутся (лог может позже отдаваться тому же пользователю). Не-UUID значения отбрасываются, не сохраняются.
 
 ## Инспекция
 
-`POST /api/v1/search/inspect` — Top-N до и после реранкера со скорами. Только admin/dev. Не использовать как обход ACL: фильтр тот же.
+`POST /api/v1/search/inspect` — те же четыре стадии, что у чата, со скорами. Контракт: [api.md](api.md).
+
+- Только `admin` + флаг `ENABLE_SEARCH_INSPECT` (в production по умолчанию выкл → `404`).
+- Тот же SQL `access_roles && allowed_roles`. Admin без `hr` в `allowed_roles` не видит `access_roles = ['hr']`.
+- `limit` режет **ответ** (до 15 по умолчанию на список), не пересобирает Top-K пайплайна.
+- `snippet` в JSON — превью **видимых** чанков. Скрытый документ: пустой список, без id/title.

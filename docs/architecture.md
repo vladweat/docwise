@@ -74,15 +74,22 @@ flowchart TB
 
 ## 4. Поток B — вопрос в чат
 
-1. Клиент шлёт `POST /api/v1/chat/stream` с JWT.
-2. Из токена берутся `role` и `departments`; в SQL добавляется `access_roles && allowed_roles`.
+1. Клиент шлёт `POST /api/v1/chat/stream` (cookie-сессия).
+2. Из сессии берутся `role` и `departments`; в SQL добавляется `access_roles && allowed_roles`.
 3. Dense Top-25 + BM25 Top-25 → RRF → Top-15 → cross-encoder → порог 0.25 → Top-4.
 4. Первым SSE-событием уходят цитаты, затем токены ответа, затем метрики.
 5. UI открывает PDF на странице сноски и подсвечивает фрагмент.
 
 Данные, к которым нет прав, **физически не попадают** в промпт.
 
-## 5. Границы и вне скоупа (v1)
+## 5. Поток C — inspect
+
+1. Admin при включённом `ENABLE_SEARCH_INSPECT` шлёт `POST /api/v1/search/inspect`.
+2. Тот же hybrid retrieval и SQL ACL, что у чата (роли из сессии). Флаг выкл → `404`; не admin → `403`.
+3. Ответ: списки dense / sparse / rrf / reranked со скорами и превью. Чанки вне ACL отсутствуют.
+4. Строка в `rag_audit_logs` (UUID чанков после реранкера, без текста).
+
+## 6. Границы и вне скоупа (v1)
 
 В скоупе: PDF (приоритет), DOCX по возможности; роли и отделы; один тенант; английские/русские корпоративные документы.
 

@@ -27,6 +27,7 @@ from app.schemas.chat import (
     ChatSessionSummary,
     Citation,
 )
+from app.services.audit import record_retrieval_audit
 from app.services.llm import (
     LLMUsage,
     OpenAINotConfiguredError,
@@ -377,16 +378,16 @@ def _persist_turn(
         )
         db.add(assistant)
         db.flush()
-        db.add(
-            RagAuditLog(
-                user_id=user.id,
-                session_id=session.id,
-                message_id=assistant.id,
-                query=query,
-                retrieved_chunk_ids=list(result.chunk_ids),
-                latency_ms=latency_ms,
-                tokens_used=result.tokens_used,
-            )
+        record_retrieval_audit(
+            db,
+            user_id=user.id,
+            session_id=session.id,
+            message_id=assistant.id,
+            query=query,
+            retrieved_chunk_ids=list(result.chunk_ids),
+            latency_ms=latency_ms,
+            tokens_used=result.tokens_used,
+            commit=False,
         )
         db.commit()
         db.refresh(assistant)

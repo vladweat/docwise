@@ -32,4 +32,4 @@ data: [DONE]
 
 Citations first, then tokens. On failure: `{"type":"error","content":"..."}` — no stack, no foreign document titles.
 
-Inspect is admin/dev only (`ENABLE_SEARCH_INSPECT`). Same ACL filter as chat.
+Inspect is admin only (`ENABLE_SEARCH_INSPECT`; off by default in production). Same ACL filter as chat. Audit stores chunk UUIDs, never restricted chunk text.

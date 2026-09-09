@@ -17,9 +17,9 @@ v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [dec
 
 | `users.role` | Смысл |
 | --- | --- |
-| `admin` | Управление KB, inspect (за флагом) |
-| `manager` | Типичный доступ к политикам отдела + manage по решению ADR |
-| `employee` | Базовый сотрудник |
+| `admin` | Управление KB; `POST /search/inspect` при `ENABLE_SEARCH_INSPECT` (retrieval всё равно по ACL документа, без override) |
+| `manager` | Типичный доступ к политикам отдела. Inspect — `403` |
+| `employee` | Базовый сотрудник. Inspect — `403` |
 
 Плюс `users.departments: string[]` (`engineering`, `hr`, `finance`, …).
 
@@ -46,6 +46,7 @@ access_roles && ARRAY['employee', 'hr', 'all']::text[]
 | `GET /documents` | строка `documents.access_roles` пересекается с `allowed_roles` |
 | `GET /documents/{id}/raw` | то же; иначе 404 (не 403 с названием файла) |
 | chat / search / inspect | тот же `&&` на `document_chunks.access_roles`; не полагаться на промпт |
+| `POST /search/inspect` | cookie; флаг выкл → `404`; не admin → `403`; затем тот же ACL, что у чата |
 | KB: `PATCH /documents/{id}` | `require_admin`; пишет `documents.access_roles` **и** все чанки этого файла |
 | LLM cache | ключ включает канонический набор `allowed_roles` |
 

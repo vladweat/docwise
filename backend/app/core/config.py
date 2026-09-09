@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     upload_max_bytes: int = Field(default=50 * 1024 * 1024, alias="UPLOAD_MAX_BYTES")
     rate_limit_chat_per_minute: int = Field(default=30, alias="RATE_LIMIT_CHAT_PER_MINUTE")
     rerank_threshold: float = Field(default=0.25, alias="RERANK_THRESHOLD")
+    enable_search_inspect: bool | None = Field(default=None, alias="ENABLE_SEARCH_INSPECT")
     rate_limit_auth_per_minute: int = Field(default=20, alias="RATE_LIMIT_AUTH_PER_MINUTE")
     refresh_token_expire_minutes: int = Field(default=10080, alias="REFRESH_TOKEN_EXPIRE_MINUTES")
     cookie_samesite: str = Field(default="none", alias="COOKIE_SAMESITE")
@@ -46,6 +47,13 @@ class Settings(BaseSettings):
 
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    @property
+    def search_inspect_enabled(self) -> bool:
+        """Admin inspect endpoint. Off by default when ENVIRONMENT=production."""
+        if self.enable_search_inspect is not None:
+            return self.enable_search_inspect
+        return self.environment.strip().lower() != "production"
 
 
 @lru_cache

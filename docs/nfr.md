@@ -11,7 +11,7 @@
 - Не подтверждать существование чужого файла («документ X скрыт»).
 - LLM cache key включает `allowed_roles` вызывающего (иначе кэш — дыра ACL).
 - Секреты только в env. Не коммитить `.env`, ключи, дампы NDA.
-- Audit не пишет полный текст restricted-чанков в API, доступный тому же пользователю.
+- Audit: `rag_audit_logs` без тела чанков (только UUID после реранкера). Inspect в production за `ENABLE_SEARCH_INSPECT` (по умолчанию выкл); чужой файл не подтверждается.
 - Upload: лимит размера (ориентир 50 MB), только PDF в v1, SHA-256, rate limit как в ChainWise.
 - XSS: не рендерить HTML из PDF/LLM как `dangerouslySetInnerHTML` без санитайза. Markdown ответа — безопасный рендер.
 
@@ -36,7 +36,7 @@
 ## Наблюдаемость
 
 - JSON-логи с redaction (токены, пароли, длинный текст PDF).
-- `rag_audit_logs`: query, user, chunk ids, latency_ms, tokens_used, feedback.
+- `rag_audit_logs`: query, user, UUID чанков после реранкера, latency_ms, tokens_used, feedback. Пишут чат и inspect. Не UUID и не полный текст.
 - `/health` — liveness (`{"status":"ok"}`). `/ready` — Postgres + pgvector + Redis + MinIO (`200` / `503`).
 
 ## Качество RAG

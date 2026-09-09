@@ -1,5 +1,6 @@
 import type { LoginRequest, RegisterRequest, UserResponse } from "@/types/auth";
 import type { ChatSessionDetail, ChatSessionListResponse, ChatStreamEvent } from "@/types/chat";
+import type { DocumentListResponse } from "@/types/document";
 import type { HealthResponse } from "@/types/health";
 
 import { clearLegacyAuth } from "./auth-storage";
@@ -194,6 +195,26 @@ export async function streamChat(
     for (const part of parts) handleBlock(part);
   }
   if (buffer.trim()) handleBlock(buffer);
+}
+
+export async function fetchDocuments(
+  limit = 50,
+  offset = 0,
+): Promise<DocumentListResponse> {
+  return apiFetch<DocumentListResponse>(`/api/v1/documents?limit=${limit}&offset=${offset}`);
+}
+
+export async function fetchDocumentPdf(documentId: string): Promise<Blob> {
+  const headers = new Headers({ "X-Requested-With": "Docwise" });
+  const response = await fetch(`${API_URL}/api/v1/documents/${documentId}/raw`, {
+    cache: "no-store",
+    credentials: "include",
+    headers,
+  });
+  if (!response.ok) {
+    throw new ApiRequestError(await parseError(response), response.status);
+  }
+  return response.blob();
 }
 
 export { API_URL };

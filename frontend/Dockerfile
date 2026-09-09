@@ -15,7 +15,9 @@ COPY node_modules ./node_modules
 COPY package.json package-lock.json* ./
 COPY . .
 
-RUN npm run build
+RUN mkdir -p public \
+    && cp node_modules/pdfjs-dist/build/pdf.worker.min.js public/pdf.worker.min.js \
+    && npm run build
 
 EXPOSE 3000
 
