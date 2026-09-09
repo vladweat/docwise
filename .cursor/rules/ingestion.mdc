@@ -18,13 +18,14 @@ Entry: Celery `process_document(doc_id)`. Status: `pending → processing → re
 
 - A chunk **must not cross a page boundary**. Prefer section boundaries when headings exist.
 - Size: 400–600 tokens, overlap: 50 tokens, overlap only within the same page/section.
-- Prefix every chunk **before** embedding:
+- Prefix every chunk **before** embedding (`chunker.format_embed_text`):
 
 ```
 [Document: HR_Policy.pdf | Section: Expenses | Page: 12]
 {content}
 ```
 
+- `document_chunks.content` is the fragment **without** that header (UI, LLM, citation snippet). `embed_text` is computed at embed time, not stored as a column.
 - Payload must include: `document_id`, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles`, `content`, `token_count`.
 
 ## Embed & upsert

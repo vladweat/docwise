@@ -88,6 +88,14 @@ def test_bucket_is_not_ready_when_public(monkeypatch):
     assert ObjectStorage().bucket_is_ready() is False
 
 
+def test_delete_object_ignores_missing_key(monkeypatch):
+    client = MagicMock()
+    client.remove_object.side_effect = _s3_error("NoSuchKey")
+    monkeypatch.setattr("app.services.storage.Minio", lambda *args, **kwargs: client)
+    ObjectStorage().delete_object("gone.pdf")
+    client.remove_object.assert_called_once()
+
+
 def test_put_bytes_does_not_set_public_acl(monkeypatch):
     client = MagicMock()
     monkeypatch.setattr("app.services.storage.Minio", lambda *args, **kwargs: client)

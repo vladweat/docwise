@@ -97,16 +97,22 @@ class ObjectStorage:
         return not policy_allows_anonymous_read(policy)
 
     def put_bytes(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> None:
-        self._client.put_object(
-            self.bucket,
-            key,
-            io.BytesIO(data),
-            length=len(data),
-            content_type=content_type,
-        )
+        try:
+            self._client.put_object(
+                self.bucket,
+                key,
+                io.BytesIO(data),
+                length=len(data),
+                content_type=content_type,
+            )
+        except S3Error as exc:
+            raise StorageError(f"put_object failed: {exc.code}") from exc
 
     def get_bytes(self, key: str) -> bytes:
-        response = self._client.get_object(self.bucket, key)
+        try:
+            response = self._client.get_object(self.bucket, key)
+        except S3Error as exc:
+            raise StorageError(f"get_object failed: {exc.code}") from exc
         try:
             return response.read()
         finally:
@@ -114,7 +120,12 @@ class ObjectStorage:
             response.release_conn()
 
     def delete_object(self, key: str) -> None:
-        self._client.remove_object(self.bucket, key)
+        try:
+            self._client.remove_object(self.bucket, key)
+        except S3Error as exc:
+            if exc.code in {"NoSuchKey", "NoSuchObject", "NoSuchBucket"}:
+                return
+            raise StorageError(f"delete_object failed: {exc.code}") from exc
 
     def _strip_public_policy(self) -> None:
         try:
