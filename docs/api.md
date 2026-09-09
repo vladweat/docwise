@@ -41,8 +41,10 @@ POST /api/v1/documents/upload
 Content-Type: multipart/form-data
 ```
 
-Поля: `file` (PDF), `access_roles` (повторяющееся поле или JSON-список).  
-Ответ `201`: метаданные документа, `status: pending`. Дубликат `file_hash` у того же тенанта: `409` или возврат существующей записи (зафиксировать поведение в коде).
+Поля: `file` (PDF), `access_roles` (повторяющееся поле или JSON-список). Только `admin` (`require_admin`).  
+Ответ `201`: метаданные документа, `status: pending`. Дубликат SHA-256 `file_hash` → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL). Парсинг PDF в хендлере запрещён: байты в MinIO, строка `pending`, Celery `ingestion.process_document`.
+
+Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Не-PDF → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`.
 
 ```http
 GET /api/v1/documents
@@ -60,7 +62,7 @@ GET /api/v1/documents/{id}/status
 DELETE /api/v1/documents/{id}
 ```
 
-Каскад: Postgres (документ + чанки) + объект MinIO. Только admin (или владелец KB — зафиксировать). `204`.
+Каскад: Postgres (документ + чанки) + объект MinIO. Только `require_admin` (manager в v1 не может). `204`. Документ без строки → `404` с тем же `detail`, что и у чтения; удаление не требует пересечения ACL (управление KB).
 
 ```http
 GET /api/v1/documents/{id}/raw

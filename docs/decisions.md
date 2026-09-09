@@ -69,3 +69,10 @@
 **Решение:** чанки и dense-векторы живут в Postgres (`document_chunks.embedding vector(384)`, cosine / HNSW). ACL — SQL `access_roles && allowed_roles` на каждый dense и sparse запрос. Сервиса Qdrant в Compose нет.
 
 **Почему:** один datastore для метаданных и векторов; pgvector — явный инструмент стека. Инварианты RBAC и hybrid+RRF сохраняются.
+
+## ADR-011. Дубликат `file_hash` → 409
+
+**ТЗ / api.md:** `409` или вернуть существующую запись.  
+**Решение v1:** `POST /documents/upload` при совпадении SHA-256 байтов отвечает `409` с фиксированным `detail`, без `id`/`title`/ACL существующего документа.
+
+**Почему:** unique-индекс `file_hash` — источник истины; возврат существующей строки раскрыл бы метаданные файла, который текущий пользователь не должен видеть в `GET /documents` (например admin залил HR-only PDF). Повторная загрузка того же файла не меняет `access_roles`.

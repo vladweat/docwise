@@ -32,6 +32,7 @@ os.environ["DATABASE_URL"] = _with_db_name(_ORIGINAL_DATABASE_URL, TEST_DB_NAME)
 os.environ["COOKIE_SAMESITE"] = "lax"
 os.environ["COOKIE_SECURE"] = "false"
 os.environ["RATE_LIMIT_AUTH_PER_MINUTE"] = "0"
+os.environ["RATE_LIMIT_UPLOAD_PER_MINUTE"] = "0"
 
 
 def _ensure_test_database() -> None:

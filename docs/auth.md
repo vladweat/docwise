@@ -9,7 +9,7 @@ v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [dec
 - Login / register / Google отдают пользователя в JSON и ставят куки; `access_token` в теле нет.
 - `GET /health` и `GET /ready` без auth. Остальной `/api/v1/*` — `get_current_user` (только cookie).
 - CSRF: при cross-site cookies (`SameSite=None`) мутации требуют allowlisted `Origin` или `X-Requested-With: Docwise`.
-- Manage KB (upload, delete, смена `access_roles`): `require_admin` или явное право `manager` — зафиксировать в коде одно правило и отразить в OpenAPI. Retrieval при этом **всё равно** фильтруется ACL документа, если в SRS нет admin-override.
+- Manage KB (upload, delete): только `require_admin`. Manager в v1 не загружает и не удаляет. Retrieval / list / status / raw **всё равно** фильтруются ACL документа (`allowed_roles`), без admin-override.
 
 Не принимать `access_roles`, `user_id`, `document_ids` из тела как источник прав.
 

@@ -88,7 +88,7 @@ Sparse/BM25: колонка `tsvector` / FTS или in-memory BM25 только 
 | `section_title` | String nullable | |
 | `is_table` | Boolean | |
 | `access_roles` | `ARRAY(String)` | копия с документа |
-| `content` | Text | |
+| `content` | Text | фрагмент **без** мета-заголовка `[Document: …]` (он только в `embed_text` перед FastEmbed) |
 | `token_count` | Integer | |
 | `embedding` | `vector(384)` | cosine |
 | `doc_title` | String nullable | для цитат |

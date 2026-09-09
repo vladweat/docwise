@@ -19,6 +19,6 @@ def allowed_roles(user) -> list[str]:
 ```
 
 - Do not put `role` / `departments` in the request body as authorization input.
-- KB write (upload/delete): admin (or the single manage-KB rule documented in OpenAPI). Retrieval still uses document ACL unless SRS adds an explicit override.
+- KB write (upload/delete): `require_admin` only (manager cannot). Retrieval still uses document ACL; no admin override.
 - Raw PDF bytes only after the same intersection check as `GET /documents`. Prefer `404` over confirming a hidden title.
 - LLM Redis cache key must include the caller's `allowed_roles`.

@@ -72,32 +72,32 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### API документов
 
-- [ ] `POST /api/v1/documents/upload` — multipart PDF + `access_roles`, `201` + `pending`, enqueue Celery
-- [ ] SHA-256 байтов; дубликат `file_hash` → `409` или существующая запись (зафиксировать одно поведение)
-- [ ] `GET /api/v1/documents` — пагинация, фильтр `status`, только ACL пользователя
-- [ ] `GET /api/v1/documents/{id}/status` — статус + `last_error`; нет прав / нет записи → `404`
-- [ ] `GET /api/v1/documents/{id}/raw` — `application/pdf`, тот же ACL, `404` без утечки названия
-- [ ] `DELETE /api/v1/documents/{id}` — каскад Postgres (документ + чанки) + MinIO; только manage KB
-- [ ] Upload и delete: `require_admin` (или явное право manager — одно правило в коде и OpenAPI)
-- [ ] Rate limit upload (`RATE_LIMIT_UPLOAD_PER_MINUTE`); лимит размера (~50 MB), только PDF в v1
+- [x] `POST /api/v1/documents/upload` — multipart PDF + `access_roles`, `201` + `pending`, enqueue Celery
+- [x] SHA-256 байтов; дубликат `file_hash` → `409` (без тела существующей записи, [ADR-011](decisions.md))
+- [x] `GET /api/v1/documents` — пагинация, фильтр `status`, только ACL пользователя
+- [x] `GET /api/v1/documents/{id}/status` — статус + `last_error`; нет прав / нет записи → `404`
+- [x] `GET /api/v1/documents/{id}/raw` — `application/pdf`, тот же ACL, `404` без утечки названия
+- [x] `DELETE /api/v1/documents/{id}` — каскад Postgres (документ + чанки) + MinIO; только manage KB
+- [x] Upload и delete: `require_admin`
+- [x] Rate limit upload (`RATE_LIMIT_UPLOAD_PER_MINUTE`); лимит размера (~50 MB), только PDF в v1
 
 ### Celery
 
-- [ ] Задача `ingestion.process_document(document_id: UUID-str)` вместо stub
-- [ ] Redis lock `indexing_lock:{document_id}`; повтор задачи идемпотентен
-- [ ] Статусы `pending → processing → ready | failed`; на ошибке `last_error`, индекс полный или удалён (нет «полуготового» `ready`)
-- [ ] Скачать объект из MinIO по `file_path`
+- [x] Задача `ingestion.process_document(document_id: UUID-str)` вместо stub
+- [x] Redis lock `indexing_lock:{document_id}`; повтор задачи идемпотентен
+- [x] Статусы `pending → processing → ready | failed`; на ошибке `last_error`, индекс полный или удалён (нет «полуготового» `ready`)
+- [x] Скачать объект из MinIO по `file_path`
 
 ### Парсер и чанкинг
 
-- [ ] `pdf_parser`: PyMuPDF по физическим страницам (1-based в API)
-- [ ] Таблицы через pdfplumber → GitHub-flavored Markdown, `is_table`
-- [ ] Координаты блоков в payload, если доступны (подсветка в M3)
-- [ ] Чанк не пересекает границу страницы; резать по секциям внутри страницы
-- [ ] 400–600 токенов, overlap 50 только внутри той же страницы/секции
-- [ ] Мета-заголовок перед эмбеддингом: `[Document: … | Section: … | Page: N]`
-- [ ] `embed_text` vs `content` для UI — одно правило, сниппет в цитатах без служебной строки
-- [ ] Не портировать `semantic_splitter.py`
+- [x] `pdf_parser`: PyMuPDF по физическим страницам (1-based в API)
+- [x] Таблицы через pdfplumber → GitHub-flavored Markdown, `is_table`
+- [x] Координаты блоков в payload, если доступны (подсветка в M3)
+- [x] Чанк не пересекает границу страницы; резать по секциям внутри страницы
+- [x] 400–600 токенов, overlap 50 только внутри той же страницы/секции
+- [x] Мета-заголовок перед эмбеддингом: `[Document: … | Section: … | Page: N]`
+- [x] `embed_text` vs `content` для UI — одно правило, сниппет в цитатах без служебной строки
+- [x] Не портировать `semantic_splitter.py`
 
 ### Эмбеддинги
 
@@ -108,10 +108,10 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Тесты M1
 
-- [ ] Фикстурный PDF с таблицей и заголовками
-- [ ] Один `page_number` на чанк; таблица в Markdown; `access_roles` совпадают с документом
-- [ ] Re-ingest того же `document_id` / `file_hash` не плодит дубли чанков
-- [ ] `/raw` и list не отдают чужой файл (404, не 403 с title)
+- [x] Фикстурный PDF с таблицей и заголовками
+- [x] Один `page_number` на чанк; таблица в Markdown; `access_roles` совпадают с документом
+- [x] Re-ingest того же `document_id` / `file_hash` не плодит дубли чанков
+- [x] `/raw` и list не отдают чужой файл (404, не 403 с title)
 
 **Критерий вехи:** [ ] upload → `ready`, точки с `page_number` и `access_roles`
 
