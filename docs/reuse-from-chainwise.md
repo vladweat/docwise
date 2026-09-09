@@ -89,4 +89,4 @@ FTS / BM25 Top-25          ┘
 
 ## Порядок работ
 
-См. [milestones.md](milestones.md): форк каркаса → ingest PDF → corpus retrieval + RBAC → UI → eval.
+См. [roadmap](milestones.md): форк каркаса → ingest PDF → corpus retrieval + RBAC → UI → eval. Закрытый пункт отмечают `- [x]` в том же изменении.

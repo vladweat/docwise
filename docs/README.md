@@ -9,7 +9,7 @@
 3. [Модель данных](data-model.md), [Auth](auth.md) — Postgres, pgvector, роли.
 4. [Ingestion](ingestion.md) и [Retrieval](retrieval.md) — индекс и ответы.
 5. [API](api.md) и [Frontend](frontend.md) — контракт и UX.
-6. [NFR](nfr.md), [Оценка](evaluation.md), [Вехи](milestones.md).
+6. [NFR](nfr.md), [Оценка](evaluation.md), [Roadmap](milestones.md) (чекбоксы вех).
 7. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
 
 ## Инварианты продукта

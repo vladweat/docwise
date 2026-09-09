@@ -27,7 +27,7 @@
 | `id` | UUID PK | |
 | `title` | String | Имя для UI |
 | `file_path` | String | Ключ в MinIO |
-| `file_hash` | String | SHA-256, защита от дублей |
+| `file_hash` | String | SHA-256, UNIQUE, защита от дублей |
 | `file_size_bytes` | Integer | |
 | `total_pages` | Integer | Заполняется после парсинга |
 | `access_roles` | `ARRAY(String)` | Например `['admin', 'hr']` |
@@ -95,6 +95,10 @@ Sparse/BM25: колонка `tsvector` / FTS или in-memory BM25 только 
 | `bbox` / `highlight_rects` | JSONB nullable | подсветка во вьюере |
 
 При переиндексации удалять строки по `document_id`, затем вставлять заново.
+
+## MinIO
+
+Bucket `documents` — приватный (без anonymous `s3:GetObject`). `documents.file_path` — ключ объекта. Байты отдаются только через API (`GET /documents/{id}/raw`). Публичные URL и вечные pre-signed ссылки запрещены.
 
 ## Согласованность ACL
 
