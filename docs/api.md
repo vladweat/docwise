@@ -125,11 +125,62 @@ POST /api/v1/chat/feedback
 
 Тело: `{ "message_id": "<uuid>", "rating": 1 | -1, "comment": "..." }`. Пишет `rag_audit_logs.feedback`. Только свои **assistant**-сообщения. Успех `204`. Чужое / пользовательское сообщение → `404`.
 
-## Инспекция (dev/admin)
+## Инспекция (admin)
+
+Отладка hybrid-пайплайна. Не обход ACL: те же роли, что у чата. Спека retrieval: [retrieval.md](retrieval.md).
 
 ```http
 POST /api/v1/search/inspect
+Content-Type: application/json
 ```
 
-Тело: `{ "query": "...", "limit": 15 }`.  
-Ответ: списки `dense`, `sparse`, `rrf`, `reranked` с `chunk_id`, `score`, `page`, `document_id`, превью текста. Тот же RBAC-фильтр. В production за флагом `ENABLE_SEARCH_INSPECT`.
+Тело:
+
+```json
+{
+  "query": "What is the daily travel reimbursement cap?",
+  "limit": 15
+}
+```
+
+`query` — 1…4000 символов после trim. `limit` — 1…50, по умолчанию 15: максимум хитов **в каждом** списке (пайплайн как у чата, ответ обрезается). `access_roles` / `document_ids` / `user_id` в теле игнорируются.
+
+Ответ `200`:
+
+```json
+{
+  "dense": [
+    {
+      "chunk_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6:4:0",
+      "document_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "page": 4,
+      "score": 0.81,
+      "snippet": "Daily travel reimbursement is capped at 150 USD."
+    }
+  ],
+  "sparse": [],
+  "rrf": [],
+  "reranked": []
+}
+```
+
+Каждый хит: `chunk_id` (стабильная строка), `document_id` (UUID), `page`, `score`, `snippet` (превью, не полный текст). Списки: `dense`, `sparse`, `rrf`, `reranked`. Чанк вне ACL в ответ не попадает; существование чужого файла не подтверждается (пустые списки, без title/id скрытого документа).
+
+Пишет `rag_audit_logs`: `query`, `user_id`, `retrieved_chunk_ids` (UUID PK чанков **после** реранкера), `latency_ms`. `session_id` / `message_id` / `tokens_used` — null. В JSONB только UUID-строки, не тело чанка.
+
+| Условие | Код | `detail` |
+| --- | --- | --- |
+| Нет cookie-сессии | `401` | `Not authenticated` |
+| `ENABLE_SEARCH_INSPECT` выкл | `404` | `Not Found` (и для admin; эндпоинт не рекламируется) |
+| Не `admin` (флаг вкл) | `403` | `Admin access required` |
+| Пустой `query` / `limit` вне диапазона | `422` | валидация Pydantic |
+| Сбой эмбеддинга / реранкера | `503` | `Search inspect failed` (без названий файлов) |
+
+### Флаг `ENABLE_SEARCH_INSPECT`
+
+| `ENVIRONMENT` | Переменная не задана | `true` / `false` |
+| --- | --- | --- |
+| не `production` | вкл | как задано |
+| `production` | **выкл** | как задано |
+
+В production явно: `ENABLE_SEARCH_INSPECT=true`. Admin **не** видит HR-only чанки, если в `allowed_roles` нет `hr` (нет admin-override). `employee` / `manager` — `403`, не списки.

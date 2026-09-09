@@ -5,19 +5,20 @@
 ## С чего начать
 
 1. [SRS](srs.md) — цели, FR, стек, критерии приёмки.
-2. [Архитектура](architecture.md) — компоненты и два основных потока.
+2. [Архитектура](architecture.md) — компоненты, чат и inspect.
 3. [Модель данных](data-model.md), [Auth](auth.md) — Postgres, pgvector, роли.
-4. [Ingestion](ingestion.md) и [Retrieval](retrieval.md) — индекс и ответы.
+4. [Ingestion](ingestion.md) и [Retrieval](retrieval.md) — индекс, ответы, inspect, аудит.
 5. [API](api.md) и [Frontend](frontend.md) — контракт и UX.
 6. [NFR](nfr.md), [Оценка](evaluation.md), [Roadmap](milestones.md) (чекбоксы вех).
 7. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
 
 ## Инварианты продукта
 
-- Права доступа проверяются **до** передачи чанков в LLM, SQL-фильтром `access_roles && allowed_roles`.
+- Права доступа проверяются **до** передачи чанков в LLM, SQL-фильтром `access_roles && allowed_roles` (чат, inspect, list, `/raw`).
 - Ответ без проверяемой цитаты `{документ, страница}` считается дефектом.
 - Наивная нарезка текста по символам не используется.
 - Корпусный поиск, не scroll всей коллекции в RAM.
+- Inspect и аудит: стадии пайплайна только admin + флаг; в `rag_audit_logs` UUID чанков, не текст.
 
 ## Правила Cursor
 

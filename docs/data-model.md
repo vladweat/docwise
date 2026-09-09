@@ -65,13 +65,13 @@
 | `user_id` | UUID FK | |
 | `session_id` / `message_id` | UUID nullable | Связь с чатом |
 | `query` | Text | |
-| `retrieved_chunk_ids` | JSONB / UUID[] | После реранкера |
+| `retrieved_chunk_ids` | JSONB, список UUID-строк | PK `document_chunks.id` после реранкера; не `chunk_id`, не текст |
 | `latency_ms` | Integer | |
-| `tokens_used` | Integer nullable | |
-| `feedback` | SmallInt nullable | `1` / `-1` |
+| `tokens_used` | Integer nullable | Чат; у inspect — null |
+| `feedback` | SmallInt nullable | `1` / `-1` с `POST /chat/feedback`; только свои assistant-сообщения |
 | `created_at` | DateTime | |
 
-Не писать в аудит полный текст restricted-чанков, если лог может увидеть тот же пользователь через API.
+Пишут чат и inspect. Inspect: `session_id` / `message_id` null. Колонок `content` / `snippet` нет. Не-UUID в `retrieved_chunk_ids` отбрасываются. Не писать полный текст чанков (в т.ч. restricted), если лог может увидеть тот же пользователь через API.
 
 ## Postgres: таблица `document_chunks`
 

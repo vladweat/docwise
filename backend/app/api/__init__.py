@@ -1,3 +1,3 @@
-from app.api import auth, chat, documents
+from app.api import auth, chat, documents, search
 
-__all__ = ["auth", "chat", "documents"]
+__all__ = ["auth", "chat", "documents", "search"]

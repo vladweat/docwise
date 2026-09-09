@@ -9,7 +9,12 @@ if ! command -v npm &>/dev/null; then
 fi
 
 echo "Installing frontend dependencies..."
-npm install
+npm install --omit=optional --no-audit --no-fund
+
+mkdir -p public
+if [[ -f node_modules/pdfjs-dist/build/pdf.worker.min.js ]]; then
+  cp node_modules/pdfjs-dist/build/pdf.worker.min.js public/pdf.worker.min.js
+fi
 
 echo ""
 echo "OK: frontend/node_modules ready"

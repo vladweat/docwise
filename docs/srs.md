@@ -85,13 +85,16 @@ Docwise закрывает это связкой: **RBAC на retrieval**, **str
 
 ### FR-5. Оценка и аудит
 
-- Каждый retrieval пишется в `rag_audit_logs`.
-- Feedback `+1 / -1` на своё сообщение.
+- Каждый retrieval (чат и inspect) пишется в `rag_audit_logs`: query, user, UUID чанков после реранкера, latency_ms, tokens_used, feedback.
+- В аудит не писать полный текст чанков (в т.ч. restricted).
+- Feedback `+1 / -1` на своё assistant-сообщение (`POST /api/v1/chat/feedback`).
 - `eval/` с golden set ≥ 30 вопросов и отчётом Ragas.
 
-### FR-6. Инспекция (dev/admin)
+### FR-6. Инспекция (admin)
 
-- `POST /api/v1/search/inspect` показывает списки до и после реранкера. Тот же ACL. В production — за флагом.
+- `POST /api/v1/search/inspect` — списки `dense` / `sparse` / `rrf` / `reranked` со скорами. Тот же SQL ACL, что у чата; роли не из тела запроса.
+- Только `admin`. `ENABLE_SEARCH_INSPECT`: в production по умолчанию выкл (`404`), иначе вкл. Явное `true`/`false` перекрывает дефолт.
+- Нет admin-override: HR-only чанк не виден admin без `hr` в `allowed_roles`. Пользователь без роли не видит чанк и не узнаёт, что файл есть.
 
 ---
 

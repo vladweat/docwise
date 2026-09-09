@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 
 import { AppHeader } from "@/components/app-header";
 import { AuthProvider } from "@/components/auth-provider";
+import { QueryProvider } from "@/components/query-provider";
+import { ToastHost } from "@/components/toast-host";
 
 import "./globals.css";
 
@@ -23,8 +25,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru">
       <body className="flex h-dvh flex-col overflow-hidden">
         <AuthProvider>
-          <AppHeader />
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+          <QueryProvider>
+            <AppHeader />
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+            <ToastHost />
+          </QueryProvider>
         </AuthProvider>
       </body>
     </html>

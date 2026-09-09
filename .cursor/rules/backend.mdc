@@ -29,4 +29,4 @@ def upload(file: UploadFile, session: DbSession, user: CurrentUser):
 
 - Celery task: `process_document(doc_id)` is the only ingestion entry (port of `load_contract_task`). Idempotent: re-run deletes old `document_chunks` for that `document_id`. Lock: `indexing_lock:{document_id}`.
 - Cascade delete: Postgres row + chunk rows + object storage.
-- Audit every retrieval: `rag_audit_logs` with `query`, `user_id`, `retrieved_chunk_ids`, `latency_ms`, `tokens_used`.
+- Audit every retrieval: `rag_audit_logs` with `query`, `user_id`, `retrieved_chunk_ids` (UUID strings only), `latency_ms`, `tokens_used`. Never persist chunk body text.

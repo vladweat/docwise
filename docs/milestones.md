@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | [M0 Скелет](#milestone-0--скелет-из-chainwise) | готово | 0.5–1 день |
 | [M1 PDF ingest](#milestone-1--pdf-ingest) | готово | 2–3 дня |
-| [M2 Retrieval + RBAC + SSE](#milestone-2--corpus-retrieval--rbac--sse) | открыто | 3–4 дня |
+| [M2 Retrieval + RBAC + SSE](#milestone-2--corpus-retrieval--rbac--sse) | готово | 3–4 дня |
 | [M3 Split-screen UI](#milestone-3--split-screen-ui) | открыто | 2–3 дня |
 | [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | открыто | 1–2 дня |
 
@@ -146,19 +146,19 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Inspect и аудит
 
-- [ ] `POST /api/v1/search/inspect` — списки dense / sparse / rrf / reranked; тот же SQL ACL
-- [ ] Флаг `ENABLE_SEARCH_INSPECT`; в production по умолчанию выкл
-- [ ] Таблица `rag_audit_logs`: query, user, chunk ids, latency_ms, tokens_used, feedback
-- [ ] В аудит не писать полный текст restricted-чанков, если лог доступен тому же пользователю через API
+- [x] `POST /api/v1/search/inspect` — списки dense / sparse / rrf / reranked; тот же SQL ACL
+- [x] Флаг `ENABLE_SEARCH_INSPECT`; в production по умолчанию выкл
+- [x] Таблица `rag_audit_logs`: query, user, chunk ids, latency_ms, tokens_used, feedback
+- [x] В аудит не писать полный текст restricted-чанков, если лог доступен тому же пользователю через API
 
 ### Тесты M2
 
 - [x] Порт `test_rag_engine.py`: BM25 и RRF `k=60` без GPU / без живого LLM
 - [x] Пользователь, чей `allowed_roles` не пересекается с чанком, отсутствует в fused / reranked / промпте
-- [ ] Inspect и chat не подтверждают существование чужого файла
+- [x] Inspect и chat не подтверждают существование чужого файла
 - [x] Кэш, прогретый под admin, не отдаёт HR-чанки employee
 
-**Критерий вехи:** [ ] страница находится; ACL держит inspect и cache
+**Критерий вехи:** [x] страница находится; ACL держит inspect и cache
 
 ---
 
@@ -170,19 +170,19 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Чат
 
-- [ ] Маршруты `/` или `/chat`, `/chat/[sessionId]`, `/documents`, `/login`
-- [ ] Split-pane ~45% чат / ~55% PDF (разделитель желателен)
-- [ ] SSE-ридер: `citations | token | meta | error | done`
-- [ ] Сноски-теги `Doc.pdf (стр. N)`, не `file.sol:L10-20` и не сырой `[^n]`
-- [ ] Стрим токенов без ожидания полного ответа; ошибка чата — тост, не развал страницы
-- [ ] Список сессий; пустое правое состояние — плейсхолдер «выберите цитату»
+- [x] Маршруты `/` или `/chat`, `/chat/[sessionId]`, `/documents`, `/login`
+- [x] Split-pane ~45% чат / ~55% PDF (разделитель желателен)
+- [x] SSE-ридер: `citations | token | meta | error | done`
+- [x] Сноски-теги `Doc.pdf (стр. N)`, не `file.sol:L10-20` и не сырой `[^n]`
+- [x] Стрим токенов без ожидания полного ответа; ошибка чата — тост, не развал страницы
+- [x] Список сессий; пустое правое состояние — плейсхолдер «выберите цитату»
 
 ### PDF viewer
 
-- [ ] Встроенный viewer (`pdfjs-dist` / `@react-pdf-viewer/core`)
-- [ ] Файл с `GET /api/v1/documents/{id}/raw` (cookies)
-- [ ] Клик по сноске: нужный файл → страница → подсветка bbox/текста, скролл в вид
-- [ ] Пока PDF грузится, ответ в чате читать можно
+- [x] Встроенный viewer (`pdfjs-dist` / `@react-pdf-viewer/core`)
+- [x] Файл с `GET /api/v1/documents/{id}/raw` (cookies)
+- [x] Клик по сноске: нужный файл → страница → подсветка bbox/текста, скролл в вид
+- [x] Пока PDF грузится, ответ в чате читать можно
 
 ### Админка KB
 

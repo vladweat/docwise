@@ -59,6 +59,8 @@ class ChatMessage(Base):
 
 
 class RagAuditLog(Base):
+    """Retrieval metrics only. Never store chunk body text — logs may be readable by the same user."""
+
     __tablename__ = "rag_audit_logs"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)

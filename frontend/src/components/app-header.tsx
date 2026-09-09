@@ -7,6 +7,12 @@ import { LogOut } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const NAV = [
+  { href: "/", label: "Чат", match: (path: string) => path === "/" || path.startsWith("/chat") },
+  { href: "/documents", label: "Документы", match: (path: string) => path.startsWith("/documents") },
+];
 
 export function AppHeader() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -14,11 +20,30 @@ export function AppHeader() {
 
   return (
     <header className="shrink-0 border-b border-slate-800 bg-slate-950/80 pt-[env(safe-area-inset-top)] backdrop-blur">
-      <div className="mx-auto flex min-h-12 max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:h-14 sm:gap-4 sm:px-6 sm:py-0">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-6">
+      <div className="flex min-h-12 items-center justify-between gap-2 px-3 py-2 sm:h-14 sm:gap-4 sm:px-4 sm:py-0">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <Link href="/" className="block shrink-0">
             <h1 className="text-base font-bold tracking-tight sm:text-lg">Docwise</h1>
           </Link>
+          {isAuthenticated ? (
+            <nav className="flex items-center gap-1">
+              {NAV.map((item) => {
+                const active = item.match(pathname);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "rounded-md px-2 py-1 text-sm",
+                      active ? "text-slate-100" : "text-slate-400 hover:text-slate-200",
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-2 text-sm">

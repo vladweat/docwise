@@ -27,7 +27,7 @@ Reuse ChainWise envelopes (`data: {json}\n\n`, then `data: [DONE]`):
 3. `{type: "meta", tokens_used, cached, session_id, message_id, ...}` then `[DONE]`
 4. On failure: `{type: "error", content: "..."}` (no stack, no foreign titles)
 
-Inspect (`POST /api/v1/search/inspect`) returns pre- and post-rerank lists with scores. Dev/admin only.
+Inspect (`POST /api/v1/search/inspect`) returns pre- and post-rerank lists with scores. Admin only; `ENABLE_SEARCH_INSPECT` (off by default in production). Same SQL ACL as chat. Audit chunk UUIDs, never restricted chunk text.
 
 ```python
 # ❌ BAD

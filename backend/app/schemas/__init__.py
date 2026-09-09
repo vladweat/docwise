@@ -7,6 +7,7 @@ from app.schemas.chat import (
     ChatStreamRequest,
     Citation,
 )
+from app.schemas.search import InspectHit, SearchInspectRequest, SearchInspectResponse
 from app.schemas.document import (
     DocumentAccessUpdate,
     DocumentListResponse,
@@ -30,4 +31,7 @@ __all__ = [
     "ChatMessageOut",
     "ChatSessionDetail",
     "ChatSessionListResponse",
+    "InspectHit",
+    "SearchInspectRequest",
+    "SearchInspectResponse",
 ]
