@@ -242,6 +242,16 @@ def test_list_and_raw_hide_documents_outside_acl(admin_client: TestClient, stora
     assert raw_ok.headers["content-type"].startswith("application/pdf")
     assert raw_ok.content == content
 
+    employee = _register_user(UserRole.employee.value)
+    hidden = employee.get("/api/v1/documents")
+    assert hidden.status_code == 200
+    assert hidden.json()["items"] == []
+    assert title not in hidden.text
+    raw_denied = employee.get(f"/api/v1/documents/{doc_id}/raw")
+    assert raw_denied.status_code == 404
+    assert raw_denied.json()["detail"] == "Document not found"
+    assert title not in raw_denied.text
+
 
 def test_list_pagination_and_status_filter(admin_client: TestClient, storage: FakeStorage):
     ids = []
@@ -288,7 +298,46 @@ def test_status_returns_last_error_for_visible_doc(admin_client: TestClient, sto
     assert body["id"] == doc_id
     assert body["status"] == "failed"
     assert body["last_error"] == "parser boom"
+    assert body["stage"] is None
     assert "title" not in body
+    assert "ingestion_stage" not in body
+
+
+def test_status_returns_ingestion_stage(admin_client: TestClient, storage: FakeStorage):
+    response = _upload(admin_client, filename="Policy.pdf", content=_pdf("stage"), roles=["admin"])
+    doc_id = response.json()["id"]
+    db = SessionLocal()
+    doc = db.get(Document, UUID(doc_id))
+    doc.status = DocumentStatus.processing.value
+    doc.ingestion_stage = "chunk"
+    db.commit()
+    db.close()
+
+    status_resp = admin_client.get(f"/api/v1/documents/{doc_id}/status")
+    assert status_resp.status_code == 200
+    body = status_resp.json()
+    assert body["status"] == "processing"
+    assert body["stage"] == "chunk"
+    assert body["last_error"] is None
+
+
+def test_list_includes_last_error_for_failed_visible_doc(admin_client: TestClient, storage: FakeStorage):
+    response = _upload(admin_client, filename="Policy.pdf", content=_pdf("list-err"), roles=["admin"])
+    doc_id = response.json()["id"]
+    db = SessionLocal()
+    doc = db.get(Document, UUID(doc_id))
+    doc.status = DocumentStatus.failed.value
+    doc.last_error = "parser boom"
+    db.commit()
+    db.close()
+
+    listed = admin_client.get("/api/v1/documents")
+    assert listed.status_code == 200
+    items = listed.json()["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == doc_id
+    assert items[0]["status"] == "failed"
+    assert items[0]["last_error"] == "parser boom"
 
 
 def test_delete_cascades_postgres_and_minio(admin_client: TestClient, storage: FakeStorage):

@@ -9,11 +9,12 @@
 | `eval/golden_dataset.json` | ≥ 30 пар: `question`, `ground_truth_answer`, `target_doc_id` (желательно `target_page`, `must_not_doc_ids` для ACL) |
 | `eval/run_eval.py` | Прогон через реальный пайплайн retrieval+generation |
 | `eval/corpus.py` | Синтетические PDF со стабильными UUID и тегами `all` / `hr` / `finance` |
+| `eval/seed_demo.py` | Локальное демо: employee vs HR и два PDF с разным ACL (`make demo`) |
 | `reports/rag_benchmark.md` | Таблица метрик для README |
 
 Синтетический набор допустим на старте; для портфолио лучше 10–15 вопросов по реальным (обезличенным) PDF плюс негативные кейсы.
 
-Golden set гоняется под пользователем `eval-employee@docwise.local` (`employee`, `departments=[]`). Роли не берутся из тела запроса. Документы `hr` и `finance` стоят в `must_not_doc_ids` у **каждого** вопроса.
+Golden set гоняется под пользователем `eval-employee@docwise.example.com` (`employee`, `departments=[]`). Роли не берутся из тела запроса. Документы `hr` и `finance` стоят в `must_not_doc_ids` у **каждого** вопроса.
 
 ## Метрики
 
@@ -44,6 +45,14 @@ python /eval/run_eval.py --seed
 ```
 
 `--seed` создаёт eval-пользователя и прогоняет фикстурные PDF через реальный `index_pdf` (не Celery). Требования: поднятый стек, ключ LLM, кэш FastEmbed. Unit-тесты CI **не** вызывают этот скрипт по умолчанию.
+
+Локальное ACL-демо (employee vs HR, два PDF):
+
+```bash
+make demo
+```
+
+Скрипт: [eval/seed_demo.py](../eval/seed_demo.py). Пользователи и проход — в корневом [README.md](../README.md).
 
 ## Когда гонять
 

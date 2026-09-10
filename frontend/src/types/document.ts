@@ -5,6 +5,7 @@ export interface DocumentResponse {
   total_pages: number | null;
   access_roles: string[];
   status: string;
+  last_error: string | null;
   created_at: string;
 }
 
@@ -14,3 +15,13 @@ export interface DocumentListResponse {
   limit: number;
   offset: number;
 }
+
+export interface DocumentStatusResponse {
+  id: string;
+  status: string;
+  last_error: string | null;
+  stage: "parse" | "chunk" | "embed" | null;
+}
+
+export const INGESTION_STEPS = ["parse", "chunk", "embed"] as const;
+export type IngestionStep = (typeof INGESTION_STEPS)[number];

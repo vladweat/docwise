@@ -122,6 +122,6 @@ Docwise закрывает это связкой: **изоляция орган�
 - [ ] Нехватка контекста → отказ «в документах нет информации», без выдуманных фактов.
 - [ ] Повторный ingest того же `document_id` не плодит дубли в `document_chunks`.
 - [x] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек.
-- [ ] CI: ruff + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах.
+- [x] CI: ruff + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах.
 
 Shared SaaS (после v1): нулевые утечки **между организациями**, в том числе на документах с `access_roles = ['all']`. Критерии — [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).

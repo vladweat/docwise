@@ -25,6 +25,15 @@ logger = logging.getLogger(__name__)
 
 PDF_MAGIC = b"%PDF"
 LAST_ERROR_MAX_LEN = 2000
+STAGE_PARSE = "parse"
+STAGE_CHUNK = "chunk"
+STAGE_EMBED = "embed"
+
+
+def set_ingestion_stage(db: Session, document: Document, stage: str) -> None:
+    """Commit the current parse/chunk/embed step so GET /status can poll it."""
+    document.ingestion_stage = stage
+    db.commit()
 
 
 class IngestionError(Exception):
@@ -78,22 +87,27 @@ def index_pdf(
     *,
     embedder=None,
 ) -> IndexResult:
-    """Replace `document_chunks` for this PDF. Must not commit; the worker commits.
+    """Replace `document_chunks` for this PDF. Commits only `ingestion_stage` between
+    parse / chunk / embed so status polling can show the step. Chunk rows stay
+    uncommitted; the worker commits them with `ready`.
 
     `content` is the UI/LLM fragment (no meta header). Dense vectors come from
     `PreparedChunk.embed_text` via FastEmbed. Caller must delete old rows first.
     """
     if not pdf_bytes.startswith(PDF_MAGIC):
         raise IngestionError("Downloaded object is not a PDF")
+    set_ingestion_stage(db, document, STAGE_PARSE)
     try:
         parsed = parse_pdf(pdf_bytes)
     except PdfParserError as exc:
         raise IngestionError(str(exc)) from exc
 
+    set_ingestion_stage(db, document, STAGE_CHUNK)
     chunks = chunk_parsed_document(parsed)
     if not chunks:
         raise IngestionError("PDF produced no extractable text")
 
+    set_ingestion_stage(db, document, STAGE_EMBED)
     texts = [chunk.embed_text(document.title) for chunk in chunks]
     try:
         vectors = embed_texts(texts, embedder=embedder)
@@ -156,6 +170,7 @@ def run_ingestion(
 
         document.status = DocumentStatus.processing.value
         document.last_error = None
+        document.ingestion_stage = STAGE_PARSE
         db.commit()
 
         storage = storage or get_object_storage()
@@ -188,6 +203,7 @@ def run_ingestion(
         )
         document.status = DocumentStatus.ready.value
         document.last_error = None
+        document.ingestion_stage = STAGE_EMBED
         db.commit()
 
         logger.info(

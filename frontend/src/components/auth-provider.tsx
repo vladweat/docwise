@@ -1,11 +1,13 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -19,6 +21,7 @@ import {
   register,
 } from "@/lib/api";
 import { clearLegacyAuth } from "@/lib/auth-storage";
+import { resetClientSessionState } from "@/lib/reset-client-state";
 import type { UserResponse } from "@/types/auth";
 
 interface AuthContextValue {
@@ -37,20 +40,34 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
+
+  const applyUser = useCallback(
+    (next: UserResponse | null) => {
+      const nextId = next?.id ?? null;
+      if (userIdRef.current !== nextId) {
+        resetClientSessionState(queryClient);
+        userIdRef.current = nextId;
+      }
+      setUser(next);
+    },
+    [queryClient],
+  );
 
   const refreshUser = useCallback(async () => {
     try {
       const me = await fetchMe();
-      setUser(me);
+      applyUser(me);
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 401) {
-        setUser(null);
+        applyUser(null);
       }
     }
-  }, []);
+  }, [applyUser]);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,11 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         try {
           const me = await fetchMe();
-          if (!cancelled) setUser(me);
+          if (!cancelled) applyUser(me);
           return;
         } catch (err) {
           if (err instanceof ApiRequestError && err.status === 401) {
-            if (!cancelled) setUser(null);
+            if (!cancelled) applyUser(null);
             return;
           }
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -80,49 +97,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyUser]);
 
-  const handleLogin = useCallback(async (email: string, password: string) => {
-    setError(null);
-    try {
-      const me = await login({ email, password });
-      setUser(me);
-    } catch (err) {
-      const message = err instanceof ApiRequestError ? err.message : "Login failed";
-      setError(message);
-      throw err;
-    }
-  }, []);
+  const handleLogin = useCallback(
+    async (email: string, password: string) => {
+      setError(null);
+      try {
+        const me = await login({ email, password });
+        applyUser(me);
+      } catch (err) {
+        const message = err instanceof ApiRequestError ? err.message : "Login failed";
+        setError(message);
+        throw err;
+      }
+    },
+    [applyUser],
+  );
 
-  const handleRegister = useCallback(async (email: string, password: string) => {
-    setError(null);
-    try {
-      const me = await register({ email, password });
-      setUser(me);
-    } catch (err) {
-      const message = err instanceof ApiRequestError ? err.message : "Registration failed";
-      setError(message);
-      throw err;
-    }
-  }, []);
+  const handleRegister = useCallback(
+    async (email: string, password: string) => {
+      setError(null);
+      try {
+        const me = await register({ email, password });
+        applyUser(me);
+      } catch (err) {
+        const message = err instanceof ApiRequestError ? err.message : "Registration failed";
+        setError(message);
+        throw err;
+      }
+    },
+    [applyUser],
+  );
 
-  const handleGoogleLogin = useCallback(async (idToken: string) => {
-    setError(null);
-    try {
-      const me = await loginWithGoogle(idToken);
-      setUser(me);
-    } catch (err) {
-      const message = err instanceof ApiRequestError ? err.message : "Google login failed";
-      setError(message);
-      throw err;
-    }
-  }, []);
+  const handleGoogleLogin = useCallback(
+    async (idToken: string) => {
+      setError(null);
+      try {
+        const me = await loginWithGoogle(idToken);
+        applyUser(me);
+      } catch (err) {
+        const message = err instanceof ApiRequestError ? err.message : "Google login failed";
+        setError(message);
+        throw err;
+      }
+    },
+    [applyUser],
+  );
 
   const handleLogout = useCallback(async () => {
     await apiLogout();
-    setUser(null);
+    applyUser(null);
     setError(null);
-  }, []);
+  }, [applyUser]);
 
   const value = useMemo(
     () => ({

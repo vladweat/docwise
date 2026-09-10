@@ -13,7 +13,7 @@
 | Утечка ACL | Общий чат без фильтра векторов отдаёт стажёру финансы C-level |
 | Доверие | Без точной страницы в оригинале ответ модели нельзя проверить |
 
-Docwise закрывает это связкой: **RBAC на retrieval**, **structure-aware chunking**, **hybrid search + rerank**, **цитаты в PDF-вьюере**.
+Docwise закрывает это связкой: **изоляция организаций (`org_id`)**, **RBAC на retrieval**, **structure-aware chunking**, **hybrid search + rerank**, **цитаты в PDF-вьюере**. Целевой деплой — shared B2B SaaS ([tenancy.md](tenancy.md)).
 
 Происхождение: тот же каркас, что [ChainWise](../../chainwise/README.md) (auth, Celery, SSE). Векторы — **pgvector** в Postgres, не Qdrant. Отличие продукта — корпус PDF с ACL, а не чат по одному Solidity-файлу. Как переносить код: [reuse-from-chainwise.md](reuse-from-chainwise.md).
 
@@ -59,38 +59,40 @@ flowchart TB
 | Компонент | Ответственность |
 | --- | --- |
 | Next.js | Чат, сноски, встроенный PDF, админка базы знаний |
-| FastAPI | Auth, загрузка, статусы, SSE-чат, inspect, отдача файла |
+| FastAPI | Auth, текущая org в сессии, загрузка, статусы, SSE-чат, inspect, отдача файла |
 | Celery | Тяжёлый парсинг, чанкинг, эмбеддинги, upsert чанков в Postgres |
-| PostgreSQL + pgvector | Пользователи, документы, сессии, аудит, dense-векторы чанков |
+| PostgreSQL + pgvector | Пользователи, организации и memberships (M5), документы, сессии, аудит, dense-векторы чанков |
 | MinIO | Байты оригинальных файлов |
 | Redis | Брокер Celery и кеш |
 
 ## 3. Поток A — загрузка документа
 
-1. Пользователь с правом управления KB загружает PDF и выбирает `access_roles[]`.
-2. API считает SHA-256, сохраняет объект в MinIO, строку в `documents` со статусом `pending`.
+1. Org-admin текущей организации загружает PDF и выбирает `access_roles[]` (внутренние теги, не id компании).
+2. API считает SHA-256, проверяет unique `(org_id, file_hash)`, сохраняет объект в MinIO с префиксом org, строку в `documents` (`pending`, `org_id` сессии).
 3. Ставится задача `process_document(doc_id)`.
-4. Воркер: извлечение по страницам → чанки секции/страницы → dense (+ BM25/FTS) → upsert в `document_chunks` (с копией ACL) → `status = ready` либо `failed`.
+4. Воркер: извлечение по страницам → чанки секции/страницы → dense (+ BM25/FTS) → upsert в `document_chunks` (копия `org_id` и ACL документа) → `status = ready` либо `failed`.
 
 ## 4. Поток B — вопрос в чат
 
 1. Клиент шлёт `POST /api/v1/chat/stream` (cookie-сессия).
-2. Из сессии берутся `role` и `departments`; в SQL добавляется `access_roles && allowed_roles`.
+2. Из сессии берутся `org_id`, роль и отделы членства. SQL: `org_id = :current_org AND access_roles && allowed_roles`. До M5 в коде есть только второй конъюнкт (один неявный тенант).
 3. Dense Top-25 + BM25 Top-25 → RRF → Top-15 → cross-encoder → порог 0.25 → Top-4.
 4. Первым SSE-событием уходят цитаты, затем токены ответа, затем метрики.
 5. UI открывает PDF на странице сноски и подсвечивает фрагмент.
 
-Данные, к которым нет прав, **физически не попадают** в промпт.
+Данные, к которым нет прав (чужая org или своя ACL), **физически не попадают** в промпт. Кэш LLM ключуется ещё и `org_id`.
 
 ## 5. Поток C — inspect
 
-1. Admin при включённом `ENABLE_SEARCH_INSPECT` шлёт `POST /api/v1/search/inspect`.
-2. Тот же hybrid retrieval и SQL ACL, что у чата (роли из сессии). Флаг выкл → `404`; не admin → `403`.
-3. Ответ: списки dense / sparse / rrf / reranked со скорами и превью. Чанки вне ACL отсутствуют.
-4. Строка в `rag_audit_logs` (UUID чанков после реранкера, без текста).
+1. Org-admin при включённом `ENABLE_SEARCH_INSPECT` шлёт `POST /api/v1/search/inspect`.
+2. Тот же hybrid retrieval: `org_id` сессии + SQL ACL (роли из membership). Флаг выкл → `404`; не org-admin → `403`.
+3. Ответ: списки dense / sparse / rrf / reranked со скорами и превью. Чанки вне org или ACL отсутствуют.
+4. Строка в `rag_audit_logs` (UUID чанков после реранкера, без текста; M5 — с `organization_id`).
 
-## 6. Границы и вне скоупа (v1)
+## 6. Границы
 
-В скоупе: PDF (приоритет), DOCX по возможности; роли и отделы; один тенант; английские/русские корпоративные документы.
+В скоупе продукта: PDF (приоритет), DOCX по возможности; роли и отделы **внутри** org; shared SaaS с `org_id` ([M5](milestones.md#milestone-5--shared-tenancy-b2b-saas)); английские/русские корпоративные документы.
 
-Вне скоупа v1: полноценный мультитеннант, SSO/SAML, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение собственных эмбеддингов. Не тащить из ChainWise: Slither, solc, Etherscan, XGBoost risk score, генератор PDF-отчётов.
+M0–M4: один неявный тенант + внутренняя ACL. Не класть двух клиентов на этот инстанс.
+
+Вне скоупа до отдельных вех: SSO/SAML, биллинг, консоль оператора платформы, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение собственных эмбеддингов. Не тащить из ChainWise: Slither, solc, Etherscan, XGBoost risk score, генератор PDF-отчётов.

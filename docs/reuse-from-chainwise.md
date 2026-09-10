@@ -29,7 +29,7 @@
 - `backend/app/services/rag_engine.py` — только чистые функции и стрим, **не** Solidity-ветки:
   - `bm25_scores`, `tokenize`, `reciprocal_rank_fusion` (`RRF_K = 60`)
   - `stream_openai`, `_sse`, `iter_sse_events` (каркас событий)
-  - Redis LLM cache (`llm_cache:{version}:...`) — в ключ обязательно добавить **роли пользователя**, иначе кэш станет дырой ACL
+  - Redis LLM cache (`llm_cache:{version}:...`) — в ключ обязательно добавить **роли пользователя** и (M5) **`org_id`**, иначе кэш станет дырой ACL или кросс-тенантом
 - FastEmbed-клиент из `qdrant_indexer.py` (`_FastEmbedEncoder`, `encode_texts`) — **без** Qdrant upsert/search
 - `backend/tests/test_rag_engine.py` — тесты BM25/RRF
 
@@ -64,13 +64,13 @@ Google OAuth — опционально, не блокер v1.
 ### Инфра
 
 - `docker-compose.yml` — postgres (pgvector), redis, backend, celery-worker, frontend. Удалить `slither` и **Qdrant**. Добавить MinIO. Убрать `SOLCX_*`, `SLITHER_URL`, `RISK_MODEL_PATH`, `QDRANT_*`
-- `.github/workflows/ci.yml` — оставить lint + pytest; убрать cov на `pragma_parser`/`risk_scorer`
+- `.github/workflows/ci.yml` — ruff + pytest + frontend `tsc --noEmit`; без cov на `pragma_parser`/`risk_scorer`
 - `Makefile` — `up`/`down`/`test`/`logs`; вычистить `solc`/`slither`/`train-risk`
 
 ## Что писать с нуля
 
 1. `pdf_parser.py` + page-bounded chunker (не `semantic_splitter.py` на AST).
-2. SQL-фильтр `access_roles && allowed_roles` на **каждый** search (dense и sparse/BM25-кандидаты).
+2. SQL-фильтр `organization_id = :current_org AND access_roles && allowed_roles` на **каждый** search (dense и sparse/BM25-кандидаты). До M5 в порте — только ACL (один неявный тенант).
 3. Cross-encoder rerank Top-15 → Top-4, порог 0.25.
 4. PDF viewer + `#page=N` / подсветка; upload drag-and-drop + чекбоксы ролей.
 5. `eval/run_eval.py` (Ragas).
@@ -80,13 +80,17 @@ Google OAuth — опционально, не блокер v1.
 
 ```
 pgvector cosine Top-25  ──┐
-  ACL access_roles &&      ├── RRF(k=60) Top-15 → rerank → Top-4 → LLM
+  org_id (M5) + ACL        ├── RRF(k=60) Top-15 → rerank → Top-4 → LLM
 FTS / BM25 Top-25          ┘
-  + тот же ACL
+  + тот же org_id и ACL
 ```
 
 Промежуточный шаг, если FTS-колонки ещё нет: dense Top-50 с ACL, затем **in-memory BM25+RRF только по этим 50**, не по всему индексу.
 
 ## Порядок работ
 
-См. [roadmap](milestones.md): форк каркаса → ingest PDF → corpus retrieval + RBAC → UI → eval. Закрытый пункт отмечают `- [x]` в том же изменении.
+См. [roadmap](milestones.md): форк каркаса → ingest PDF → corpus retrieval + RBAC → UI → eval → shared tenancy (M5). Закрытый пункт отмечают `- [x]` в том же изменении.
+
+## Shared SaaS (не из ChainWise)
+
+Организации, memberships, `org_id` на документах/чанках/кэше/MinIO писать с нуля. Канон: [tenancy.md](tenancy.md). Не копировать «один инстанс = один продукт» ChainWise как модель биллинга.

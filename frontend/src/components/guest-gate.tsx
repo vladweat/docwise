@@ -5,6 +5,15 @@ import { Suspense, useEffect, type ReactNode } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 
+function postLoginPath(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/login")) {
+    return "/";
+  }
+  // Chat session ids belong to one user; do not restore another account's thread.
+  if (next.startsWith("/chat/")) return "/";
+  return next;
+}
+
 function GuestRedirect({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
@@ -12,8 +21,7 @@ function GuestRedirect({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading || !isAuthenticated) return;
-    const next = searchParams.get("next");
-    router.replace(next && next.startsWith("/") ? next : "/");
+    router.replace(postLoginPath(searchParams.get("next")));
   }, [isAuthenticated, loading, router, searchParams]);
 
   if (loading) {

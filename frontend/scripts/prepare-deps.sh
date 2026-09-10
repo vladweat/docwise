@@ -8,6 +8,8 @@ if ! command -v npm &>/dev/null; then
   exit 1
 fi
 
+# optionalDependencies Next (SWC) пропускаются; бинарники SWC стоят прямыми deps
+# в package.json и должны совпадать с версией next (иначе disablePageConfig / mismatch).
 echo "Installing frontend dependencies..."
 npm install --omit=optional --no-audit --no-fund
 

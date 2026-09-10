@@ -24,13 +24,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru">
       <body className="flex h-dvh flex-col overflow-hidden">
-        <AuthProvider>
-          <QueryProvider>
+        <QueryProvider>
+          <AuthProvider>
             <AppHeader />
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
             <ToastHost />
-          </QueryProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -4,7 +4,7 @@
 
 ## Шаг 1. RBAC в SQL (до LLM)
 
-Из JWT/сессии: `user.role`, `user.departments` (сборка — [auth.md](auth.md)).
+Из JWT/сессии: текущая `organization_id`, роль и `departments` членства (сборка — [auth.md](auth.md), изоляция — [tenancy.md](tenancy.md)).
 
 Сборка `allowed_roles`:
 
@@ -15,12 +15,13 @@
 Фильтр на **каждый** dense и FTS/BM25 запрос:
 
 ```sql
-WHERE access_roles && ARRAY['employee', 'hr', 'all']::text[]
+WHERE organization_id = :current_org
+  AND access_roles && ARRAY['employee', 'hr', 'all']::text[]
 ORDER BY embedding <=> :query_vec
 LIMIT 25
 ```
 
-Чанки вне ACL не участвуют в RRF, реранке и промпте. Не фильтровать «потом в промпте».
+До M5 в коде есть только `access_roles && …` (один неявный тенант). Чанки вне org или ACL не участвуют в RRF, реранке и промпте. Не фильтровать «потом в промпте». Не подменять `org_id` тегом в `access_roles`.
 
 Скачивание оригинала (`GET .../raw`) использует ту же семантику по строке `documents`, не по «раз пользователь нашёл цитату».
 
@@ -69,7 +70,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 | 3 | `meta` | `{tokens_used, cached, session_id, message_id, ...}` затем `[DONE]` |
 | ошибка | `error` | `{content}` без стека и без названий чужих файлов |
 
-Цитаты уходят **до** токенов, чтобы UI сразу открыл PDF. Кеш LLM (`llm_cache:{version}:{roles_hash}:{question_hash}`) обязан включать канонический набор `allowed_roles` вызывающего; кэш, прогретый под admin, не отдаётся employee.
+Цитаты уходят **до** токенов, чтобы UI сразу открыл PDF. Кеш LLM (`llm_cache:{version}:{org_id}:{roles_hash}:{question_hash}`) обязан включать `org_id` текущей организации и канонический набор `allowed_roles`; кэш, прогретый под admin или под другую org, не отдаётся. До M5 в ключе нет `org_id` — деплоить два клиента на этот кэш нельзя.
 
 После ответа: строка в `chat_messages` + `rag_audit_logs` (см. ниже).
 
@@ -81,6 +82,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 | --- | --- | --- |
 | `query` | вопрос | вопрос |
 | `user_id` | вызывающий | вызывающий |
+| `organization_id` | текущая org (M5) | текущая org (M5) |
 | `retrieved_chunk_ids` | UUID PK Top-4 после реранкера | то же |
 | `latency_ms` | да | да |
 | `tokens_used` | из LLM / кэша | null |
@@ -93,7 +95,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 
 `POST /api/v1/search/inspect` — те же четыре стадии, что у чата, со скорами. Контракт: [api.md](api.md).
 
-- Только `admin` + флаг `ENABLE_SEARCH_INSPECT` (в production по умолчанию выкл → `404`).
-- Тот же SQL `access_roles && allowed_roles`. Admin без `hr` в `allowed_roles` не видит `access_roles = ['hr']`.
+- Только org-admin + флаг `ENABLE_SEARCH_INSPECT` (в production по умолчанию выкл → `404`).
+- Тот же SQL `organization_id = :current_org AND access_roles && allowed_roles`. Admin без `hr` в `allowed_roles` не видит `access_roles = ['hr']`. Чужая org не подтверждается.
 - `limit` режет **ответ** (до 15 по умолчанию на список), не пересобирает Top-K пайплайна.
 - `snippet` в JSON — превью **видимых** чанков. Скрытый документ: пустой список, без id/title.

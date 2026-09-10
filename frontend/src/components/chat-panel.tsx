@@ -2,8 +2,10 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, LoaderCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import { useAuth } from "@/components/auth-provider";
 import { CitationTag } from "@/components/citation-tag";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +30,8 @@ export function ChatPanel({
   onSelectCitation?: (citation: Citation) => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const userId = useAuth().user?.id;
   const [question, setQuestion] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(Boolean(sessionId));
   const messages = useChatStore((state) => state.messages);
@@ -84,6 +88,11 @@ export function ChatPanel({
       })
       .catch((err) => {
         if (cancelled) return;
+        if (err instanceof ApiRequestError && (err.status === 404 || err.status === 403)) {
+          useChatStore.getState().resetNew();
+          router.replace("/");
+          return;
+        }
         const message =
           err instanceof ApiRequestError
             ? err.message
@@ -97,7 +106,7 @@ export function ChatPanel({
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, userId, router]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -204,9 +213,9 @@ export function ChatPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5">
-        <div className="mx-auto flex min-h-full max-w-2xl flex-col gap-4 sm:gap-5">
+        <div className="mx-auto flex min-h-full min-w-0 max-w-2xl flex-col gap-4 sm:gap-5">
           {loadingHistory ? (
             <div className="flex flex-1 items-center justify-center py-10 text-sm text-slate-400">
               Загрузка истории…
@@ -247,8 +256,8 @@ export function ChatPanel({
       </div>
 
       <div className="shrink-0 border-t border-slate-800 bg-slate-950 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:py-4">
-        <div className="mx-auto max-w-2xl">
-          <div className="flex items-end gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-2 py-2">
+        <div className="mx-auto min-w-0 max-w-2xl">
+          <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-2 py-2">
             <Textarea
               ref={inputRef}
               value={question}
@@ -260,7 +269,7 @@ export function ChatPanel({
               placeholder="Вопрос по корпоративным документам…"
               disabled={sending || loadingHistory}
               rows={1}
-              className="max-h-32 flex-1 overflow-y-auto sm:max-h-40"
+              className="max-h-32 min-w-0 flex-1 overflow-y-auto sm:max-h-40"
             />
             <Button
               type="button"
@@ -300,7 +309,7 @@ function MessageBubble({
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[92%] rounded-2xl px-3 py-2.5 text-sm leading-relaxed sm:max-w-[90%] sm:px-4 sm:py-3",
+          "max-w-[min(92%,36rem)] min-w-0 rounded-2xl px-3 py-2.5 text-sm leading-relaxed sm:px-4 sm:py-3",
           isUser ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-100",
           message.error ? "border border-red-500/40" : "",
         )}

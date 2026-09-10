@@ -9,10 +9,11 @@ alwaysApply: false
 - App Router, React 19, TypeScript 5 (strict), Tailwind 4, shadcn/ui (Radix).
 - Server data: TanStack Query. Ephemeral UI state: Zustand. No Redux.
 - Talk only to `/api/v1/*`. Types should match backend Pydantic models; do not silently rename fields.
+- On logout/login, clear React Query and the chat Zustand store. Do not restore `/chat/:sessionId` from `?next=` (session ids are per user).
 
 ## Chat (primary screen)
 
-- Split pane: chat **~45%** left, PDF viewer **~55%** right.
+- Split pane: sessions (collapsible) | chat (min ~440px, never a thin strip) | PDF (collapsible). A citation click reopens the PDF pane.
 - Citations in the answer are interactive tags, e.g. `Expense_Policy.pdf (p. 4)`.
 - Clicking a citation **must**: open that file in the viewer, jump to `page`, and highlight the snippet when coordinates/text exist.
 - Reuse ChainWise `streamContractChat` parser. SSE order: `citations` → `token` → `meta`/`done`. Click citation → `Doc.pdf` page, not `file.sol` lines.
@@ -20,8 +21,8 @@ alwaysApply: false
 ## Knowledge base admin
 
 - Table: title, size, pages, access tags, status (`pending|processing|ready|failed`).
-- Drag-and-drop upload modal with `access_roles` (`HR`, `Finance`, `General`, …).
-- Poll `GET /documents/{id}/status` until `ready` or `failed`.
-- PDF bytes come from `GET /documents/{id}/raw` (auth + ACL). Never use a public bucket URL.
+- Drag-and-drop upload modal with `access_roles` (`HR`, `Finance`, `General`, …). After M5, show current org name; do not send `organization_id` in the chat body.
+- Poll `GET /documents/{id}/status` until `ready` or `failed`; show `stage` (`parse` → `chunk` → `embed`).
+- PDF bytes come from `GET /documents/{id}/raw` (auth + org + ACL). Never use a public bucket URL.
 
 Accessibility: keyboard-focusable citations, readable contrast on highlights. Prefer existing shadcn primitives over custom CSS.

@@ -11,6 +11,7 @@ class DocumentResponse(BaseModel):
     total_pages: int | None = None
     access_roles: list[str] = Field(default_factory=list)
     status: str
+    last_error: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -31,5 +32,6 @@ class DocumentStatusResponse(BaseModel):
     id: UUID
     status: str
     last_error: str | None = None
+    stage: str | None = Field(default=None, validation_alias="ingestion_stage")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}

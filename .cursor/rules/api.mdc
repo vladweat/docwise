@@ -9,12 +9,13 @@ alwaysApply: false
 Canonical spec: `docs/api.md`. Prefix `/api/v1`. Errors `{ "detail": "..." }`.
 
 - Pydantic v2 for every request/response. No ad-hoc dict contracts.
-- Auth on all `/api/v1/*` except login/register/google. Identity from cookies (`dw_*`) only — ignore `Authorization: Bearer`. Never from body `user_id` / `access_roles`.
+- Auth on all `/api/v1/*` except login/register/google. Identity from cookies (`dw_*`) only — ignore `Authorization: Bearer`. Never from body `user_id` / `access_roles` / `org_id` / `organization_id`.
 - Resource ids are UUID strings, including chat citations `doc_id`.
 - Upload returns `201` + `pending` and enqueues Celery. Do not parse PDF in the handler.
-- `GET /documents` and `/raw` apply the same ACL as search. Missing-or-forbidden → `404`, not a leaky `403` with the title.
-- Delete is cascade: Postgres (document + chunks) + MinIO.
-- `PATCH /documents/{id}` (admin): `{ "access_roles": [...] }` updates the document **and** every chunk row. Do not re-embed.
+- `GET /documents` includes `last_error` (null unless failed). `GET /documents/{id}/status` includes `stage` (`parse` | `chunk` | `embed` | null).
+- `GET /documents` and `/raw` apply the same org + ACL as search. Missing-or-forbidden (including another org) → `404`, not a leaky `403` with the title.
+- Delete is cascade: Postgres (document + chunks) + MinIO, scoped to the current org.
+- `PATCH /documents/{id}` (org-admin): `{ "access_roles": [...] }` updates the document **and** every chunk row. Do not re-embed. Do not accept `organization_id` in the body.
 
 ## SSE `POST /api/v1/chat/stream`
 
@@ -32,4 +33,4 @@ data: [DONE]
 
 Citations first, then tokens. On failure: `{"type":"error","content":"..."}` — no stack, no foreign document titles.
 
-Inspect is admin only (`ENABLE_SEARCH_INSPECT`; off by default in production). Same ACL filter as chat. Audit stores chunk UUIDs, never restricted chunk text.
+Inspect is org-admin only (`ENABLE_SEARCH_INSPECT`; off by default in production). Same org + ACL filter as chat. Audit stores chunk UUIDs, never restricted chunk text. After M5, register/invites/switch-org follow `docs/api.md` § Организации.
