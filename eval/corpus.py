@@ -108,6 +108,9 @@ def get_or_create_org(db, *, name: str, slug: str):
         )
         db.add(org)
         db.flush()
+        from app.services.domains import attach_platform_domains
+
+        attach_platform_domains(db, org)
         logger.info("created organization %s slug=%s", name, slug)
     else:
         org.name = name

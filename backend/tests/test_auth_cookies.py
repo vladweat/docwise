@@ -26,6 +26,10 @@ def test_register_sets_httponly_cookies():
     assert REFRESH_COOKIE in response.cookies
     header = response.headers.get("set-cookie") or ""
     assert "httponly" in header.lower()
+    cookies = response.headers.get_list("set-cookie")
+    assert cookies
+    for item in cookies:
+        assert "domain=" not in item.lower()
     assert ACCESS_COOKIE == "dw_access"
     assert REFRESH_COOKIE == "dw_refresh"
     assert "access_token" not in response.json()

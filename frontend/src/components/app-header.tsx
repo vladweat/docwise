@@ -8,7 +8,9 @@ import { LogOut } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { canManageKnowledgeBase } from "@/lib/access-roles";
+import { ApiRequestError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useToastStore } from "@/stores/toast-store";
 
 const NAV: { href: string; label: string; match: (path: string) => boolean; adminOnly?: boolean }[] = [
   { href: "/", label: "Чат", match: (path: string) => path === "/" || path.startsWith("/chat") },
@@ -22,6 +24,7 @@ export function AppHeader() {
   const orgs = user?.organizations ?? [];
   const canManage = canManageKnowledgeBase(user);
   const navItems = NAV.filter((item) => !item.adminOnly || canManage);
+  const pushToast = useToastStore((state) => state.push);
 
   return (
     <header className="shrink-0 border-b border-slate-800 bg-slate-950/80 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -61,7 +64,11 @@ export function AppHeader() {
                     className="max-w-[160px] truncate rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
                     value={user.organization_id}
                     onChange={(event) => {
-                      void switchOrganization(event.target.value);
+                      void switchOrganization(event.target.value).catch((err: unknown) => {
+                        const message =
+                          err instanceof ApiRequestError ? err.message : "Не удалось сменить организацию";
+                        pushToast(message, "error");
+                      });
                     }}
                   >
                     {orgs.map((org) => (

@@ -106,7 +106,11 @@ make health                   # GET http://localhost:8001/health
 make demo                     # employee vs HR users + two PDFs with different ACLs
 ```
 
-UI: http://localhost:3001 (cookies `dw_*`).
+UI: http://localhost:3001 (cookies `dw_*`, host-only). Tenant host `{slug}.localhost:3001` talks to `{slug}.localhost:8001` so the cookie stays on that host. `{slug}.localhost` is loopback (RFC 6761). Custom CNAME in Compose is `/etc/hosts`, or `{cname}.localhost` (e.g. `http://bootorg.docwise.app.localhost:3001`) — not Let's Encrypt:
+
+```
+127.0.0.1 kb.acme.example
+```
 
 | User | Password | Sees |
 | --- | --- | --- |

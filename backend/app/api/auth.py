@@ -27,6 +27,10 @@ from app.models.user import User, UserRole
 from app.schemas.auth import GoogleAuthRequest, LoginRequest, RegisterRequest, SwitchOrganizationRequest
 from app.schemas.sso import DevSsoAssertion
 from app.schemas.user import UserResponse
+from app.services.domains import (
+    enforce_host_pin,
+    pinned_organization_id,
+)
 from app.services.sso import (
     SSO_NOT_FOUND,
     SSO_REQUIRED,
@@ -155,12 +159,16 @@ def register(
 
     if body.invite_token:
         principal = _register_with_invite(db, body)
-        db.commit()
-        db.refresh(principal.user)
         if principal.organization.sso_enforced:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_REQUIRED)
+        enforce_host_pin(db, request, principal.organization_id, mode="register")
+        db.commit()
+        db.refresh(principal.user)
         _issue_session(principal, response)
         return user_response(db, principal)
+    pinned_id = pinned_organization_id(db, request)
+    if pinned_id is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot create an organization on this host")
     principal = _register_with_org(db, body)
     db.commit()
     db.refresh(principal.user)
@@ -192,7 +200,9 @@ def login(
     if user.is_active is False:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive")
 
-    principal = _principal_or_403(db, user, None)
+    target_org_id = pinned_organization_id(db, request)
+    principal = _principal_or_403(db, user, target_org_id)
+    enforce_host_pin(db, request, principal.organization_id, mode="login")
     _issue_session(principal, response)
     return user_response(db, principal)
 
@@ -258,11 +268,23 @@ def google_auth(
     invite_token = (body.invite_token or "").strip()
     org_name = (body.organization_name or "").strip()
     target_org_id = None
+    pinned_id = pinned_organization_id(db, request)
     if invite_token:
         invite = get_pending_invite(db, invite_token)
+        if pinned_id is not None and pinned_id != invite.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot create an organization on this host",
+            )
         membership = accept_invite(db, invite, user)
         target_org_id = membership.organization_id
     elif created:
+        if pinned_id is not None:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot create an organization on this host",
+            )
         if not org_name:
             db.rollback()
             raise HTTPException(
@@ -275,7 +297,10 @@ def google_auth(
 
     db.commit()
     db.refresh(user)
+    if target_org_id is None:
+        target_org_id = pinned_id
     principal = _principal_or_403(db, user, target_org_id)
+    enforce_host_pin(db, request, principal.organization_id, mode="login")
     _issue_session(principal, response)
     return user_response(db, principal)
 
@@ -295,6 +320,9 @@ def sso_login(slug: str, request: Request, db: Session = Depends(get_db)) -> Red
     if target is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
     organization, _connection = target
+    pinned_id = pinned_organization_id(db, request)
+    if pinned_id is not None and pinned_id != organization.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
     settings = get_settings()
     if settings.sso_provider_name != "dev":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
@@ -314,6 +342,9 @@ def sso_acs(
     if target is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
     organization, connection = target
+    pinned_id = pinned_organization_id(db, request)
+    if pinned_id is not None and pinned_id != organization.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
     settings = get_settings()
     if settings.sso_provider_name != "dev":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
@@ -329,6 +360,7 @@ def sso_acs(
         email=str(body.email),
         groups=list(body.groups or []),
     )
+    enforce_host_pin(db, request, principal.organization_id, mode="login")
     db.commit()
     db.refresh(principal.user)
     if _sso_json_response(request):
@@ -379,6 +411,12 @@ def refresh_session(request: Request, response: Response, db: Session = Depends(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
+    try:
+        enforce_host_pin(db, request, principal.organization_id, mode="session")
+    except HTTPException:
+        revoke_refresh_token(raw)
+        clear_auth_cookies(response)
+        raise
 
     revoke_refresh_token(raw)
     _issue_session(principal, response, sso=sso_claim)
@@ -404,6 +442,7 @@ def me(
 @router.post("/switch-organization", response_model=UserResponse)
 def switch_organization(
     body: SwitchOrganizationRequest,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db),
     current_user: Principal = Depends(get_current_user),
@@ -414,6 +453,7 @@ def switch_organization(
     organization = db.get(Organization, membership.organization_id)
     if organization is None or organization.status != OrganizationStatus.active.value:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+    enforce_host_pin(db, request, organization.id, mode="switch")
     if organization.sso_enforced and not has_sso_fresh(current_user.id, organization.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_REQUIRED)
     principal = principal_from_parts(current_user.user, membership, organization)

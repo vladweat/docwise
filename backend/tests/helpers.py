@@ -19,6 +19,7 @@ TRUNCATE TABLE
     chat_sessions,
     document_chunks,
     documents,
+    organization_domains,
     organization_sso_connections,
     organization_invites,
     organization_memberships,

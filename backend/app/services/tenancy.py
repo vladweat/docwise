@@ -22,6 +22,7 @@ from app.models.organization import (
     OrganizationPlan,
     OrganizationStatus,
 )
+from app.services.domains import attach_platform_domains
 from app.models.user import User, UserRole
 from app.schemas.user import OrganizationSummary, UserResponse
 from app.services.quotas import enforce_seat_quota
@@ -77,6 +78,7 @@ def create_organization(db: Session, name: str) -> Organization:
             with db.begin_nested():
                 db.add(org)
                 db.flush()
+                attach_platform_domains(db, org)
             return org
         except IntegrityError:
             continue

@@ -9,6 +9,7 @@ from app.core.database import SessionLocal
 from app.core.principal import Principal
 from app.core.security import decode_access_token
 from app.models.user import User, UserRole
+from app.services.domains import enforce_host_pin
 from app.services.sso import session_allowed_for_org
 from app.services.tenancy import resolve_principal
 
@@ -75,6 +76,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Princip
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
+    enforce_host_pin(db, request, principal.organization_id, mode="session")
     return principal
 
 
