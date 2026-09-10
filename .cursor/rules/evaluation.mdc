@@ -6,10 +6,12 @@ alwaysApply: false
 
 # Evaluation
 
-- Golden set: `eval/golden_dataset.json` — at least 30 items: `question`, `ground_truth_answer`, `target_doc_id` (optional `target_page`).
-- Runner: `python eval/run_eval.py` executes the **real** retrieval+generation path (including RBAC of the eval user), not a mocked LLM-only loop.
-- Metrics (Ragas): Faithfulness, Context Precision, Answer Relevance.
-- Write `reports/rag_benchmark.md` (create `reports/` if needed). Do not commit secrets; do commit the latest benchmark table when metrics change intentionally.
+- Golden set: `eval/golden_dataset.json` — at least 30 items: `question`, `ground_truth_answer`, `target_doc_id` (optional `target_page`, `must_not_doc_ids`).
+- Runner: `python eval/run_eval.py` (or `make eval`) executes the **real** retrieval+generation path (including RBAC of the eval user and, after M5, that user’s org), not a mocked LLM-only loop. `--seed` indexes fixture PDFs via `index_pdf`.
+- Metrics (Ragas definitions, same OpenAI client as chat; no LangChain): Faithfulness, Context Precision, Answer Relevance.
+- Write `reports/rag_benchmark.md` (create `reports/` if needed). Do not commit secrets; do commit the latest benchmark table when metrics change intentionally. Exit 1 on any `must_not_doc_ids` leak.
+
+Release gates: Faithfulness ≥ 0.8; zero `must_not_doc_ids` leaks. Baseline 2026-09-10: Faithfulness 1.000, Context Precision 0.976, Answer Relevance 0.789, page hit 0.929, ACL 0. Two positive misses (`hb-security-email`, `eng-python`) are empty-after-rerank refusals, not ACL leaks.
 
 When you change chunking, hybrid fusion, rerank threshold, or the system prompt, run or update eval and mention metric impact.
 

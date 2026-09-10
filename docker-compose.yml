@@ -72,8 +72,13 @@ services:
       https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
       NO_PROXY: localhost,127.0.0.1,postgres,redis,minio
       no_proxy: localhost,127.0.0.1,postgres,redis,minio
+      EVAL_DIR: /eval
+      EVAL_DATASET: /eval/golden_dataset.json
+      EVAL_REPORT: /reports/rag_benchmark.md
     volumes:
       - ./backend:/app
+      - ./eval:/eval
+      - ./reports:/reports
     ports:
       - "8001:8000"
     depends_on:

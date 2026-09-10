@@ -170,3 +170,48 @@ def stream_openai(
         if owns_client:
             http.close()
     yield usage
+
+
+def complete_openai(
+    messages: list[dict[str, str]],
+    *,
+    temperature: float = 0.0,
+    client: httpx.Client | None = None,
+) -> tuple[str, LLMUsage]:
+    """Non-streaming completion. Used by eval judges; chat still goes through `stream_openai`."""
+    payload: dict[str, Any] = {
+        "model": openai_model(),
+        "messages": messages,
+        "temperature": temperature,
+        "stream": False,
+    }
+    http = client or httpx.Client(timeout=OPENAI_TIMEOUT)
+    owns_client = client is None
+    try:
+        response = http.post(
+            openai_completions_url(),
+            headers=_openai_headers(),
+            json=payload,
+        )
+        if response.status_code >= 400:
+            error_body = response.text[:300]
+            error = OpenAIRequestError(f"LLM error {response.status_code}: {error_body}")
+            capture_pipeline_error("llm", error)
+            raise error
+        body = response.json()
+        choices = body.get("choices") or []
+        if not choices:
+            raise OpenAIRequestError("LLM returned no choices")
+        content = str((choices[0].get("message") or {}).get("content") or "")
+        usage = _usage_from_payload(body.get("usage"))
+        return content, usage
+    except OpenAIRequestError:
+        raise
+    except OpenAINotConfiguredError:
+        raise
+    except Exception as exc:
+        capture_pipeline_error("llm", exc)
+        raise OpenAIRequestError(f"LLM request failed: {exc}") from exc
+    finally:
+        if owns_client:
+            http.close()
