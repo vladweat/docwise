@@ -6,7 +6,7 @@
 
 1. [SRS](srs.md) — цели, FR, стек, критерии приёмки.
 2. [Архитектура](architecture.md) — компоненты, чат и inspect.
-3. [Модель данных](data-model.md), [Auth](auth.md), [Tenancy](tenancy.md) — Postgres, pgvector, роли, организации.
+3. [Модель данных](data-model.md), [Auth](auth.md), [Tenancy](tenancy.md), [Billing](billing.md) — Postgres, pgvector, роли, организации, планы/квоты.
 4. [Ingestion](ingestion.md) и [Retrieval](retrieval.md) — индекс, ответы, inspect, аудит.
 5. [API](api.md) и [Frontend](frontend.md) — контракт и UX.
 6. [NFR](nfr.md), [Оценка](evaluation.md), [Roadmap](milestones.md) (чекбоксы вех).
@@ -15,6 +15,7 @@
 ## Инварианты продукта
 
 - Права доступа проверяются **до** передачи чанков в LLM: SQL `organization_id` (M5) **и** `access_roles && allowed_roles` (чат, inspect, list, `/raw`).
+- План, SSO и hostname не заменяют `org_id`. Квота своей org → `402`; фича не в плане → `403`.
 - `all` — все в **этой** организации, не все залогиненные в SaaS.
 - Ответ без проверяемой цитаты `{документ, страница}` считается дефектом.
 - Наивная нарезка текста по символам не используется.
@@ -23,4 +24,4 @@
 
 ## Правила Cursor
 
-Каталог `.cursor/rules/` — короткие инструкции для агента (стек, RBAC, auth, API, ingestion, retrieval, frontend, tests/eval, reuse). При противоречии сначала эти документы, затем править правила и код вместе.
+Каталог `.cursor/rules/` — короткие инструкции для агента (стек, RBAC, auth, API, ingestion, retrieval, frontend, tests/eval, reuse, billing). При противоречии сначала эти документы, затем править правила и код вместе.

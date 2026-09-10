@@ -12,3 +12,5 @@ Non-negotiables:
 4. SSE JSON envelopes like ChainWise: `citations` → `token` → `meta` → `[DONE]`. If context is insufficient, refuse. Every fact needs `{document, page}`.
 
 Keep sync SQLAlchemy. UUID PKs (not ChainWise integer ids). Do not port solc, Slither, or `semantic_splitter.py`. When you change an API or RAG/ACL/tenancy invariant, update `docs/` and the matching `.cursor/rules/` file in the same change.
+
+Plan entitlements, billing, SSO, and hostname pin org — they never replace SQL `organization_id` + `access_roles`. Canonical: `docs/billing.md`, ADR-013–015.

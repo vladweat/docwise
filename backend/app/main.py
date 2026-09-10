@@ -16,6 +16,7 @@ from app.core.proxy import apply_internal_no_proxy
 apply_internal_no_proxy()
 
 from app.api.auth import router as auth_router
+from app.api.billing import router as billing_router
 from app.api.chat import router as chat_router
 from app.api.documents import router as documents_router
 from app.api.organizations import router as organizations_router
@@ -83,6 +84,7 @@ app = FastAPI(
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(organizations_router, prefix="/api/v1")
+app.include_router(billing_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")

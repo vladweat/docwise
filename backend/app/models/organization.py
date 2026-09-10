@@ -20,10 +20,30 @@ class OrganizationStatus(str, enum.Enum):
     suspended = "suspended"
 
 
+class OrganizationPlan(str, enum.Enum):
+    starter = "starter"
+    team = "team"
+    enterprise = "enterprise"
+
+
+class BillingStatus(str, enum.Enum):
+    active = "active"
+    past_due = "past_due"
+    canceled = "canceled"
+
+
 class Organization(Base):
     __tablename__ = "organizations"
     __table_args__ = (
         CheckConstraint("status IN ('active', 'suspended')", name="ck_organizations_status"),
+        CheckConstraint(
+            "plan IN ('starter', 'team', 'enterprise')",
+            name="ck_organizations_plan",
+        ),
+        CheckConstraint(
+            "billing_status IN ('active', 'past_due', 'canceled')",
+            name="ck_organizations_billing_status",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -35,6 +55,20 @@ class Organization(Base):
         default=OrganizationStatus.active.value,
         server_default=OrganizationStatus.active.value,
     )
+    plan: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=OrganizationPlan.starter.value,
+        server_default=OrganizationPlan.starter.value,
+    )
+    billing_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=BillingStatus.active.value,
+        server_default=BillingStatus.active.value,
+    )
+    current_period_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     memberships: Mapped[list["OrganizationMembership"]] = relationship(

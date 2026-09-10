@@ -4,15 +4,16 @@
 
 ## Безопасность
 
-- Auth обязателен на всём `/api/v1/*` кроме login/register/google. `/health` и `/ready` публичны.
-- Сессия только в httpOnly cookies; Bearer не принимается. CSRF-заголовок/Origin при `SameSite=None`.
-- RBAC enforcement: SQL-фильтр `organization_id` **и** `access_roles && allowed_roles` на pgvector/FTS **до** LLM. Промпт не является механизмом ACL и не изолирует компании.
+- Auth обязателен на всём `/api/v1/*` кроме login/register/google, SSO login/ACS и Stripe webhook. `/health` и `/ready` публичны.
+- Сессия только в httpOnly cookies; Bearer не принимается. CSRF-заголовок/Origin при `SameSite=None`. Куки **host-only** (M6, [ADR-015](decisions.md)).
+- RBAC enforcement: SQL-фильтр `organization_id` **и** `access_roles && allowed_roles` на pgvector/FTS **до** LLM. Промпт не является механизмом ACL и не изолирует компании. План, SAML-атрибут и hostname не заменяют этот фильтр; hostname может только пиннить org.
 - Один и тот же ACL на list / status / raw / search / inspect / chat, плюс тот же `org_id`.
 - Не подтверждать существование чужого файла («документ X скрыт»), в том числе файла другой организации.
 - LLM cache key включает `org_id` (M5) и `allowed_roles` вызывающего (иначе кэш — дыра ACL или кросс-тенант).
-- Секреты только в env. Не коммитить `.env`, ключи, дампы NDA.
+- Секреты только в env. Не коммитить `.env`, ключи, дампы NDA. Stripe keys не обязательны для Compose (`BILLING_PROVIDER=dev`).
 - Audit: `rag_audit_logs` без тела чанков (только UUID после реранкера). Inspect в production за `ENABLE_SEARCH_INSPECT` (по умолчанию выкл); чужой файл не подтверждается.
-- Upload: лимит размера (ориентир 50 MB), только PDF в v1, SHA-256, rate limit как в ChainWise.
+- Upload: лимит размера (ориентир 50 MB), только PDF в v1, SHA-256, rate limit как в ChainWise. Квота страниц org → `402` (не `429`).
+- Chat: квота токенов периода → отказ до retrieval. Rate limit чата → `429`.
 - XSS: не рендерить HTML из PDF/LLM как `dangerouslySetInnerHTML` без санитайза. Markdown ответа — безопасный рендер.
 
 ## Надёжность ingestion
@@ -37,7 +38,7 @@
 
 - JSON-логи с redaction (токены, пароли, длинный текст PDF).
 - `rag_audit_logs`: query, user, UUID чанков после реранкера, latency_ms, tokens_used, feedback. Пишут чат и inspect. Не UUID и не полный текст.
-- `/health` — liveness (`{"status":"ok"}`). `/ready` — Postgres + pgvector + Redis + MinIO (`200` / `503`).
+- `/health` — liveness (`{"status":"ok"}`). `/ready` — Postgres + pgvector + Redis + MinIO (`200` / `503`). M6: billing `dev` (явно) или `stripe` (без ключей — не `ok`).
 
 ## Качество RAG
 

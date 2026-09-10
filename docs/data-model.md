@@ -12,8 +12,13 @@
 | --- | --- | --- |
 | `id` | UUID PK | |
 | `name` | String | Отображаемое имя компании |
-| `slug` | String unique | Стабильный ключ; для будущих URL, не для ACL |
-| `status` | `active` \| `suspended` | Suspended — логин в эту org отклоняется |
+| `slug` | String unique | Стабильный ключ URL (`{slug}.localhost`); не ACL |
+| `status` | `active` \| `suspended` | Suspended — логин в эту org отклоняется; M6: ещё `past_due` / cancel биллинга |
+| `plan` | `starter` \| `team` \| `enterprise` | M6; новая org — `starter`. Не источник `org_id` |
+| `billing_status` | `active` \| `past_due` \| `canceled` | M6; `past_due`/`canceled` → `status = suspended` |
+| `current_period_start` / `current_period_end` | DateTime nullable | Окно квоты токенов |
+| `sso_enforced` | Boolean | M6; default false |
+| `stripe_customer_id` / `stripe_subscription_id` | String nullable | Только адаптер Stripe; не JWT |
 | `created_at` | DateTime | |
 
 ### `organization_memberships` (M5)
@@ -44,7 +49,48 @@ Unique `(organization_id, user_id)`. `allowed_roles` для поиска = `{mem
 | `accepted_at` | DateTime nullable | |
 | `created_at` | DateTime | |
 
-Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Существующий пользователь при инвайте получает membership сразу, без токена.
+Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Существующий пользователь при инвайте получает membership сразу, без токена. Инвайт сверх seats-квоты плана → `402` (M6).
+
+### `organization_sso_connections` (M6)
+
+Один коннектор на org в v1. Org для ACS — FK, не атрибут IdP.
+
+| Поле | Тип | Заметки |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `organization_id` | UUID FK unique | |
+| `protocol` | `saml` \| `oidc` | |
+| `idp_entity_id` / metadata | Text / JSONB | Сертификат IdP, ACS URL строится из slug |
+| `attribute_map` | JSONB | группы IdP → `role` / `departments` |
+| `jit_enabled` | Boolean | default false |
+| `created_at`, `updated_at` | DateTime | |
+
+### `organization_domains` (M6)
+
+| Поле | Тип | Заметки |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `organization_id` | UUID FK | |
+| `hostname` | String unique | lower-case; `{slug}.localhost` или CNAME клиента |
+| `kind` | `platform` \| `custom` | |
+| `verified_at` | DateTime nullable | custom без verify не пинит Host |
+| `created_at` | DateTime | |
+
+Неподтверждённый custom не участвует в резолве. Unique hostname глобально.
+
+### `billing_events` (M6)
+
+Идемпотентность вебхука и `dev/simulate`.
+
+| Поле | Тип | Заметки |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `organization_id` | UUID FK | всегда текущая org события; simulate чужой org не создаёт строку |
+| `provider` | `dev` \| `stripe` | |
+| `external_id` | String | unique вместе с `provider` |
+| `event_type` | String | |
+| `payload` | JSONB | без chunk text, без PDF |
+| `processed_at` | DateTime | |
 
 ### `users`
 
@@ -52,7 +98,7 @@ Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Сущес�
 | --- | --- | --- |
 | `id` | UUID PK | `gen_random_uuid()` |
 | `email` | String unique | Логин |
-| `hashed_password` | String nullable | Пусто у Google-only аккаунта |
+| `hashed_password` | String nullable | Пусто у Google-only / SSO-only аккаунта |
 | `google_id` | String unique nullable | `sub` из ID token |
 | `is_active` | Boolean | |
 | `created_at` | DateTime | |

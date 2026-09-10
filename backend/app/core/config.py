@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     cookie_samesite: str = Field(default="none", alias="COOKIE_SAMESITE")
     cookie_secure: bool = Field(default=True, alias="COOKIE_SECURE")
     cors_origins: str = Field(default=DEFAULT_CORS_ORIGINS, alias="CORS_ORIGINS")
+    plan_period_days: int = Field(default=30, alias="PLAN_PERIOD_DAYS")
+    plan_starter_seats: int = Field(default=3, alias="PLAN_STARTER_SEATS")
+    plan_starter_pages: int = Field(default=200, alias="PLAN_STARTER_PAGES")
+    plan_starter_tokens: int = Field(default=100_000, alias="PLAN_STARTER_TOKENS")
+    plan_team_seats: int = Field(default=15, alias="PLAN_TEAM_SEATS")
+    plan_team_pages: int = Field(default=2_000, alias="PLAN_TEAM_PAGES")
+    plan_team_tokens: int = Field(default=1_000_000, alias="PLAN_TEAM_TOKENS")
+    plan_enterprise_seats: int = Field(default=100, alias="PLAN_ENTERPRISE_SEATS")
+    plan_enterprise_pages: int = Field(default=20_000, alias="PLAN_ENTERPRISE_PAGES")
+    plan_enterprise_tokens: int = Field(default=10_000_000, alias="PLAN_ENTERPRISE_TOKENS")
 
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]

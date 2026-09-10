@@ -38,11 +38,23 @@ WHERE org_id = :current_org
 
 `require_admin` — **admin текущей организации**, не оператор платформы. Platform-admin, который читает чужие корпуса, в M5 нет и по умолчанию не появится.
 
+## Планы, hostname, SSO (M6)
+
+Канон квот: [billing.md](billing.md). SSO: [auth.md](auth.md). ADR-013–015.
+
+- План и квоты — поля **этой** org. Смена плана в dev-simulate или Stripe не даёт читать другую org.
+- Если `Host` привязан к организации (slug-поддомен или verified custom domain), он должен совпасть с `org_id` сессии. Hostname **пинит** тенант, не заменяет `WHERE organization_id = :current_org`.
+- Куки сессии — host-only, без `Domain` на родительский суффикс платформы (иначе cookie Acme уедет на хост Globex).
+- SSO-коннектор принадлежит одной org. Assertion не выбирает тенант.
+- `all` по-прежнему только члены этой org, в том числе после SSO JIT.
+
+На кастомном/slug-хосте Acme `switch-organization` в Globex запрещён (нужен хост Globex).
+
 ## Сессия
 
 - Cookie `dw_access` / `dw_refresh` как в [ADR-007](decisions.md). В access-токене — `sub` (email/id) **и** `org_id` текущего членства.
 - `GET /auth/me` отдаёт текущую org и роль членства, не «глобальную» роль.
-- Смена org: только `POST /api/v1/auth/switch-organization` при существующем membership; новые куки. Поле `organization_id` / `org_id` в chat/search/upload **игнорируется** как источник прав (как `access_roles` сегодня).
+- Смена org: только `POST /api/v1/auth/switch-organization` при существующем membership; новые куки. На hostname, привязанном к другой org, смена запрещена. Поле `organization_id` / `org_id` в chat/search/upload **игнорируется** как источник прав (как `access_roles` сегодня).
 - Нет членства в org из токена → `401` / `403`, без списка чужих организаций в `detail`.
 
 ## Регистрация и инвайты
@@ -62,11 +74,14 @@ Self-serve:
 | --- | --- |
 | `GET /documents`, `/raw`, `/status` | `org_id` + пересечение `access_roles` |
 | chat / search / inspect | то же на `document_chunks` (`org_id` **и** ACL); чанки копируют `org_id` документа |
-| KB write (upload, delete, PATCH ACL, инвайты) | membership `admin` **текущей** org; строка всё равно с `org_id` сессии |
-| чат-сессии, аудит | `org_id`; история Acme не подмешивается в Globex |
+| KB write (upload, delete, PATCH ACL, инвайты) | membership `admin` **текущей** org; строка всё равно с `org_id` сессии; seats/pages квота M6 |
+| чат-сессии, аудит | `org_id`; история Acme не подмешивается в Globex; токены периода — квота этой org |
 | LLM cache | ключ включает `org_id` **и** канонический `allowed_roles` |
 | `file_hash` | unique `(org_id, file_hash)`, не глобально |
 | MinIO | ключ с префиксом org, без публичного URL |
+| биллинг / usage | только текущая org; `dev/simulate` чужой org → `404` |
+| SSO ACS | org из коннектора `{slug}`; JIT только в неё |
+| custom domain | verified hostname → одна org; несовпадение с сессией → отказ |
 
 Чужой тенант: `404` как у файла вне ACL. Не подтверждать, что у другой компании есть документ / совпал SHA-256.
 
@@ -78,7 +93,8 @@ Self-serve:
 - Клиентский `org_id` / `organization_id` как источник прав.
 - Org-admin override внутренней ACL (как и сейчас: admin без `hr` не видит HR-файл).
 - Подсказывать в ошибке `409`, что такой PDF уже есть у *другой* организации.
+- Считать план, Stripe customer id или SAML-атрибут `org` источником `organization_id`.
 
-## Вне M5 (позже)
+## Вне M6 (позже)
 
-SSO/SAML, биллинг, квоты страниц/токенов как продукт, custom domain, Postgres RLS как defense-in-depth, консоль оператора платформы. RLS не заменяет `org_id` в запросах приложения.
+Postgres RLS как defense-in-depth, консоль оператора платформы, SCIM. RLS не заменяет `org_id` в запросах приложения. Боевой эквайринг (live Stripe / ЮKassa) не критерий продукта, пока M6 закрыт на `dev`.

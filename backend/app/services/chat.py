@@ -36,6 +36,7 @@ from app.services.llm import (
     openai_is_configured,
     stream_openai,
 )
+from app.services.quotas import QUOTA_EXCEEDED, has_chat_token_quota
 from app.services.retrieval import NO_CONTEXT_ANSWER, RetrievedChunk, allowed_roles_for, retrieve
 from app.services.tenancy import resolve_principal
 from app.utils.redis_lock import get_redis_client
@@ -232,6 +233,11 @@ def iter_sse_events(
         user = resolve_principal(db, user_row, organization_id)
         if user is None:
             yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
+            yield _sse_done()
+            return
+
+        if not has_chat_token_quota(db, user.organization):
+            yield _sse({"type": "error", "content": QUOTA_EXCEEDED})
             yield _sse_done()
             return
 

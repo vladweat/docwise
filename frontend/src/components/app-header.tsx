@@ -7,17 +7,21 @@ import { LogOut } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import { canManageKnowledgeBase } from "@/lib/access-roles";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+const NAV: { href: string; label: string; match: (path: string) => boolean; adminOnly?: boolean }[] = [
   { href: "/", label: "Чат", match: (path: string) => path === "/" || path.startsWith("/chat") },
   { href: "/documents", label: "Документы", match: (path: string) => path.startsWith("/documents") },
+  { href: "/settings", label: "Настройки", match: (path: string) => path.startsWith("/settings"), adminOnly: true },
 ];
 
 export function AppHeader() {
   const { isAuthenticated, user, logout, switchOrganization } = useAuth();
   const pathname = usePathname();
   const orgs = user?.organizations ?? [];
+  const canManage = canManageKnowledgeBase(user);
+  const navItems = NAV.filter((item) => !item.adminOnly || canManage);
 
   return (
     <header className="shrink-0 border-b border-slate-800 bg-slate-950/80 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -28,7 +32,7 @@ export function AppHeader() {
           </Link>
           {isAuthenticated ? (
             <nav className="flex items-center gap-1">
-              {NAV.map((item) => {
+              {navItems.map((item) => {
                 const active = item.match(pathname);
                 return (
                   <Link

@@ -93,3 +93,30 @@
 - Чанки, документы, чат-сессии, аудит, ключ MinIO и ключ LLM-кэша несут `org_id`.
 - `require_admin` — admin **текущей** org. Оператора платформы с доступом к чужим корпусам нет.
 - Реализация — [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
+
+## ADR-013. Биллинг за портом; квоты в БД; default `dev`
+
+**ТЗ / «вне M5»:** Stripe, биллинг, квоты как продукт.  
+**Решение:** план, `billing_status` и квоты — колонки организации. Провайдер оплаты (`BILLING_PROVIDER=dev` \| `stripe`) только пишет эти поля. Хендлеры upload/chat/инвайтов читают Postgres, не API эквайринга.
+
+`dev` — дефолт Compose и не-`production`: org-admin меняет план без денег (бейдж Dev billing). Stripe test keys **не** заменяют `dev` (нужны аккаунт и сеть до `api.stripe.com`; с РФ это часто недоступно). Живой Stripe не критерий [M6](milestones.md#milestone-6--commercial-saas). Адаптер `stripe` в коде допустим; CI без сети. ЮKassa — отдельный провайдер тем же портом, не M6.
+
+Коды: квота → `402`; фича не в плане → `403`; антиабьюз → `429`. Свою квоту не маскировать под `404`. `POST /billing/dev/simulate` только текущая org + `require_admin`; иначе `404`.
+
+Канон: [billing.md](billing.md).
+
+## ADR-014. SSO: org из коннектора, не из assertion
+
+**Решение:** SAML 2.0 SP (OIDC IdP — тем же коннектором). Org определяется коннектором (`/auth/sso/{slug}/…`), не атрибутом assertion и не телом запроса. Успех ставит `dw_*` cookies (ADR-007); Bearer игнорируется.
+
+JIT создаёт membership **только этой** org. `sso_enforced`: пароль, Google и `switch-organization` без свежего SSO в эту org — отказ. Группы IdP → `role` / `departments` по таблице org-admin; не в `access_roles` документов и не вместо `org_id`.
+
+Compose: `SSO_PROVIDER=dev` (фикстурная assertion). Живой Okta/WorkOS не критерий M6. SCIM — вне скоупа.
+
+## ADR-015. Custom domain: host-only cookie, hostname пинит org
+
+**Решение:** `{slug}` уже на `organizations` (не ACL). Платформенный хост `{slug}.localhost` / `{slug}.docwise.app`; verified customer CNAME — опция Enterprise.
+
+Сессионные куки **host-only** (без `Domain` на родительский суффикс). Если `Host` привязан к org, он **должен** совпасть с `org_id` сессии. Hostname — дополнительный конъюнкт, не замена SQL `organization_id`. На хосте Acme нельзя переключить сессию в Globex.
+
+Неподтверждённый домен не биндится; один hostname — одна org. CORS/CSRF allowlist — из проверенного домена, не из тела. Compose: `/etc/hosts`, без Let's Encrypt в CI.

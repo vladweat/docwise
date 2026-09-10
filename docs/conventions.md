@@ -26,7 +26,7 @@ docwise/
 - Код, идентификаторы API, комментарии в коде: английский.
 - Пользовательские строки UI и отказы LLM: русский или английский — один язык интерфейса на инстанс (i18n не обязателен в v1).
 - Рабочие `docs/*`: русский. Портфолио-README в конце M4: английский.
-- Источник истины: [srs.md](srs.md) (продукт), [tenancy.md](tenancy.md) (организации), [decisions.md](decisions.md) (техника), [api.md](api.md) (HTTP).
+- Источник истины: [srs.md](srs.md) (продукт), [tenancy.md](tenancy.md) (организации), [billing.md](billing.md) (планы/квоты), [decisions.md](decisions.md) (техника), [api.md](api.md) (HTTP).
 
 ## Git и секреты
 

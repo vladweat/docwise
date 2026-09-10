@@ -10,7 +10,7 @@ alwaysApply: false
 - Pydantic v2 schemas for every request/response. No raw `dict` API contracts.
 - Auth via JWT/session on all `/api/v1/*` except health. Load current `org_id`, `role`, and `departments` from the DB/token (membership after M5), not from the body.
 - Alembic for every schema change. Do not create tables ad hoc in app startup for production paths.
-- Config through env/Pydantic settings (`DATABASE_URL`, `REDIS_URL`, `S3_*`, `OPENAI_API_KEY`). No secrets in code.
+- Config through env/Pydantic settings (`DATABASE_URL`, `REDIS_URL`, `S3_*`, `OPENAI_API_KEY`, `BILLING_PROVIDER`). No secrets in code. Default billing is `dev`; do not call Stripe when provider is `dev`.
 - Lint/format: ruff. Tests: pytest. Prefer services (`ingestion`, `retrieval`, `chat`) over fat routers.
 
 ```python

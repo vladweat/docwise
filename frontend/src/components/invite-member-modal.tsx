@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ACCESS_ROLE_OPTIONS } from "@/lib/access-roles";
 import { ApiRequestError, createOrganizationInvite } from "@/lib/api";
+import { userFacingApiMessage } from "@/lib/quota";
 import { useToastStore } from "@/stores/toast-store";
 
 const INVITE_ROLES = [
@@ -64,7 +65,10 @@ export function InviteMemberModal({
         pushToast("Инвайт создан. Передайте токен новому сотруднику.", "info");
       }
     } catch (err) {
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось пригласить";
+      const message =
+        err instanceof ApiRequestError
+          ? userFacingApiMessage(err.status, err.message)
+          : "Не удалось пригласить";
       setError(message);
     } finally {
       setSubmitting(false);

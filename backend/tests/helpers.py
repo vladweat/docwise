@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.principal import Principal
-from app.models.organization import Organization, OrganizationMembership, OrganizationStatus
+from app.models.organization import Organization, OrganizationMembership, OrganizationPlan, OrganizationStatus
 from app.models.user import User, UserRole
 
 WIPE_SQL = """
@@ -67,11 +67,19 @@ def set_membership(
     db.commit()
 
 
+def set_org_plan(db: Session, organization_id, plan: str) -> None:
+    org = db.get(Organization, organization_id)
+    assert org is not None
+    org.plan = plan
+    db.commit()
+
+
 def make_org(db: Session, name: str | None = None) -> Organization:
     org = Organization(
         name=name or f"Org {uuid4().hex[:8]}",
         slug=f"org-{uuid4().hex[:12]}",
         status=OrganizationStatus.active.value,
+        plan=OrganizationPlan.starter.value,
     )
     db.add(org)
     db.flush()

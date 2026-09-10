@@ -14,6 +14,7 @@ Must stay green without GPU, pgvector-heavy paths can use a small fixture table,
 - Port ChainWise `test_rag_engine.py` for `bm25_scores` and `reciprocal_rank_fusion` (`k=60`).
 - ACL: a user whose `allowed_roles` miss the chunk must not appear in fused/reranked lists.
 - After M5: two orgs, same `all` / `hr` tags — zero cross-tenant hits in list, raw, fused, reranked, prompt, or LLM cache.
+- After M6: `BILLING_PROVIDER=dev` — page quota `402` only for the capped org; SSO of org B never appears in org A retrieval; host/cookie of A does not open B’s `/raw`; `dev/simulate` for another org → `404`. No live Stripe or live IdP in default CI.
 
 Do not require `pragma_parser` / `risk_scorer` coverage from ChainWise. Lint: ruff in GitHub Actions (flake8 locally until the image has ruff).
 
