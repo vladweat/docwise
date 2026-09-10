@@ -2,14 +2,14 @@
 
 Связано: [security-rbac rule](../.cursor/rules/security-rbac.mdc), [tenancy.md](tenancy.md), [retrieval.md](retrieval.md), [data-model.md](data-model.md).
 
-Два слоя: **организация** (`org_id` сессии) и **роли/отделы** внутри неё. Роли не изолируют компании. До M5 слой организации в коде отсутствует (один неявный тенант).
+Два слоя: **организация** (`org_id` сессии) и **роли/отделы** внутри неё. Роли не изолируют компании.
 
 ## Сессия
 
 v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [decisions.md](decisions.md) ADR-007).
 
 - Login / register / Google отдают пользователя в JSON и ставят куки; `access_token` в теле нет.
-- После M5 в access-токене есть `org_id` текущего членства; `GET /auth/me` отдаёт org + роль membership. Смена org — `POST /auth/switch-organization` (только своё membership), новые куки.
+- В access-токене есть `org_id` текущего членства; `GET /auth/me` отдаёт org + роль membership. Смена org — `POST /auth/switch-organization` (только своё membership), новые куки.
 - `GET /health` и `GET /ready` без auth. Остальной `/api/v1/*` — `get_current_user` (только cookie).
 - CSRF: при cross-site cookies (`SameSite=None`) мутации требуют allowlisted `Origin` или `X-Requested-With: Docwise`.
 - Manage KB (upload, delete, смена `access_roles`, инвайты): только `require_admin` **текущей org**. Manager не загружает, не удаляет и не меняет ACL. Retrieval / list / status / raw **всё равно** фильтруются `org_id` + ACL документа, без admin-override и без чтения чужой org.
@@ -18,7 +18,7 @@ v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [dec
 
 ## Роли пользователя
 
-До M5 колонки живут на `users`. После — на `organization_memberships` (один человек — разные роли в разных org).
+До M5 колонки жили на `users`. Сейчас — на `organization_memberships` (один человек — разные роли в разных org).
 
 | Роль членства | Смысл |
 | --- | --- |
@@ -36,9 +36,9 @@ v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [dec
 allowed_roles = { membership.role } ∪ set(membership.departments) ∪ { "all" }
 ```
 
-До M5 то же с `users.role` / `users.departments` (один неявный тенант).
+До M5 то же собиралось с `users.role` / `users.departments` (один неявный тенант). Сейчас только membership текущей org.
 
-Фильтр (после M5 — оба конъюнкта; до M5 в коде только второй):
+Фильтр (оба конъюнкта):
 
 ```sql
 WHERE organization_id = :current_org

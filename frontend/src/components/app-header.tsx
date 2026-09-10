@@ -15,8 +15,9 @@ const NAV = [
 ];
 
 export function AppHeader() {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, switchOrganization } = useAuth();
   const pathname = usePathname();
+  const orgs = user?.organizations ?? [];
 
   return (
     <header className="shrink-0 border-b border-slate-800 bg-slate-950/80 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -46,10 +47,32 @@ export function AppHeader() {
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 text-sm">
+        <div className="flex min-w-0 shrink-0 items-center gap-2 text-sm">
           {isAuthenticated && user ? (
             <>
-              <span className="hidden max-w-[180px] truncate text-slate-400 md:inline">
+              {orgs.length > 1 ? (
+                <label className="hidden min-w-0 md:block">
+                  <span className="sr-only">Организация</span>
+                  <select
+                    className="max-w-[160px] truncate rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+                    value={user.organization_id}
+                    onChange={(event) => {
+                      void switchOrganization(event.target.value);
+                    }}
+                  >
+                    {orgs.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <span className="hidden max-w-[140px] truncate text-slate-300 md:inline">
+                  {user.organization_name}
+                </span>
+              )}
+              <span className="hidden max-w-[180px] truncate text-slate-400 lg:inline">
                 {user.email}
               </span>
               <Button type="button" variant="ghost" size="sm" onClick={logout} aria-label="Выйти">

@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { useAuth } from "@/components/auth-provider";
 import { DocumentUploadModal } from "@/components/document-upload-modal";
+import { InviteMemberModal } from "@/components/invite-member-modal";
 import { IngestionSteps } from "@/components/ingestion-steps";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,10 +34,11 @@ export function DocumentsPage() {
   const { user } = useAuth();
   const canManage = canManageKnowledgeBase(user);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<DocumentResponse | null>(null);
 
   const query = useQuery({
-    queryKey: ["documents", user?.id],
+    queryKey: ["documents", user?.id, user?.organization_id],
     queryFn: () => fetchDocuments(50, 0),
     enabled: Boolean(user),
     refetchInterval: (current) => {
@@ -53,13 +55,20 @@ export function DocumentsPage() {
             <div>
               <h2 className="text-xl font-semibold">База знаний</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Список только документов, которые пересекаются с вашими ролями. Чужие ACL сюда не попадают.
+                {user?.organization_name
+                  ? `Организация «${user.organization_name}». Список только документов, которые пересекаются с вашими ролями.`
+                  : "Список только документов, которые пересекаются с вашими ролями. Чужие ACL сюда не попадают."}
               </p>
             </div>
             {canManage ? (
-              <Button type="button" onClick={() => setUploadOpen(true)}>
-                Загрузить PDF
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={() => setInviteOpen(true)}>
+                  Пригласить
+                </Button>
+                <Button type="button" onClick={() => setUploadOpen(true)}>
+                  Загрузить PDF
+                </Button>
+              </div>
             ) : (
               <p className="text-xs text-slate-500">Загрузка и удаление — только admin.</p>
             )}
@@ -104,6 +113,7 @@ export function DocumentsPage() {
         </div>
       </main>
       <DocumentUploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
       <DeleteConfirmDialog document={pendingDelete} onClose={() => setPendingDelete(null)} />
     </AuthGate>
   );

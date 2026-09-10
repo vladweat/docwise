@@ -9,9 +9,9 @@
 | [M0 Скелет](#milestone-0--скелет-из-chainwise) | готово | 0.5–1 день |
 | [M1 PDF ingest](#milestone-1--pdf-ingest) | готово | 2–3 дня |
 | [M2 Retrieval + RBAC + SSE](#milestone-2--corpus-retrieval--rbac--sse) | готово | 3–4 дня |
-| [M3 Split-screen UI](#milestone-3--split-screen-ui) | открыто | 2–3 дня |
+| [M3 Split-screen UI](#milestone-3--split-screen-ui) | готово | 2–3 дня |
 | [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | готово | 1–2 дня |
-| [M5 Shared tenancy](#milestone-5--shared-tenancy-b2b-saas) | открыто | после v1 |
+| [M5 Shared tenancy](#milestone-5--shared-tenancy-b2b-saas) | готово | после v1 |
 
 ```mermaid
 flowchart LR
@@ -23,7 +23,7 @@ flowchart LR
   M4 --> M5[M5 shared tenancy]
 ```
 
-M3 и M4 после M2 можно вести параллельно, но клик по цитате и eval оба требуют живого retrieval. Shared SaaS ([M5](#milestone-5--shared-tenancy-b2b-saas)) — после приёмки v1 (M3+M4): оборачивает уже существующую внутреннюю ACL в `org_id`. Не открывать M5, пока retrieval не фильтрует `access_roles` (критерий M2). Не сажать двух клиентов на инстанс до закрытия M5.
+M3 и M4 после M2 можно вести параллельно, но клик по цитате и eval оба требуют живого retrieval. Shared SaaS ([M5](#milestone-5--shared-tenancy-b2b-saas)) оборачивает внутреннюю ACL в `org_id`.
 
 ---
 
@@ -196,10 +196,10 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Тесты / проверка M3
 
-- [ ] Ручной проход: вопрос → сноска → верная страница (браузер)
+- [x] Ручной проход: вопрос → сноска → верная страница (браузер)
 - [x] Employee не видит HR-файл в списке и не открывает `/raw`
 
-**Критерий вехи:** [ ] клик по цитате открывает нужную страницу
+**Критерий вехи:** [x] клик по цитате открывает нужную страницу
 
 ---
 
@@ -240,11 +240,11 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 Канонический список — [srs.md](srs.md) §6. Закрывать вместе с этим файлом.
 
-- [ ] Upload сложного PDF с таблицей → `ready`, чанки с одной `page_number`, таблица в Markdown
-- [ ] Вопрос находит верную страницу; клик в UI открывает её
-- [ ] Пользователь без роли не видит чанк в inspect, chat и `/raw`
-- [ ] Нехватка контекста → отказ «в документах нет информации», без выдуманных фактов
-- [ ] Повторный ingest того же `document_id` не плодит дубли в `document_chunks`
+- [x] Upload сложного PDF с таблицей → `ready`, чанки с одной `page_number`, таблица в Markdown
+- [x] Вопрос находит верную страницу; клик в UI открывает её
+- [x] Пользователь без роли не видит чанк в inspect, chat и `/raw`
+- [x] Нехватка контекста → отказ «в документах нет информации», без выдуманных фактов
+- [x] Повторный ingest того же `document_id` не плодит дубли в `document_chunks`
 - [x] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек
 - [x] CI: lint + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах
 
@@ -260,35 +260,35 @@ Shared SaaS — не часть приёмки v1; критерии M5.
 
 ### Данные
 
-- [ ] Таблицы `organizations`, `organization_memberships` (role + departments на членстве)
-- [ ] `organization_id` NOT NULL на `documents`, `document_chunks`, `chat_sessions`, `rag_audit_logs`
-- [ ] Unique `(organization_id, file_hash)` вместо глобального unique `file_hash`
-- [ ] Миграция существующих строк в одну bootstrap-org; `users.role` / `departments` переносятся на membership
-- [ ] Чанк копирует `organization_id` документа при ingest и при PATCH ACL (org не меняется)
+- [x] Таблицы `organizations`, `organization_memberships` (role + departments на членстве)
+- [x] `organization_id` NOT NULL на `documents`, `document_chunks`, `chat_sessions`, `rag_audit_logs`
+- [x] Unique `(organization_id, file_hash)` вместо глобального unique `file_hash`
+- [x] Миграция существующих строк в одну bootstrap-org; `users.role` / `departments` переносятся на membership
+- [x] Чанк копирует `organization_id` документа при ingest и при PATCH ACL (org не меняется)
 
 ### Auth и API
 
-- [ ] Register создаёт user + org + membership `admin` (`organization_name`)
-- [ ] Инвайты org-admin; существующий email получает membership, не вторую «глобальную» роль
-- [ ] Access-токен / сессия несут текущий `org_id`; `POST /auth/switch-organization` только для своего membership
-- [ ] `org_id` / `organization_id` в теле chat/search/upload игнорируются как источник прав
-- [ ] `require_admin` — admin текущей org; нет platform-admin с чтением чужих корпусов
-- [ ] MinIO-ключи с префиксом `orgs/{organization_id}/`
-- [ ] LLM cache: `llm_cache:{version}:{org_id}:{roles_hash}:{question_hash}`
+- [x] Register создаёт user + org + membership `admin` (`organization_name`)
+- [x] Инвайты org-admin; существующий email получает membership, не вторую «глобальную» роль
+- [x] Access-токен / сессия несут текущий `org_id`; `POST /auth/switch-organization` только для своего membership
+- [x] `org_id` / `organization_id` в теле chat/search/upload игнорируются как источник прав
+- [x] `require_admin` — admin текущей org; нет platform-admin с чтением чужих корпусов
+- [x] MinIO-ключи с префиксом `orgs/{organization_id}/`
+- [x] LLM cache: `llm_cache:{version}:{org_id}:{roles_hash}:{question_hash}`
 
 ### Retrieval
 
-- [ ] Каждый dense и sparse/FTS: `organization_id = :current_org AND access_roles && allowed_roles`
-- [ ] `all` = все члены этой org, не все залогиненные в SaaS
-- [ ] 409 дубля hash не подтверждает файл другой org; 404 на чужой raw неотличим от «нет файла»
+- [x] Каждый dense и sparse/FTS: `organization_id = :current_org AND access_roles && allowed_roles`
+- [x] `all` = все члены этой org, не все залогиненные в SaaS
+- [x] 409 дубля hash не подтверждает файл другой org; 404 на чужой raw неотличим от «нет файла»
 
 ### UI и тесты
 
-- [ ] Имя текущей org в шапке; инвайты для org-admin; не слать org id в теле чата
-- [ ] Pytest: два тенанта, одинаковые теги `all` / `hr` — ноль пересечений в list, raw, fused, reranked, промпте, кэше
-- [ ] Eval: `must_not_doc_ids` другой org — ноль утечек
+- [x] Имя текущей org в шапке; инвайты для org-admin; не слать org id в теле чата
+- [x] Pytest: два тенанта, одинаковые теги `all` / `hr` — ноль пересечений в list, raw, fused, reranked, промпте, кэше
+- [x] Eval: `must_not_doc_ids` другой org — ноль утечек
 
-**Критерий вехи:** [ ] кросс-орг утечек нет, включая `access_roles = ['all']`
+**Критерий вехи:** [x] кросс-орг утечек нет, включая `access_roles = ['all']`
 
 ---
 

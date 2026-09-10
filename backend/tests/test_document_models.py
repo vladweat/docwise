@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
+from helpers import make_org, wipe_app_tables
 
 MAIN_PY = Path(__file__).resolve().parents[1] / "app" / "main.py"
 
@@ -15,18 +16,15 @@ MAIN_PY = Path(__file__).resolve().parents[1] / "app" / "main.py"
 @pytest.fixture
 def db():
     session: Session = SessionLocal()
-    session.query(DocumentChunk).delete()
-    session.query(Document).delete()
-    session.commit()
+    wipe_app_tables(session)
     yield session
-    session.query(DocumentChunk).delete()
-    session.query(Document).delete()
-    session.commit()
+    wipe_app_tables(session)
     session.close()
 
 
-def _document(**overrides) -> Document:
+def _document(org, **overrides) -> Document:
     payload = {
+        "organization_id": org.id,
         "title": "Policy.pdf",
         "file_path": f"{uuid4()}/Policy.pdf",
         "file_hash": uuid4().hex,
@@ -45,12 +43,14 @@ def test_startup_uses_alembic_not_create_all():
 
 
 def test_document_and_chunk_roundtrip(db: Session):
-    doc = _document(total_pages=2)
+    org = make_org(db)
+    doc = _document(org, total_pages=2)
     db.add(doc)
     db.flush()
 
     chunk = DocumentChunk(
         document_id=doc.id,
+        organization_id=doc.organization_id,
         chunk_id=make_chunk_id(doc.id, 1, 0),
         page_number=1,
         section_title="Expenses",
@@ -83,30 +83,37 @@ def test_document_and_chunk_roundtrip(db: Session):
     assert saved.chunk_id == f"{doc.id}:1:0"
 
 
-def test_file_hash_is_unique(db: Session):
+def test_file_hash_is_unique_per_organization(db: Session):
+    org = make_org(db)
+    other = make_org(db)
     digest = "a" * 64
-    db.add(_document(file_hash=digest, file_path="a/one.pdf"))
+    db.add(_document(org, file_hash=digest, file_path="a/one.pdf"))
     db.commit()
-    db.add(_document(file_hash=digest, file_path="a/two.pdf"))
+    db.add(_document(org, file_hash=digest, file_path="a/two.pdf"))
     with pytest.raises(IntegrityError):
         db.commit()
     db.rollback()
+    db.add(_document(other, file_hash=digest, file_path="b/same.pdf"))
+    db.commit()
 
 
 def test_invalid_status_rejected(db: Session):
-    db.add(_document(status="indexing"))
+    org = make_org(db)
+    db.add(_document(org, status="indexing"))
     with pytest.raises(IntegrityError):
         db.commit()
     db.rollback()
 
 
 def test_delete_document_cascades_chunks(db: Session):
-    doc = _document()
+    org = make_org(db)
+    doc = _document(org)
     db.add(doc)
     db.flush()
     db.add(
         DocumentChunk(
             document_id=doc.id,
+            organization_id=doc.organization_id,
             chunk_id=make_chunk_id(doc.id, 1, 0),
             page_number=1,
             access_roles=["all"],
@@ -130,8 +137,10 @@ def test_required_indexes_exist(db: Session):
     ).mappings().all()
     by_name = {row["indexname"]: row["indexdef"].lower() for row in rows}
 
-    assert "ix_documents_file_hash" in by_name
-    assert "unique" in by_name["ix_documents_file_hash"]
+    assert "ix_documents_organization_id_file_hash" in by_name
+    assert "unique" in by_name["ix_documents_organization_id_file_hash"]
+    assert "ix_documents_organization_id" in by_name
+    assert "ix_document_chunks_organization_id" in by_name
     assert "ix_documents_status" in by_name
     assert "ix_documents_access_roles" in by_name
     assert "gin" in by_name["ix_documents_access_roles"]

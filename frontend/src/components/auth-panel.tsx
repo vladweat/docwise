@@ -17,6 +17,8 @@ export function AuthPanel() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [inviteToken, setInviteToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -27,7 +29,7 @@ export function AuthPanel() {
       if (mode === "login") {
         await login(email, password);
       } else {
-        await register(email, password);
+        await register(email, password, organizationName, inviteToken.trim() || undefined);
       }
       setPassword("");
     } catch {
@@ -87,6 +89,33 @@ export function AuthPanel() {
           />
         </div>
 
+        {mode === "register" ? (
+          <>
+            <div>
+              <Label htmlFor="organization">Организация</Label>
+              <Input
+                id="organization"
+                type="text"
+                required={!inviteToken.trim()}
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                placeholder="Acme"
+                disabled={Boolean(inviteToken.trim())}
+              />
+            </div>
+            <div>
+              <Label htmlFor="invite">Токен инвайта (если есть)</Label>
+              <Input
+                id="invite"
+                type="text"
+                value={inviteToken}
+                onChange={(e) => setInviteToken(e.target.value)}
+                placeholder="необязательно"
+              />
+            </div>
+          </>
+        ) : null}
+
         {error ? (
           <p className="rounded-lg bg-red-950/40 px-3 py-2 text-sm text-red-400">{error}</p>
         ) : null}
@@ -102,7 +131,7 @@ export function AuthPanel() {
         <Separator className="flex-1" />
       </div>
 
-      <GoogleSignInButton />
+      <GoogleSignInButton organizationName={mode === "register" ? organizationName : undefined} />
     </Panel>
   );
 }

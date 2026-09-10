@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.core.sentry import capture_pipeline_error
+from app.core.principal import Principal
 from app.models.chat import ChatMessage, ChatMessageRole, ChatSession, RagAuditLog
 from app.models.user import User
 from app.schemas.chat import (
@@ -36,6 +37,7 @@ from app.services.llm import (
     stream_openai,
 )
 from app.services.retrieval import NO_CONTEXT_ANSWER, RetrievedChunk, allowed_roles_for, retrieve
+from app.services.tenancy import resolve_principal
 from app.utils.redis_lock import get_redis_client
 
 logger = logging.getLogger(__name__)
@@ -83,10 +85,10 @@ def question_hash(question: str) -> str:
     return hashlib.sha256(f"{CACHE_VERSION}\n{question.strip()}".encode("utf-8")).hexdigest()
 
 
-def cache_key(question: str, allowed_roles: Sequence[str]) -> str:
+def cache_key(question: str, allowed_roles: Sequence[str], *, organization_id: UUID) -> str:
     roles = canonical_allowed_roles(allowed_roles)
     roles_hash = hashlib.sha256(",".join(roles).encode("utf-8")).hexdigest()[:16]
-    return f"llm_cache:{CACHE_VERSION}:{roles_hash}:{question_hash(question)}"
+    return f"llm_cache:{CACHE_VERSION}:{organization_id}:{roles_hash}:{question_hash(question)}"
 
 
 def citations_from_chunks(chunks: Sequence[RetrievedChunk]) -> list[Citation]:
@@ -116,10 +118,14 @@ def build_messages(
     return messages
 
 
-def get_owned_session(db: Session, user: User, session_id: UUID) -> ChatSession:
+def get_owned_session(db: Session, user: Principal, session_id: UUID) -> ChatSession:
     session = (
         db.query(ChatSession)
-        .filter(ChatSession.id == session_id, ChatSession.user_id == user.id)
+        .filter(
+            ChatSession.id == session_id,
+            ChatSession.user_id == user.id,
+            ChatSession.organization_id == user.organization_id,
+        )
         .first()
     )
     if session is None:
@@ -129,12 +135,15 @@ def get_owned_session(db: Session, user: User, session_id: UUID) -> ChatSession:
 
 def list_sessions(
     db: Session,
-    user: User,
+    user: Principal,
     *,
     limit: int = 20,
     offset: int = 0,
 ) -> ChatSessionListResponse:
-    query = db.query(ChatSession).filter(ChatSession.user_id == user.id)
+    query = db.query(ChatSession).filter(
+        ChatSession.user_id == user.id,
+        ChatSession.organization_id == user.organization_id,
+    )
     total = query.count()
     rows = (
         query.order_by(ChatSession.updated_at.desc(), ChatSession.created_at.desc())
@@ -150,7 +159,7 @@ def list_sessions(
     )
 
 
-def get_session_detail(db: Session, user: User, session_id: UUID) -> ChatSessionDetail:
+def get_session_detail(db: Session, user: Principal, session_id: UUID) -> ChatSessionDetail:
     session = get_owned_session(db, user, session_id)
     messages = (
         db.query(ChatMessage)
@@ -167,11 +176,15 @@ def get_session_detail(db: Session, user: User, session_id: UUID) -> ChatSession
     )
 
 
-def set_message_feedback(db: Session, user: User, message_id: UUID, rating: int) -> None:
+def set_message_feedback(db: Session, user: Principal, message_id: UUID, rating: int) -> None:
     message = (
         db.query(ChatMessage)
         .join(ChatSession, ChatSession.id == ChatMessage.session_id)
-        .filter(ChatMessage.id == message_id, ChatSession.user_id == user.id)
+        .filter(
+            ChatMessage.id == message_id,
+            ChatSession.user_id == user.id,
+            ChatSession.organization_id == user.organization_id,
+        )
         .first()
     )
     if message is None:
@@ -187,6 +200,7 @@ def set_message_feedback(db: Session, user: User, message_id: UUID, rating: int)
     )
     if log is None:
         log = RagAuditLog(
+            organization_id=user.organization_id,
             user_id=user.id,
             session_id=message.session_id,
             message_id=message.id,
@@ -203,14 +217,20 @@ def iter_sse_events(
     query: str,
     session_id: UUID | None,
     *,
+    organization_id: UUID,
     retriever=None,
     streamer=None,
 ) -> Iterator[str]:
     started = time.perf_counter()
     db = SessionLocal()
     try:
-        user = db.get(User, user_id)
-        if user is None or not user.is_active:
+        user_row = db.get(User, user_id)
+        if user_row is None or not user_row.is_active:
+            yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
+            yield _sse_done()
+            return
+        user = resolve_principal(db, user_row, organization_id)
+        if user is None:
             yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
             yield _sse_done()
             return
@@ -219,7 +239,7 @@ def iter_sse_events(
         allowed = canonical_allowed_roles(allowed_roles_for(user))
         history = _load_history(db, session.id) if session is not None else []
 
-        cached = load_cached_answer(query, allowed)
+        cached = load_cached_answer(query, allowed, organization_id=user.organization_id)
         if cached is not None:
             persist = _persist_turn(
                 db,
@@ -260,7 +280,7 @@ def iter_sse_events(
             )
             result.session_id = persist.session_id
             result.message_id = persist.message_id
-            save_cached_answer(query, allowed, result)
+            save_cached_answer(query, allowed, result, organization_id=user.organization_id)
             yield _sse({"type": "token", "content": result.answer})
             yield _sse(_meta_payload(result))
             yield _sse_done()
@@ -295,7 +315,7 @@ def iter_sse_events(
         )
         result.session_id = persist.session_id
         result.message_id = persist.message_id
-        save_cached_answer(query, allowed, result)
+        save_cached_answer(query, allowed, result, organization_id=user.organization_id)
         yield _sse(_meta_payload(result))
         yield _sse_done()
     except (OpenAINotConfiguredError, OpenAIRequestError, ChatError):
@@ -311,15 +331,26 @@ def iter_sse_events(
         db.close()
 
 
-def load_cached_answer(question: str, allowed_roles: Sequence[str]) -> ChatResult | None:
-    payload = _redis_get(cache_key(question, allowed_roles))
+def load_cached_answer(
+    question: str,
+    allowed_roles: Sequence[str],
+    *,
+    organization_id: UUID,
+) -> ChatResult | None:
+    payload = _redis_get(cache_key(question, allowed_roles, organization_id=organization_id))
     if payload is None:
         return None
     return _result_from_cache_payload(payload)
 
 
-def save_cached_answer(question: str, allowed_roles: Sequence[str], result: ChatResult) -> None:
-    _redis_set(cache_key(question, allowed_roles), _cache_payload(result))
+def save_cached_answer(
+    question: str,
+    allowed_roles: Sequence[str],
+    result: ChatResult,
+    *,
+    organization_id: UUID,
+) -> None:
+    _redis_set(cache_key(question, allowed_roles, organization_id=organization_id), _cache_payload(result))
 
 
 def _load_history(db: Session, session_id: UUID) -> list[ChatMessage]:
@@ -344,7 +375,7 @@ def _title_from_query(query: str) -> str:
 def _persist_turn(
     db: Session,
     *,
-    user: User,
+    user: Principal,
     session: ChatSession | None,
     query: str,
     result: ChatResult,
@@ -352,7 +383,11 @@ def _persist_turn(
 ) -> ChatResult:
     try:
         if session is None:
-            session = ChatSession(user_id=user.id, title=_title_from_query(query))
+            session = ChatSession(
+                organization_id=user.organization_id,
+                user_id=user.id,
+                title=_title_from_query(query),
+            )
             db.add(session)
             db.flush()
         elif not session.title:
@@ -380,6 +415,7 @@ def _persist_turn(
         db.flush()
         record_retrieval_audit(
             db,
+            organization_id=user.organization_id,
             user_id=user.id,
             session_id=session.id,
             message_id=assistant.id,

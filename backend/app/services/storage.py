@@ -31,9 +31,9 @@ def s3_endpoint_parts(url: str) -> tuple[str, bool]:
     return host, parsed.scheme == "https"
 
 
-def object_key_for_document(document_id: UUID, filename: str) -> str:
+def object_key_for_document(document_id: UUID, filename: str, *, organization_id: UUID) -> str:
     safe_name = Path(filename).name or "document.pdf"
-    return f"{document_id}/{safe_name}"
+    return f"orgs/{organization_id}/{document_id}/{safe_name}"
 
 
 def policy_allows_anonymous_read(policy_json: str) -> bool:

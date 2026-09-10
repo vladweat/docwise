@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.database import SessionLocal
 from app.main import app
-from app.models.chat import ChatMessage, ChatSession, RagAuditLog
+from app.models.chat import RagAuditLog
 from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDING_DIM, make_chunk_id
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 from app.services.audit import chunk_ids_for_audit
 from app.services.retrieval import (
     NO_CONTEXT_ANSWER,
@@ -23,6 +23,7 @@ from app.services.retrieval import (
     RetrievalResult,
     StageHit,
 )
+from helpers import register_payload, set_membership, wipe_app_tables
 
 client = TestClient(app)
 
@@ -48,39 +49,28 @@ def _vec(seed: int) -> list[float]:
 @pytest.fixture(autouse=True)
 def clean_tables():
     db: Session = SessionLocal()
-    db.query(RagAuditLog).delete()
-    db.query(ChatMessage).delete()
-    db.query(ChatSession).delete()
-    db.query(DocumentChunk).delete()
-    db.query(Document).delete()
-    db.query(User).delete()
-    db.commit()
+    wipe_app_tables(db)
     db.close()
     yield
     db = SessionLocal()
-    db.query(RagAuditLog).delete()
-    db.query(ChatMessage).delete()
-    db.query(ChatSession).delete()
-    db.query(DocumentChunk).delete()
-    db.query(Document).delete()
-    db.query(User).delete()
-    db.commit()
+    wipe_app_tables(db)
     db.close()
 
 
 def _register(*, role: str = UserRole.admin.value, departments: list[str] | None = None) -> TestClient:
     http = TestClient(app)
     email = f"inspect-{uuid4().hex[:8]}@example.com"
-    response = http.post("/api/v1/auth/register", json={"email": email, "password": "securepass123"})
+    response = http.post("/api/v1/auth/register", json=register_payload(email))
     assert response.status_code == 201
-    db = SessionLocal()
-    user = db.query(User).filter(User.email == email).first()
-    assert user is not None
-    user.role = role
-    user.departments = departments or []
-    db.commit()
-    db.close()
+    if role != UserRole.admin.value or departments:
+        db = SessionLocal()
+        set_membership(db, email, role=role, departments=departments or [])
+        db.close()
     return http
+
+
+def _org_id(http: TestClient) -> UUID:
+    return UUID(http.get("/api/v1/auth/me").json()["organization_id"])
 
 
 def _enable_inspect(monkeypatch, enabled: bool = True) -> None:
@@ -88,9 +78,10 @@ def _enable_inspect(monkeypatch, enabled: bool = True) -> None:
     get_settings.cache_clear()
 
 
-def _seed_corpus() -> tuple[UUID, UUID, list[float]]:
+def _seed_corpus(organization_id: UUID) -> tuple[UUID, UUID, list[float]]:
     db = SessionLocal()
     public = Document(
+        organization_id=organization_id,
         title=PUBLIC_TITLE,
         file_path=f"{uuid4()}/{PUBLIC_TITLE}",
         file_hash=uuid4().hex,
@@ -99,6 +90,7 @@ def _seed_corpus() -> tuple[UUID, UUID, list[float]]:
         status=DocumentStatus.ready.value,
     )
     secret = Document(
+        organization_id=organization_id,
         title=HR_TITLE,
         file_path=f"{uuid4()}/{HR_TITLE}",
         file_hash=uuid4().hex,
@@ -115,6 +107,7 @@ def _seed_corpus() -> tuple[UUID, UUID, list[float]]:
         [
             DocumentChunk(
                 document_id=public_id,
+                organization_id=organization_id,
                 chunk_id=make_chunk_id(public_id, 1, 0),
                 page_number=1,
                 access_roles=list(public.access_roles),
@@ -125,6 +118,7 @@ def _seed_corpus() -> tuple[UUID, UUID, list[float]]:
             ),
             DocumentChunk(
                 document_id=secret_id,
+                organization_id=organization_id,
                 chunk_id=make_chunk_id(secret_id, 9, 0),
                 page_number=9,
                 access_roles=list(secret.access_roles),
@@ -137,6 +131,7 @@ def _seed_corpus() -> tuple[UUID, UUID, list[float]]:
     )
     db.commit()
     db.close()
+    return public_id, secret_id, hr_vec
     return public_id, secret_id, hr_vec
 
 
@@ -318,7 +313,10 @@ def test_inspect_and_chat_do_not_confirm_hidden_document(monkeypatch):
     _enable_inspect(monkeypatch)
     monkeypatch.setenv("OPENAI_API_KEY", "")
     get_settings.cache_clear()
-    _public_id, secret_id, hr_vec = _seed_corpus()
+
+    admin = _register(role=UserRole.admin.value, departments=[])
+    employee = _register(role=UserRole.employee.value, departments=[])
+    _public_id, secret_id, hr_vec = _seed_corpus(_org_id(admin))
 
     def fake_embed(texts, embedder=None):
         _ = texts, embedder
@@ -327,8 +325,6 @@ def test_inspect_and_chat_do_not_confirm_hidden_document(monkeypatch):
     monkeypatch.setattr("app.services.retrieval.embed_texts", fake_embed)
     monkeypatch.setattr("app.services.retrieval._default_reranker", HrKeywordReranker)
 
-    admin = _register(role=UserRole.admin.value, departments=[])
-    employee = _register(role=UserRole.employee.value, departments=[])
     question = "board-level severance twenty-four monthly salaries"
 
     inspect_resp = admin.post(
@@ -384,11 +380,11 @@ def test_inspect_and_chat_do_not_confirm_hidden_document(monkeypatch):
 
 def test_inspect_hr_admin_sees_hr_chunk(monkeypatch):
     _enable_inspect(monkeypatch)
-    _public_id, secret_id, hr_vec = _seed_corpus()
+    admin = _register(role=UserRole.admin.value, departments=["hr"])
+    _public_id, secret_id, hr_vec = _seed_corpus(_org_id(admin))
     monkeypatch.setattr("app.services.retrieval.embed_texts", lambda texts, embedder=None: [hr_vec])
     monkeypatch.setattr("app.services.retrieval._default_reranker", HrKeywordReranker)
 
-    admin = _register(role=UserRole.admin.value, departments=["hr"])
     response = admin.post("/api/v1/search/inspect", json={"query": "severance salaries"})
     assert response.status_code == 200
     body = response.json()

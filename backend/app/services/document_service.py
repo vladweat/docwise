@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.celery_config import process_document_task
 from app.core.config import get_settings
+from app.core.principal import Principal
 from app.models.document import Document, DocumentChunk, DocumentStatus
-from app.models.user import User
 from app.schemas.document import (
     DocumentAccessUpdate,
     DocumentListResponse,
@@ -40,16 +40,32 @@ def enqueue_ingestion(document_id: UUID) -> None:
     process_document_task.delay(str(document_id))
 
 
-def acl_overlap(user: User):
+def acl_overlap(user: Principal):
     return Document.access_roles.overlap(cast(list(user.allowed_roles()), ARRAY(String)))
 
 
-def visible_documents_query(db: Session, user: User):
-    return db.query(Document).filter(acl_overlap(user))
+def visible_documents_query(db: Session, user: Principal):
+    return (
+        db.query(Document)
+        .filter(Document.organization_id == user.organization_id)
+        .filter(acl_overlap(user))
+    )
 
 
-def get_visible_document(db: Session, user: User, document_id: UUID) -> Document:
+def get_visible_document(db: Session, user: Principal, document_id: UUID) -> Document:
     document = visible_documents_query(db, user).filter(Document.id == document_id).first()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
+    return document
+
+
+def get_managed_document(db: Session, user: Principal, document_id: UUID) -> Document:
+    """KB write: current org only. Same 404 as missing / other tenant. Does not bypass inner ACL on read."""
+    document = (
+        db.query(Document)
+        .filter(Document.id == document_id, Document.organization_id == user.organization_id)
+        .first()
+    )
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
     return document
@@ -151,6 +167,7 @@ def _title_from_filename(filename: str) -> str:
 def create_document_from_upload(
     db: Session,
     *,
+    user: Principal,
     filename: str,
     content: bytes,
     content_type: str | None,
@@ -161,14 +178,19 @@ def create_document_from_upload(
     validate_pdf_upload(filename, content, content_type, settings.upload_max_bytes)
     access_roles = parse_access_roles(access_roles_raw)
     digest = hashlib.sha256(content).hexdigest()
+    org_id = user.organization_id
 
-    existing = db.query(Document.id).filter(Document.file_hash == digest).first()
+    existing = (
+        db.query(Document.id)
+        .filter(Document.organization_id == org_id, Document.file_hash == digest)
+        .first()
+    )
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=DUPLICATE_HASH_DETAIL)
 
     document_id = uuid4()
     title = _title_from_filename(filename)
-    key = object_key_for_document(document_id, filename)
+    key = object_key_for_document(document_id, filename, organization_id=org_id)
     storage = storage or get_object_storage()
 
     try:
@@ -182,6 +204,7 @@ def create_document_from_upload(
 
     document = Document(
         id=document_id,
+        organization_id=org_id,
         title=title,
         file_path=key,
         file_hash=digest,
@@ -198,7 +221,11 @@ def create_document_from_upload(
             storage.delete_object(key)
         except StorageError:
             logger.warning("MinIO cleanup failed after hash conflict key=%s", key)
-        duplicate = db.query(Document.id).filter(Document.file_hash == digest).first()
+        duplicate = (
+            db.query(Document.id)
+            .filter(Document.organization_id == org_id, Document.file_hash == digest)
+            .first()
+        )
         if duplicate is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=DUPLICATE_HASH_DETAIL)
         raise
@@ -230,7 +257,7 @@ def create_document_from_upload(
 
 def list_documents(
     db: Session,
-    user: User,
+    user: Principal,
     *,
     limit: int,
     offset: int,
@@ -254,7 +281,7 @@ def list_documents(
     )
 
 
-def document_status(db: Session, user: User, document_id: UUID) -> DocumentStatusResponse:
+def document_status(db: Session, user: Principal, document_id: UUID) -> DocumentStatusResponse:
     document = get_visible_document(db, user, document_id)
     return DocumentStatusResponse(
         id=document.id,
@@ -266,7 +293,7 @@ def document_status(db: Session, user: User, document_id: UUID) -> DocumentStatu
 
 def document_pdf_bytes(
     db: Session,
-    user: User,
+    user: Principal,
     document_id: UUID,
     storage: ObjectStorage | None = None,
 ) -> tuple[bytes, str]:
@@ -282,13 +309,12 @@ def document_pdf_bytes(
 
 def update_document_access_roles(
     db: Session,
+    user: Principal,
     document_id: UUID,
     payload: DocumentAccessUpdate,
 ) -> Document:
-    """Set document ACL and copy it onto every chunk. Does not re-embed."""
-    document = db.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
+    """Set document ACL and copy it onto every chunk. Does not re-embed. Org does not change."""
+    document = get_managed_document(db, user, document_id)
 
     roles = parse_access_roles(payload.access_roles)
     document.access_roles = list(roles)
@@ -305,12 +331,11 @@ def update_document_access_roles(
 
 def delete_document(
     db: Session,
+    user: Principal,
     document_id: UUID,
     storage: ObjectStorage | None = None,
 ) -> None:
-    document = db.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
+    document = get_managed_document(db, user, document_id)
 
     storage = storage or get_object_storage()
     key = document.file_path

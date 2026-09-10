@@ -7,7 +7,7 @@ import time
 
 from sqlalchemy.orm import Session
 
-from app.models.user import User
+from app.core.principal import Principal
 from app.schemas.search import InspectHit, SearchInspectResponse
 from app.services.audit import record_retrieval_audit
 from app.services.retrieval import StageHit, retrieve
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def inspect_search(
     db: Session,
-    user: User,
+    user: Principal,
     query: str,
     *,
     limit: int = 15,
@@ -35,6 +35,7 @@ def inspect_search(
     try:
         record_retrieval_audit(
             db,
+            organization_id=user.organization_id,
             user_id=user.id,
             query=query,
             retrieved_chunk_ids=[chunk.id for chunk in result.chunks],

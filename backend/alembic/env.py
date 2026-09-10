@@ -5,7 +5,17 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.core.database import Base
-from app.models import Document, DocumentChunk, User  # noqa: F401
+from app.models import (  # noqa: F401
+    ChatMessage,
+    ChatSession,
+    Document,
+    DocumentChunk,
+    Organization,
+    OrganizationInvite,
+    OrganizationMembership,
+    RagAuditLog,
+    User,
+)
 
 config = context.config
 if config.config_file_name is not None:

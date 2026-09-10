@@ -2,7 +2,7 @@
 
 Два слоя в одном Postgres: таблицы пользователей/организаций/файлов/чатов и индекс чанков с pgvector. Изоляция компаний — `org_id` ([tenancy.md](tenancy.md)). ACL чанка дублирует `documents.access_roles`; `org_id` чанка дублирует документ. Первичные ключи — **UUID** (`gen_random_uuid()` / SQLAlchemy `uuid4`). Роли и фильтр: [auth.md](auth.md).
 
-До M5 таблиц организаций нет: `users.role` / `users.departments` и глобальный unique `file_hash` — схема одного неявного тенанта. Ниже — **целевая** модель SaaS; миграция M5 переносит роли на membership и создаёт bootstrap-org для уже существующих строк.
+До M5 таблиц организаций не было. Ниже — модель SaaS; миграция `007` переносит роли на membership и создаёт bootstrap-org для уже существующих строк. Колонки `users.role` / `users.departments` удалены.
 
 ## PostgreSQL
 
@@ -23,11 +23,28 @@
 | `id` | UUID PK | |
 | `organization_id` | UUID FK → organizations | Каскад при удалении org (отдельная процедура, не случайный DELETE) |
 | `user_id` | UUID FK → users | |
-| `role` | `admin` \| `manager` \| `employee` | CHECK; **не** колонка `users` после M5 |
+| `role` | `admin` \| `manager` \| `employee` | CHECK; **не** колонка `users` |
 | `departments` | `ARRAY(String)` | Например `['engineering', 'hr']` |
 | `created_at` | DateTime | |
 
 Unique `(organization_id, user_id)`. `allowed_roles` для поиска = `{membership.role}` ∪ `membership.departments` ∪ `{all}` — только этой org.
+
+### `organization_invites`
+
+| Поле | Тип | Заметки |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `organization_id` | UUID FK | |
+| `email` | String | Нормализованный lower-case |
+| `role` | `admin` \| `manager` \| `employee` | Роль будущего membership |
+| `departments` | `ARRAY(String)` | |
+| `token_hash` | String unique | SHA-256 токена; сырой токен отдаётся org-admin один раз |
+| `invited_by_user_id` | UUID FK nullable | |
+| `expires_at` | DateTime | По умолчанию 14 дней |
+| `accepted_at` | DateTime nullable | |
+| `created_at` | DateTime | |
+
+Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Существующий пользователь при инвайте получает membership сразу, без токена.
 
 ### `users`
 
@@ -38,8 +55,6 @@ Unique `(organization_id, user_id)`. `allowed_roles` для поиска = `{mem
 | `hashed_password` | String nullable | Пусто у Google-only аккаунта |
 | `google_id` | String unique nullable | `sub` из ID token |
 | `is_active` | Boolean | |
-| `role` | `admin` \| `manager` \| `employee` | Только до M5. После — на membership; колонку убрать или оставить unused |
-| `departments` | `ARRAY(String)` | Только до M5; далее на membership |
 | `created_at` | DateTime | |
 
 Роли ChainWise — только `user`/`admin`. Здесь: `admin` | `manager` | `employee` плюс `departments[]` **на членстве в организации**.  
@@ -62,7 +77,7 @@ Unique `(organization_id, user_id)`. `allowed_roles` для поиска = `{mem
 | `ingestion_stage` | String nullable | `parse` \| `chunk` \| `embed`; для поллинга `GET .../status` |
 | `created_at`, `updated_at` | DateTime | |
 
-Индексы: unique `(organization_id, file_hash)` (до M5 — unique `file_hash`), `status`, `(organization_id)`, GIN по `access_roles`.
+Индексы: unique `(organization_id, file_hash)`, `status`, `(organization_id)`, GIN по `access_roles`.
 
 ### `chat_sessions`
 
@@ -128,7 +143,7 @@ Sparse/BM25: колонка `tsvector` / FTS или in-memory BM25 только 
 
 ## MinIO
 
-Bucket `documents` — приватный (без anonymous `s3:GetObject`). `documents.file_path` — ключ объекта. После M5 префикс `orgs/{organization_id}/…`. Байты отдаются только через API (`GET /documents/{id}/raw`). Публичные URL и вечные pre-signed ссылки запрещены.
+Bucket `documents` — приватный (без anonymous `s3:GetObject`). `documents.file_path` — ключ объекта. Префикс `orgs/{organization_id}/…`. Байты отдаются только через API (`GET /documents/{id}/raw`). Публичные URL и вечные pre-signed ссылки запрещены.
 
 ## Согласованность ACL
 

@@ -9,7 +9,7 @@ Canonical: `docs/auth.md` and `docs/tenancy.md`. A junior employee must never re
 
 ## Enforcement
 
-- Persist `organization_id` (M5) and `access_roles` on the `documents` row **and** on every `document_chunks` row.
+- Persist `organization_id` and `access_roles` on the `documents` row **and** on every `document_chunks` row.
 - On every search/chat/inspect request, filter with the session org **and** the membership `role` / `departments`:
 
 ```sql
@@ -17,9 +17,7 @@ WHERE organization_id = :current_org
   AND access_roles && ARRAY['employee', 'all']::text[]
 ```
 
-Until M5 only the `access_roles` conjunct exists (one implicit tenant). Do not deploy two customers on that schema.
-
-- Apply both conjuncts to **dense and sparse/FTS**. Do not fuse, rerank, or send to the LLM any row that failed.
+Apply both conjuncts to **dense and sparse/FTS**. Do not fuse, rerank, or send to the LLM any row that failed.
 - `GET /documents` and `GET /documents/{id}/raw` use the same rule. No file bytes without access. Foreign org → same `404` as missing ACL.
 - Never “explain why a document was omitted” if that would confirm a restricted or cross-tenant file exists.
 
@@ -28,13 +26,13 @@ Until M5 only the `access_roles` conjunct exists (one implicit tenant). Do not d
 - Filtering only in the prompt (“ignore chunks the user should not see”)
 - Client-supplied `access_roles` / `document_ids` / `org_id` / `organization_id` that bypass the token
 - Using department tags (`hr`, `all`) as tenant ids
-- LLM cache keyed only by roles (must include `org_id` after M5)
+- LLM cache keyed only by roles (must include `org_id`)
 - Logging full chunk text of restricted docs in audit trails visible to the same user
 - Admin-only debug payloads on production chat endpoints
-- Platform operator reading customer corpora (not in M5)
+- Platform operator reading customer corpora (not in product)
 
 ## Roles
 
-Membership (after M5; on `users` until then): `admin` | `manager` | `employee`, plus `departments[]` (e.g. `engineering`, `hr`).
+Membership: `admin` | `manager` | `employee`, plus `departments[]` (e.g. `engineering`, `hr`).
 Documents: `access_roles[]` (e.g. `admin`, `hr`, `all`) **inside** the org.
 Org-`admin` may manage that org’s KB; retrieval still respects document ACLs. No admin override. No cross-org read.

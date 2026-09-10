@@ -75,7 +75,7 @@ flowchart TB
 ## 4. Поток B — вопрос в чат
 
 1. Клиент шлёт `POST /api/v1/chat/stream` (cookie-сессия).
-2. Из сессии берутся `org_id`, роль и отделы членства. SQL: `org_id = :current_org AND access_roles && allowed_roles`. До M5 в коде есть только второй конъюнкт (один неявный тенант).
+2. Из сессии берутся `org_id`, роль и отделы членства. SQL: `org_id = :current_org AND access_roles && allowed_roles`.
 3. Dense Top-25 + BM25 Top-25 → RRF → Top-15 → cross-encoder → порог 0.25 → Top-4.
 4. Первым SSE-событием уходят цитаты, затем токены ответа, затем метрики.
 5. UI открывает PDF на странице сноски и подсвечивает фрагмент.
@@ -87,12 +87,12 @@ flowchart TB
 1. Org-admin при включённом `ENABLE_SEARCH_INSPECT` шлёт `POST /api/v1/search/inspect`.
 2. Тот же hybrid retrieval: `org_id` сессии + SQL ACL (роли из membership). Флаг выкл → `404`; не org-admin → `403`.
 3. Ответ: списки dense / sparse / rrf / reranked со скорами и превью. Чанки вне org или ACL отсутствуют.
-4. Строка в `rag_audit_logs` (UUID чанков после реранкера, без текста; M5 — с `organization_id`).
+4. Строка в `rag_audit_logs` (UUID чанков после реранкера, без текста; с `organization_id`).
 
 ## 6. Границы
 
 В скоупе продукта: PDF (приоритет), DOCX по возможности; роли и отделы **внутри** org; shared SaaS с `org_id` ([M5](milestones.md#milestone-5--shared-tenancy-b2b-saas)); английские/русские корпоративные документы.
 
-M0–M4: один неявный тенант + внутренняя ACL. Не класть двух клиентов на этот инстанс.
+Shared SaaS: много организаций на одном деплое. Изоляция — SQL `organization_id` плюс внутренняя ACL.
 
 Вне скоупа до отдельных вех: SSO/SAML, биллинг, консоль оператора платформы, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение собственных эмбеддингов. Не тащить из ChainWise: Slither, solc, Etherscan, XGBoost risk score, генератор PDF-отчётов.

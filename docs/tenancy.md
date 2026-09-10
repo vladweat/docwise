@@ -4,7 +4,7 @@
 
 Docwise — **shared B2B SaaS**: много организаций на одном деплое (общий Postgres, MinIO, Redis, LLM). On-prem / private cloud — тот же код с одной организацией, не отдельный продукт.
 
-Код M0–M4 живёт как **один неявный тенант**. Не сажать двух клиентов на один инстанс, пока не закрыт [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
+Код до M5 жил как **один неявный тенант**. После M5 на одном деплое много организаций; изоляция — SQL `organization_id`.
 
 ## Два слоя доступа
 
@@ -24,19 +24,19 @@ WHERE org_id = :current_org
 
 `current_org` берётся из сессии (cookie/JWT), **не** из тела запроса. Не фильтровать тенант «потом в промпте». Не использовать `access_roles = ['acme']` вместо `org_id`.
 
-Пока M5 не влит, в коде есть только слой 2. Слой 1 — обязательный инвариант целевого продукта.
+Пока M5 не был влит, в коде был только слой 2. Слой 1 обязателен на каждом list / search / chat.
 
 ## Организация и членство
 
 | Сущность | Смысл |
 | --- | --- |
-| `users` | Глобальный человек (email unique). Пароль / Google. Без `role` / `departments` после M5 |
+| `users` | Глобальный человек (email unique). Пароль / Google. Без `role` / `departments` |
 | `organizations` | Компания-клиент: имя, slug, статус |
 | `organization_memberships` | Связь user↔org: `role` (`admin` \| `manager` \| `employee`) и `departments[]` |
 
 Один пользователь может состоять в нескольких организациях (подрядчик, холдинг). Роль **своя в каждой**: admin в Acme и employee в Globex — норма.
 
-`require_admin` после M5 — **admin текущей организации**, не оператор платформы. Platform-admin, который читает чужие корпуса, в M5 нет и по умолчанию не появится.
+`require_admin` — **admin текущей организации**, не оператор платформы. Platform-admin, который читает чужие корпуса, в M5 нет и по умолчанию не появится.
 
 ## Сессия
 
@@ -52,7 +52,7 @@ Self-serve:
 1. `POST /auth/register` создаёт `users` + `organizations` + membership `admin`. Тело: email, password, `organization_name`.
 2. Org-admin приглашает: `POST /api/v1/organizations/invites` `{ email, role, departments }`.
 3. Существующий пользователь с этим email получает membership; новый — регистрируется по инвайту и входит в org, **не** создаёт вторую фирму по тому же инвайту.
-4. Открытый register без имени организации после M5 не делает «employee глобального инстанса».
+4. Открытый register без имени организации не делает «employee глобального инстанса».
 
 Первый пользователь пустой БД больше не «admin всей платформы»: он admin **своей** организации.
 

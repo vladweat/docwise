@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Citation(BaseModel):
@@ -13,6 +13,10 @@ class Citation(BaseModel):
 
 
 class ChatStreamRequest(BaseModel):
+    """`organization_id` / `access_roles` / `document_ids` in the body are ignored."""
+
+    model_config = ConfigDict(extra="ignore")
+
     query: str = Field(..., min_length=1, max_length=4000)
     session_id: UUID | None = None
 

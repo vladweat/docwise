@@ -1,4 +1,10 @@
-import type { LoginRequest, RegisterRequest, UserResponse } from "@/types/auth";
+import type {
+  InviteCreateResponse,
+  LoginRequest,
+  MemberListResponse,
+  RegisterRequest,
+  UserResponse,
+} from "@/types/auth";
 import type { ChatSessionDetail, ChatSessionListResponse, ChatStreamEvent } from "@/types/chat";
 import type { DocumentListResponse, DocumentResponse, DocumentStatusResponse } from "@/types/document";
 import type { HealthResponse } from "@/types/health";
@@ -107,10 +113,39 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function loginWithGoogle(idToken: string): Promise<UserResponse> {
+export async function loginWithGoogle(
+  idToken: string,
+  extras: { organization_name?: string; invite_token?: string } = {},
+): Promise<UserResponse> {
   return apiFetch<UserResponse>("/api/v1/auth/google", {
     method: "POST",
-    body: JSON.stringify({ id_token: idToken }),
+    body: JSON.stringify({
+      id_token: idToken,
+      organization_name: extras.organization_name,
+      invite_token: extras.invite_token,
+    }),
+  });
+}
+
+export async function switchOrganization(organizationId: string): Promise<UserResponse> {
+  return apiFetch<UserResponse>("/api/v1/auth/switch-organization", {
+    method: "POST",
+    body: JSON.stringify({ organization_id: organizationId }),
+  });
+}
+
+export async function fetchOrganizationMembers(): Promise<MemberListResponse> {
+  return apiFetch<MemberListResponse>("/api/v1/organizations/members");
+}
+
+export async function createOrganizationInvite(payload: {
+  email: string;
+  role: string;
+  departments: string[];
+}): Promise<InviteCreateResponse> {
+  return apiFetch<InviteCreateResponse>("/api/v1/organizations/invites", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

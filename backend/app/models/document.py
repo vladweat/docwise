@@ -44,12 +44,18 @@ class Document(Base):
             "ingestion_stage IS NULL OR ingestion_stage IN ('parse', 'chunk', 'embed')",
             name="ck_documents_ingestion_stage",
         ),
-        Index("ix_documents_file_hash", "file_hash", unique=True),
+        Index("ix_documents_organization_id_file_hash", "organization_id", "file_hash", unique=True),
+        Index("ix_documents_organization_id", "organization_id"),
         Index("ix_documents_status", "status"),
         Index("ix_documents_access_roles", "access_roles", postgresql_using="gin"),
     )
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -81,6 +87,7 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (
         Index("ix_document_chunks_document_id", "document_id"),
+        Index("ix_document_chunks_organization_id", "organization_id"),
         Index("ix_document_chunks_chunk_id", "chunk_id", unique=True),
         Index("ix_document_chunks_access_roles", "access_roles", postgresql_using="gin"),
         Index(
@@ -96,6 +103,11 @@ class DocumentChunk(Base):
     document_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    organization_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="RESTRICT"),
         nullable=False,
     )
     chunk_id: Mapped[str] = mapped_column(String(128), nullable=False)

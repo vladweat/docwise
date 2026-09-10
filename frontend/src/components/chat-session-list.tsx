@@ -29,7 +29,7 @@ export function ChatSessionList({
 
   const { user } = useAuth();
   const query = useQuery({
-    queryKey: ["chat-sessions", user?.id],
+    queryKey: ["chat-sessions", user?.id, user?.organization_id],
     queryFn: () => fetchChatSessions(50, 0),
     enabled: Boolean(user),
   });

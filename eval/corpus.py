@@ -20,11 +20,15 @@ EXPENSE_ID = UUID("aaaaaaaa-1111-4111-8111-000000000003")
 ENGINEERING_ID = UUID("aaaaaaaa-1111-4111-8111-000000000004")
 HR_COMP_ID = UUID("aaaaaaaa-1111-4111-8111-000000000005")
 FINANCE_ID = UUID("aaaaaaaa-1111-4111-8111-000000000006")
+FOREIGN_ORG_DOC_ID = UUID("bbbbbbbb-2222-4222-8222-000000000099")
 
 DEFAULT_EVAL_EMAIL = "eval-employee@docwise.example.com"
 DEFAULT_EVAL_PASSWORD = "eval-employee-pass"
 
 RESTRICTED_DOC_IDS = (str(HR_COMP_ID), str(FINANCE_ID))
+EVAL_ORG_SLUG = "eval"
+DEMO_ORG_SLUG = "demo"
+FOREIGN_ORG_SLUG = "eval-foreign"
 
 DEMO_ADMIN_EMAIL = "admin@docwise.example.com"
 DEMO_EMPLOYEE_EMAIL = "employee@docwise.example.com"
@@ -91,6 +95,21 @@ def build_pdf(spec: FixtureSpec) -> bytes:
     return builders[spec.builder]()
 
 
+def get_or_create_org(db, *, name: str, slug: str):
+    from app.models.organization import Organization, OrganizationStatus
+
+    org = db.query(Organization).filter(Organization.slug == slug).first()
+    if org is None:
+        org = Organization(name=name, slug=slug, status=OrganizationStatus.active.value)
+        db.add(org)
+        db.flush()
+        logger.info("created organization %s slug=%s", name, slug)
+    else:
+        org.name = name
+        org.status = OrganizationStatus.active.value
+    return org
+
+
 def upsert_user(
     db,
     *,
@@ -98,10 +117,12 @@ def upsert_user(
     password: str,
     role: str,
     departments: list[str] | tuple[str, ...],
+    organization,
     reset_password: bool = False,
 ):
-    """Create or update a local user. `reset_password` always writes a new hash."""
+    """Create or update a local user and membership in `organization`."""
     from app.core.security import hash_password
+    from app.models.organization import OrganizationMembership
     from app.models.user import User
 
     dept_list = list(departments)
@@ -110,23 +131,48 @@ def upsert_user(
         user = User(
             email=email,
             hashed_password=hash_password(password),
-            role=role,
-            departments=dept_list,
             is_active=True,
         )
         db.add(user)
-        logger.info("created user %s role=%s departments=%s", email, role, dept_list)
-        return user
-    user.role = role
-    user.departments = dept_list
-    user.is_active = True
-    if reset_password or not user.hashed_password:
-        user.hashed_password = hash_password(password)
-    logger.info("updated user %s role=%s departments=%s", email, role, dept_list)
-    return user
+        db.flush()
+        logger.info("created user %s", email)
+    else:
+        user.is_active = True
+        if reset_password or not user.hashed_password:
+            user.hashed_password = hash_password(password)
+        logger.info("updated user %s", email)
+
+    membership = (
+        db.query(OrganizationMembership)
+        .filter(
+            OrganizationMembership.user_id == user.id,
+            OrganizationMembership.organization_id == organization.id,
+        )
+        .first()
+    )
+    if membership is None:
+        membership = OrganizationMembership(
+            organization_id=organization.id,
+            user_id=user.id,
+            role=role,
+            departments=dept_list,
+        )
+        db.add(membership)
+        db.flush()
+    else:
+        membership.role = role
+        membership.departments = dept_list
+    logger.info(
+        "membership %s org=%s role=%s departments=%s",
+        email,
+        organization.slug,
+        role,
+        dept_list,
+    )
+    return user, membership
 
 
-def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec]) -> list[dict]:
+def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec], *, organization) -> list[dict]:
     from app.models.document import Document, DocumentStatus
     from app.services.ingestion import delete_chunks_for_document, index_pdf
     from app.services.storage import object_key_for_document
@@ -137,7 +183,11 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec])
         digest = hashlib.sha256(pdf_bytes).hexdigest()
         conflict = (
             db.query(Document)
-            .filter(Document.file_hash == digest, Document.id != spec.id)
+            .filter(
+                Document.organization_id == organization.id,
+                Document.file_hash == digest,
+                Document.id != spec.id,
+            )
             .first()
         )
         if conflict is not None:
@@ -145,12 +195,13 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec])
                 f"Fixture hash collides with existing document {conflict.id} ({conflict.title}). "
                 "Delete that row or skip seeding."
             )
-        key = object_key_for_document(spec.id, spec.filename)
+        key = object_key_for_document(spec.id, spec.filename, organization_id=organization.id)
         storage.put_bytes(key, pdf_bytes, content_type="application/pdf")
         document = db.get(Document, spec.id)
         if document is None:
             document = Document(
                 id=spec.id,
+                organization_id=organization.id,
                 title=spec.filename,
                 file_path=key,
                 file_hash=digest,
@@ -160,6 +211,7 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec])
             )
             db.add(document)
         else:
+            document.organization_id = organization.id
             document.title = spec.filename
             document.file_path = key
             document.file_hash = digest
@@ -208,19 +260,72 @@ def seed_corpus(*, email: str | None = None, password: str | None = None) -> dic
     storage = get_object_storage()
     storage.ensure_private_bucket()
     try:
+        organization = get_or_create_org(db, name="Eval", slug=EVAL_ORG_SLUG)
         upsert_user(
             db,
             email=eval_email,
             password=eval_password,
             role=UserRole.employee.value,
             departments=[],
+            organization=organization,
             reset_password=False,
         )
         db.commit()
-        indexed = index_specs(db, storage, CATALOG)
-        return {"eval_user_email": eval_email, "documents": indexed}
+        indexed = index_specs(db, storage, CATALOG, organization=organization)
+        foreign = _seed_foreign_org(db, storage)
+        return {
+            "eval_user_email": eval_email,
+            "organization_id": str(organization.id),
+            "documents": indexed,
+            "foreign_org_document_id": str(foreign),
+        }
     finally:
         db.close()
+
+
+def _seed_foreign_org(db, storage) -> UUID:
+    from app.models.document import Document, DocumentStatus
+    from app.services.ingestion import delete_chunks_for_document, index_pdf
+    from app.services.storage import object_key_for_document
+
+    organization = get_or_create_org(db, name="Eval Foreign", slug=FOREIGN_ORG_SLUG)
+    spec = CATALOG[0]
+    pdf_bytes = build_pdf(spec)
+    digest = hashlib.sha256(pdf_bytes).hexdigest()
+    key = object_key_for_document(FOREIGN_ORG_DOC_ID, "Foreign-Org-Handbook.pdf", organization_id=organization.id)
+    storage.put_bytes(key, pdf_bytes, content_type="application/pdf")
+    document = db.get(Document, FOREIGN_ORG_DOC_ID)
+    if document is None:
+        document = Document(
+            id=FOREIGN_ORG_DOC_ID,
+            organization_id=organization.id,
+            title="Foreign-Org-Handbook.pdf",
+            file_path=key,
+            file_hash=digest,
+            file_size_bytes=len(pdf_bytes),
+            access_roles=["all"],
+            status=DocumentStatus.processing.value,
+        )
+        db.add(document)
+    else:
+        document.organization_id = organization.id
+        document.title = "Foreign-Org-Handbook.pdf"
+        document.file_path = key
+        document.file_hash = digest
+        document.access_roles = ["all"]
+        document.status = DocumentStatus.processing.value
+        document.last_error = None
+    db.commit()
+    db.refresh(document)
+    delete_chunks_for_document(db, document.id)
+    result = index_pdf(db, document, pdf_bytes)
+    document.total_pages = result.total_pages
+    document.status = DocumentStatus.ready.value
+    document.last_error = None
+    document.ingestion_stage = "embed"
+    db.commit()
+    logger.info("seeded foreign-org document id=%s", document.id)
+    return document.id
 
 
 def seed_demo() -> dict:
@@ -232,26 +337,28 @@ def seed_demo() -> dict:
     storage = get_object_storage()
     storage.ensure_private_bucket()
     try:
+        organization = get_or_create_org(db, name="Demo", slug=DEMO_ORG_SLUG)
         users = []
         for account in DEMO_ACCOUNTS:
-            user = upsert_user(
+            user, membership = upsert_user(
                 db,
                 email=account.email,
                 password=account.password,
                 role=account.role,
                 departments=account.departments,
+                organization=organization,
                 reset_password=True,
             )
             users.append(
                 {
                     "email": user.email,
-                    "role": user.role,
-                    "departments": list(user.departments or []),
+                    "role": membership.role,
+                    "departments": list(membership.departments or []),
                 }
             )
         db.commit()
-        indexed = index_specs(db, storage, demo_specs())
-        return {"users": users, "documents": indexed}
+        indexed = index_specs(db, storage, demo_specs(), organization=organization)
+        return {"organization_id": str(organization.id), "users": users, "documents": indexed}
     finally:
         db.close()
 

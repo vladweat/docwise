@@ -28,7 +28,7 @@ Keep **sync** SQLAlchemy `Session` like ChainWise. Do not rewrite the backend to
 
 ## Must change on first port
 
-- Search is **corpus-wide** with SQL `organization_id` (M5) **and** `access_roles && allowed_roles` on every query. Never `SELECT` the full chunk table into RAM.
-- LLM cache key must include `org_id` (M5) and the caller’s allowed roles (or do not share cache across users or tenants).
+- Search is **corpus-wide** with SQL `organization_id` **and** `access_roles && allowed_roles` on every query. Never `SELECT` the full chunk table into RAM.
+- LLM cache key must include `org_id` and the caller’s allowed roles (or do not share cache across users or tenants).
 - Citations: `{doc_id, doc_title, page, snippet}` with UUID `doc_id` — not `file.sol:L10-20`.
 - Chunking: page/section bounds + meta header, not AST functions.

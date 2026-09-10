@@ -4,10 +4,9 @@ from fastapi.testclient import TestClient
 
 from app.core.auth_cookies import ACCESS_COOKIE, REFRESH_COOKIE
 from app.core.config import get_settings
-from app.core.database import SessionLocal
 from app.core.security import create_access_token
 from app.main import app
-from app.models.user import User
+from helpers import register_payload
 
 client = TestClient(app)
 
@@ -20,7 +19,7 @@ def test_register_sets_httponly_cookies():
     email = _unique_email()
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "securepass123"},
+        json=register_payload(email),
     )
     assert response.status_code == 201
     assert ACCESS_COOKIE in response.cookies
@@ -40,7 +39,7 @@ def test_logout_clears_cookies():
     email = _unique_email()
     client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "securepass123"},
+        json=register_payload(email),
     )
     assert client.get("/api/v1/auth/me").status_code == 200
     logout = client.post("/api/v1/auth/logout")
@@ -52,7 +51,7 @@ def test_refresh_rotates_cookies():
     email = _unique_email()
     client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "securepass123"},
+        json=register_payload(email),
     )
     first_refresh = client.cookies.get(REFRESH_COOKIE)
     rotated = client.post("/api/v1/auth/refresh")
@@ -67,7 +66,7 @@ def test_refresh_token_cannot_be_used_as_bearer():
     email = _unique_email()
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "securepass123"},
+        json=register_payload(email),
     )
     refresh = response.cookies.get(REFRESH_COOKIE)
     client.cookies.clear()
@@ -77,15 +76,16 @@ def test_refresh_token_cannot_be_used_as_bearer():
 
 def test_access_cookie_without_typ_claim():
     email = _unique_email()
-    client.post(
+    registered = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "securepass123"},
+        json=register_payload(email),
     )
-    db = SessionLocal()
-    user = db.query(User).filter(User.email == email).first()
-    role = user.role
-    db.close()
-    token = create_access_token(email, role=role)
+    assert registered.status_code == 201
+    token = create_access_token(
+        email,
+        role=registered.json()["role"],
+        org_id=registered.json()["organization_id"],
+    )
     client.cookies.clear()
     client.cookies.set(ACCESS_COOKIE, token)
     me = client.get("/api/v1/auth/me")
@@ -99,12 +99,12 @@ def test_csrf_required_when_samesite_none(monkeypatch):
     try:
         blocked = client.post(
             "/api/v1/auth/register",
-            json={"email": email, "password": "securepass123"},
+            json=register_payload(email),
         )
         assert blocked.status_code == 403
         allowed = client.post(
             "/api/v1/auth/register",
-            json={"email": email, "password": "securepass123"},
+            json=register_payload(email),
             headers={"X-Requested-With": "Docwise"},
         )
         assert allowed.status_code == 201

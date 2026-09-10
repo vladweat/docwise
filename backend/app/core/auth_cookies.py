@@ -31,11 +31,13 @@ def cookie_params() -> dict:
     }
 
 
-def create_refresh_token(subject: str, *, role: str) -> str:
+def create_refresh_token(subject: str, *, role: str, org_id: str | None = None) -> str:
     settings = get_settings()
     jti = uuid4().hex
     expire = datetime.now(UTC) + timedelta(minutes=settings.refresh_token_expire_minutes)
     payload = {"sub": subject, "role": role, "exp": expire, "typ": "refresh", "jti": jti}
+    if org_id:
+        payload["org_id"] = org_id
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
     ttl = settings.refresh_token_expire_minutes * 60
     try:

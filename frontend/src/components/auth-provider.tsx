@@ -19,6 +19,7 @@ import {
   loginWithGoogle,
   logout as apiLogout,
   register,
+  switchOrganization,
 } from "@/lib/api";
 import { clearLegacyAuth } from "@/lib/auth-storage";
 import { resetClientSessionState } from "@/lib/reset-client-state";
@@ -30,8 +31,9 @@ interface AuthContextValue {
   error: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
-  loginGoogle: (idToken: string) => Promise<void>;
+  register: (email: string, password: string, organizationName: string, inviteToken?: string) => Promise<void>;
+  loginGoogle: (idToken: string, extras?: { organization_name?: string }) => Promise<void>;
+  switchOrganization: (organizationId: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   clearError: () => void;
@@ -45,13 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const userIdRef = useRef<string | null>(null);
+  const orgIdRef = useRef<string | null>(null);
 
   const applyUser = useCallback(
     (next: UserResponse | null) => {
       const nextId = next?.id ?? null;
-      if (userIdRef.current !== nextId) {
+      const nextOrg = next?.organization_id ?? null;
+      if (userIdRef.current !== nextId || orgIdRef.current !== nextOrg) {
         resetClientSessionState(queryClient);
         userIdRef.current = nextId;
+        orgIdRef.current = nextOrg;
       }
       setUser(next);
     },
@@ -115,10 +120,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const handleRegister = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, organizationName: string, inviteToken?: string) => {
       setError(null);
       try {
-        const me = await register({ email, password });
+        const me = await register({
+          email,
+          password,
+          organization_name: inviteToken ? undefined : organizationName,
+          invite_token: inviteToken || undefined,
+        });
         applyUser(me);
       } catch (err) {
         const message = err instanceof ApiRequestError ? err.message : "Registration failed";
@@ -130,16 +140,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const handleGoogleLogin = useCallback(
-    async (idToken: string) => {
+    async (idToken: string, extras: { organization_name?: string } = {}) => {
       setError(null);
       try {
-        const me = await loginWithGoogle(idToken);
+        const me = await loginWithGoogle(idToken, extras);
         applyUser(me);
       } catch (err) {
         const message = err instanceof ApiRequestError ? err.message : "Google login failed";
         setError(message);
         throw err;
       }
+    },
+    [applyUser],
+  );
+
+  const handleSwitchOrganization = useCallback(
+    async (organizationId: string) => {
+      setError(null);
+      const me = await switchOrganization(organizationId);
+      applyUser(me);
     },
     [applyUser],
   );
@@ -159,11 +178,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: handleLogin,
       register: handleRegister,
       loginGoogle: handleGoogleLogin,
+      switchOrganization: handleSwitchOrganization,
       logout: handleLogout,
       refreshUser,
       clearError: () => setError(null),
     }),
-    [user, loading, error, handleLogin, handleRegister, handleGoogleLogin, handleLogout, refreshUser],
+    [user, loading, error, handleLogin, handleRegister, handleGoogleLogin, handleSwitchOrganization, handleLogout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

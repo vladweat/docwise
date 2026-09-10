@@ -64,5 +64,5 @@ Sparse BM25/FTS — в M2 (пока dense-кандидаты, затем in-memo
 - у каждого чанка одна `page_number`;
 - таблица сериализована в Markdown и `is_table=true`;
 - `access_roles` чанка равны ролям документа;
-- после M5 `organization_id` чанка равен документу;
+- `organization_id` чанка равен документу;
 - повторный `process_document` не плодит дубликаты в `document_chunks`.

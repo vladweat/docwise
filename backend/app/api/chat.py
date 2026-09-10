@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.deps import get_current_user, get_db
-from app.models.user import User
+from app.core.principal import Principal
 from app.schemas.chat import (
     ChatFeedbackRequest,
     ChatSessionDetail,
@@ -34,7 +34,7 @@ _SSE_HEADERS = {
 }
 
 
-def require_chat_limit(current_user: User = Depends(get_current_user)) -> User:
+def require_chat_limit(current_user: Principal = Depends(get_current_user)) -> Principal:
     enforce_rate_limit("chat", str(current_user.id), get_settings().rate_limit_chat_per_minute)
     return current_user
 
@@ -43,12 +43,17 @@ def require_chat_limit(current_user: User = Depends(get_current_user)) -> User:
 def chat_stream(
     body: ChatStreamRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_chat_limit),
+    current_user: Principal = Depends(require_chat_limit),
 ) -> StreamingResponse:
     if body.session_id is not None:
         get_owned_session(db, current_user, body.session_id)
     try:
-        events = iter_sse_events(current_user.id, body.query, body.session_id)
+        events = iter_sse_events(
+            current_user.id,
+            body.query,
+            body.session_id,
+            organization_id=current_user.organization_id,
+        )
         first = next(events)
     except StopIteration:
         raise HTTPException(
@@ -87,7 +92,7 @@ def chat_sessions(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Principal = Depends(get_current_user),
 ) -> ChatSessionListResponse:
     return list_sessions(db, current_user, limit=limit, offset=offset)
 
@@ -96,7 +101,7 @@ def chat_sessions(
 def chat_session_detail(
     session_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Principal = Depends(get_current_user),
 ) -> ChatSessionDetail:
     return get_session_detail(db, current_user, session_id)
 
@@ -105,6 +110,6 @@ def chat_session_detail(
 def chat_feedback(
     body: ChatFeedbackRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Principal = Depends(get_current_user),
 ) -> None:
     set_message_feedback(db, current_user, body.message_id, body.rating)
