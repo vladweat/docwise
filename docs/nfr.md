@@ -1,13 +1,13 @@
 # Нефункциональные требования
 
-Дополняет [srs.md](srs.md). Пороги v1 — локальный Docker Compose / один неявный тенант, не SLA облака. После M5 те же пороги на **организацию**; нулевые утечки между org обязательны (см. [tenancy.md](tenancy.md)).
+Дополняет [srs.md](srs.md). Пороги v1 — локальный Docker Compose / организация, не SLA облака. Нулевые утечки между org обязательны (см. [tenancy.md](tenancy.md)).
 
 ## Безопасность
 
 - Auth обязателен на всём `/api/v1/*` кроме login/register/google. `/health` и `/ready` публичны.
 - Сессия только в httpOnly cookies; Bearer не принимается. CSRF-заголовок/Origin при `SameSite=None`.
-- RBAC enforcement: SQL-фильтр `organization_id` (M5) **и** `access_roles && allowed_roles` на pgvector/FTS **до** LLM. Промпт не является механизмом ACL и не изолирует компании.
-- Один и тот же ACL на list / status / raw / search / inspect / chat; после M5 — ещё и тот же `org_id`.
+- RBAC enforcement: SQL-фильтр `organization_id` **и** `access_roles && allowed_roles` на pgvector/FTS **до** LLM. Промпт не является механизмом ACL и не изолирует компании.
+- Один и тот же ACL на list / status / raw / search / inspect / chat, плюс тот же `org_id`.
 - Не подтверждать существование чужого файла («документ X скрыт»), в том числе файла другой организации.
 - LLM cache key включает `org_id` (M5) и `allowed_roles` вызывающего (иначе кэш — дыра ACL или кросс-тенант).
 - Секреты только в env. Не коммитить `.env`, ключи, дампы NDA.
@@ -43,10 +43,10 @@
 
 - Faithfulness: ответ только из Top-4. Иначе фиксированная фраза отказа.
 - Каждая фактическая клауза — цитата `{doc_id, page}`.
-- Eval: [evaluation.md](evaluation.md). Релиз: Faithfulness ≥ 0.8 и **ноль** ACL-утечек на `must_not_doc_ids`. Первый прогон 2026-09-10: Faithfulness 1.000, Context Precision 0.976, Answer Relevance 0.789, page hit 0.929, ACL PASS. После M5 — ноль утечек `must_not` документов **другой** org, даже с тегом `all`.
+- Eval: [evaluation.md](evaluation.md). Релиз: Faithfulness ≥ 0.8 и **ноль** ACL-утечек на `must_not_doc_ids`. Первый прогон 2026-09-10: Faithfulness 1.000, Context Precision 0.976, Answer Relevance 0.789, page hit 0.929, ACL PASS. Ноль утечек `must_not` документов **другой** org, даже с тегом `all`.
 
 ## Совместимость и i18n
 
 - Документы: EN/RU корпоративный текст.
-- Пользовательские строки UI и отказы LLM: русский или английский — один язык интерфейса на организацию после M5 (до M5 — на инстанс). i18n-фреймворк не обязателен.
+- Пользовательские строки UI и отказы LLM: русский или английский — один язык интерфейса на организацию. i18n-фреймворк не обязателен.
 - Идентификаторы API и код — английский.

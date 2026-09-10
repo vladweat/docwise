@@ -17,6 +17,7 @@ from app.services.ingestion import (
     run_ingestion,
 )
 from app.services.storage import StorageError
+from helpers import make_org, wipe_app_tables
 from pdf_fixtures import blank_pdf_bytes, policy_pdf_bytes
 
 MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
@@ -41,13 +42,9 @@ class FakeStorage:
 @pytest.fixture
 def db():
     session: Session = SessionLocal()
-    session.query(DocumentChunk).delete()
-    session.query(Document).delete()
-    session.commit()
+    wipe_app_tables(session)
     yield session
-    session.query(DocumentChunk).delete()
-    session.query(Document).delete()
-    session.commit()
+    wipe_app_tables(session)
     session.close()
 
 
@@ -91,11 +88,13 @@ def locks(monkeypatch):
 
 
 def _seed(db: Session, storage: FakeStorage, *, pdf: bytes = MIN_PDF, chunks: int = 0) -> Document:
+    org = make_org(db)
     document_id = uuid4()
-    key = f"{document_id}/Policy.pdf"
+    key = f"orgs/{org.id}/{document_id}/Policy.pdf"
     storage.objects[key] = pdf
     document = Document(
         id=document_id,
+        organization_id=org.id,
         title="Policy.pdf",
         file_path=key,
         file_hash=uuid4().hex + uuid4().hex[:32],
@@ -109,6 +108,7 @@ def _seed(db: Session, storage: FakeStorage, *, pdf: bytes = MIN_PDF, chunks: in
         db.add(
             DocumentChunk(
                 document_id=document.id,
+                organization_id=document.organization_id,
                 chunk_id=make_chunk_id(document.id, 1, ordinal),
                 page_number=1,
                 access_roles=list(document.access_roles),
@@ -127,6 +127,7 @@ def _index_chunk(content: str, pages: int = 2):
         db.add(
             DocumentChunk(
                 document_id=document.id,
+                organization_id=document.organization_id,
                 chunk_id=make_chunk_id(document.id, 1, 0),
                 page_number=1,
                 access_roles=list(document.access_roles),
@@ -263,6 +264,7 @@ def test_index_failure_sets_last_error_and_deletes_chunks(db: Session, storage: 
         session.add(
             DocumentChunk(
                 document_id=doc.id,
+                organization_id=doc.organization_id,
                 chunk_id=make_chunk_id(doc.id, 9, 0),
                 page_number=9,
                 access_roles=list(doc.access_roles),

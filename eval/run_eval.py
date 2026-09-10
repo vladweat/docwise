@@ -25,7 +25,7 @@ elif Path("/app/app").is_dir():
 sys.path.insert(0, str(EVAL_DIR))
 
 from acl import leaked_doc_ids
-from corpus import CATALOG_BY_ID, DEFAULT_EVAL_EMAIL, seed_corpus
+from corpus import CATALOG_BY_ID, DEFAULT_EVAL_EMAIL, FOREIGN_ORG_DOC_ID, seed_corpus
 from dataset import GoldenCase, load_golden_dataset
 from metrics import RagasScores, score_case
 
@@ -34,6 +34,7 @@ from app.models.user import User
 from app.services.chat import build_messages
 from app.services.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai
 from app.services.retrieval import NO_CONTEXT_ANSWER, retrieve
+from app.services.tenancy import resolve_principal
 
 logger = logging.getLogger("eval")
 
@@ -133,9 +134,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.email == email).first()
-        if user is None or not user.is_active:
+        user_row = db.query(User).filter(User.email == email).first()
+        if user_row is None or not user_row.is_active:
             logger.error("Eval user %s is missing; run with --seed", email)
+            return 2
+        user = resolve_principal(db, user_row, None)
+        if user is None:
+            logger.error("Eval user %s has no organization membership; run with --seed", email)
             return 2
         allowed = set(user.allowed_roles())
         if "hr" in allowed or "finance" in allowed:
@@ -173,7 +178,7 @@ def _run_case(db, user: User, case: GoldenCase, *, retrieval_only: bool) -> Case
     chunks = list(retrieval.chunks)
     retrieved_doc_ids = [str(chunk.document_id) for chunk in chunks]
     retrieved_pages = [chunk.page_number for chunk in chunks]
-    leaks = leaked_doc_ids(retrieved_doc_ids, list(case.must_not_doc_ids))
+    leaks = leaked_doc_ids(retrieved_doc_ids, list(case.must_not_doc_ids) + [str(FOREIGN_ORG_DOC_ID)])
     target = str(case.target_doc_id)
     target_doc_hit = target in retrieved_doc_ids
     target_page_hit: bool | None

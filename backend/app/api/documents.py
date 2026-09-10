@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.deps import get_current_user, get_db, require_admin
+from app.core.principal import Principal
 from app.models.document import DocumentStatus
-from app.models.user import User
 from app.schemas.document import (
     DocumentAccessUpdate,
     DocumentListResponse,
@@ -33,7 +33,7 @@ def get_storage() -> ObjectStorage:
     return get_object_storage()
 
 
-def require_upload_admin(current_user: User = Depends(require_admin)) -> User:
+def require_upload_admin(current_user: Principal = Depends(require_admin)) -> Principal:
     enforce_rate_limit("upload", str(current_user.id), get_settings().rate_limit_upload_per_minute)
     return current_user
 
@@ -49,13 +49,13 @@ async def upload_document(
     file: Annotated[UploadFile, File()],
     access_roles: list[str] = Form(default_factory=list),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_upload_admin),
+    current_user: Principal = Depends(require_upload_admin),
     storage: ObjectStorage = Depends(get_storage),
 ) -> DocumentResponse:
-    _ = current_user
     content = await file.read()
     document = create_document_from_upload(
         db,
+        user=current_user,
         filename=file.filename or "document.pdf",
         content=content,
         content_type=file.content_type,
@@ -75,7 +75,7 @@ def list_documents_endpoint(
     offset: Annotated[int, Query(ge=0)] = 0,
     status_filter: Annotated[DocumentStatus | None, Query(alias="status")] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Principal = Depends(get_current_user),
 ) -> DocumentListResponse:
     return list_documents(
         db,
@@ -95,7 +95,7 @@ def list_documents_endpoint(
 def get_document_status(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Principal = Depends(get_current_user),
 ) -> DocumentStatusResponse:
     return document_status(db, current_user, document_id)
 
@@ -111,7 +111,7 @@ def get_document_status(
 def get_document_raw(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Principal = Depends(get_current_user),
     storage: ObjectStorage = Depends(get_storage),
 ) -> Response:
     data, title = document_pdf_bytes(db, current_user, document_id, storage=storage)
@@ -137,10 +137,9 @@ def patch_document_access(
     document_id: UUID,
     payload: DocumentAccessUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: Principal = Depends(require_admin),
 ) -> DocumentResponse:
-    _ = current_user
-    return update_document_access_roles(db, document_id, payload)
+    return update_document_access_roles(db, current_user, document_id, payload)
 
 
 @router.delete(
@@ -152,8 +151,7 @@ def patch_document_access(
 def delete_document_endpoint(
     document_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: Principal = Depends(require_admin),
     storage: ObjectStorage = Depends(get_storage),
 ) -> None:
-    _ = current_user
-    delete_document(db, document_id, storage=storage)
+    delete_document(db, current_user, document_id, storage=storage)

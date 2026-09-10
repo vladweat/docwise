@@ -31,7 +31,7 @@ declare global {
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
-export function GoogleSignInButton() {
+export function GoogleSignInButton({ organizationName }: { organizationName?: string }) {
   const { loginGoogle, clearError } = useAuth();
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -57,7 +57,9 @@ export function GoogleSignInButton() {
         callback: async (response) => {
           clearError();
           try {
-            await loginGoogle(response.credential);
+            await loginGoogle(response.credential, {
+              organization_name: organizationName?.trim() || undefined,
+            });
           } catch {
             // error handled in AuthProvider
           }
@@ -92,7 +94,7 @@ export function GoogleSignInButton() {
     script.addEventListener("load", render);
     document.head.appendChild(script);
     return () => script.removeEventListener("load", render);
-  }, [clearError, loginGoogle, width]);
+  }, [clearError, loginGoogle, organizationName, width]);
 
   if (!GOOGLE_CLIENT_ID) return null;
 

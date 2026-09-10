@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDING_DIM, make_chunk_id
-from app.models.user import User, UserRole
 from app.services.embeddings import VECTOR_SIZE
 from app.services.retrieval import (
     DENSE_CANDIDATE_LIMIT,
@@ -24,6 +23,7 @@ from app.services.retrieval import (
     retrieve,
 )
 from app.services.reranker import MODEL_NAME as RERANKER_MODEL, FastEmbedReranker, _sigmoid
+from helpers import make_org, make_principal, wipe_app_tables
 
 
 class FakeEmbedder:
@@ -64,19 +64,9 @@ def _vec(seed: int) -> list[float]:
     return [((seed + offset) % 17) / 17.0 for offset in range(EMBEDDING_DIM)]
 
 
-def _user(**overrides) -> User:
+def _document(org, **overrides) -> Document:
     payload = {
-        "email": f"ret-{uuid4().hex[:10]}@example.com",
-        "hashed_password": "hashed",
-        "role": UserRole.employee.value,
-        "departments": [],
-    }
-    payload.update(overrides)
-    return User(**payload)
-
-
-def _document(**overrides) -> Document:
-    payload = {
+        "organization_id": org.id,
         "title": "Handbook.pdf",
         "file_path": f"{uuid4()}/Handbook.pdf",
         "file_hash": uuid4().hex,
@@ -91,6 +81,7 @@ def _document(**overrides) -> Document:
 def _chunk(document: Document, *, page: int, content: str, embedding: list[float], ordinal: int = 0) -> DocumentChunk:
     return DocumentChunk(
         document_id=document.id,
+        organization_id=document.organization_id,
         chunk_id=make_chunk_id(document.id, page, ordinal),
         page_number=page,
         access_roles=list(document.access_roles),
@@ -104,20 +95,15 @@ def _chunk(document: Document, *, page: int, content: str, embedding: list[float
 @pytest.fixture
 def db():
     session: Session = SessionLocal()
-    session.query(DocumentChunk).delete()
-    session.query(Document).delete()
-    session.query(User).delete()
-    session.commit()
+    wipe_app_tables(session)
     yield session
-    session.query(DocumentChunk).delete()
-    session.query(Document).delete()
-    session.query(User).delete()
-    session.commit()
+    wipe_app_tables(session)
     session.close()
 
 
-def test_allowed_roles_is_role_union_departments_and_all():
-    user = _user(role="employee", departments=["hr", "engineering"])
+def test_allowed_roles_is_role_union_departments_and_all(db: Session):
+    org = make_org(db)
+    user = make_principal(db, org, role="employee", departments=["hr", "engineering"])
     roles = allowed_roles_for(user)
     assert set(roles) == {"employee", "hr", "engineering", "all"}
     assert "allowed_roles" not in inspect.signature(retrieve).parameters
@@ -139,8 +125,9 @@ def test_reranker_model_and_sigmoid_unit_interval():
 
 
 def test_dense_search_applies_sql_acl(db: Session):
-    public = _document(title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
-    secret = _document(title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
+    org = make_org(db)
+    public = _document(org, title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
+    secret = _document(org, title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
     db.add_all([public, secret])
     db.flush()
     public_vec = _vec(1)
@@ -153,26 +140,33 @@ def test_dense_search_applies_sql_acl(db: Session):
     )
     db.commit()
 
-    employee = _user(role="employee", departments=[])
-    hits = dense_search(db, hr_vec, allowed_roles_for(employee), limit=DENSE_CANDIDATE_LIMIT)
+    employee = make_principal(db, org, role="employee")
+    hits = dense_search(
+        db,
+        hr_vec,
+        allowed_roles_for(employee),
+        organization_id=org.id,
+        limit=DENSE_CANDIDATE_LIMIT,
+    )
     titles = {chunk.doc_title for chunk, _dist in hits}
     assert "HR.pdf" not in titles
     assert titles == {"Public.pdf"}
 
 
 def test_dense_search_skips_non_ready_documents(db: Session):
-    pending = _document(status=DocumentStatus.processing.value, access_roles=["all"])
+    org = make_org(db)
+    pending = _document(org, status=DocumentStatus.processing.value, access_roles=["all"])
     db.add(pending)
     db.flush()
     db.add(_chunk(pending, page=1, content="Draft policy text.", embedding=_vec(1)))
     db.commit()
-    hits = dense_search(db, _vec(1), ["all", "employee"], limit=10)
+    hits = dense_search(db, _vec(1), ["all", "employee"], organization_id=org.id, limit=10)
     assert hits == []
 
 
 def test_blank_query_refuses_without_embedding(db: Session):
-    user = _user()
-    db.add(user)
+    org = make_org(db)
+    user = make_principal(db, org)
     db.commit()
     embedder = FakeEmbedder(_vec(1))
     result = retrieve(db, user, "   ", embedder=embedder, reranker=FakeReranker(0.9))
@@ -182,9 +176,10 @@ def test_blank_query_refuses_without_embedding(db: Session):
 
 
 def test_employee_never_sees_hr_chunk_in_fused_or_reranked(db: Session):
-    public = _document(title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
-    hr_doc = _document(title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
-    admin_doc = _document(title="Board.pdf", access_roles=["admin"], file_hash=uuid4().hex)
+    org = make_org(db)
+    public = _document(org, title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
+    hr_doc = _document(org, title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
+    admin_doc = _document(org, title="Board.pdf", access_roles=["admin"], file_hash=uuid4().hex)
     db.add_all([public, hr_doc, admin_doc])
     db.flush()
     hr_vec = _vec(3)
@@ -195,10 +190,7 @@ def test_employee_never_sees_hr_chunk_in_fused_or_reranked(db: Session):
             _chunk(admin_doc, page=2, content="Board compensation is confidential.", embedding=_vec(7)),
         ]
     )
-    db.commit()
-
-    employee = _user(role="employee", departments=[])
-    db.add(employee)
+    employee = make_principal(db, org, role="employee")
     db.commit()
 
     result = retrieve(
@@ -222,8 +214,9 @@ def test_employee_never_sees_hr_chunk_in_fused_or_reranked(db: Session):
 
 
 def test_hr_department_user_sees_hr_chunk(db: Session):
-    public = _document(title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
-    hr_doc = _document(title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
+    org = make_org(db)
+    public = _document(org, title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
+    hr_doc = _document(org, title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
     db.add_all([public, hr_doc])
     db.flush()
     hr_vec = _vec(4)
@@ -233,8 +226,7 @@ def test_hr_department_user_sees_hr_chunk(db: Session):
             _chunk(hr_doc, page=4, content="Severance is three monthly salaries.", embedding=hr_vec),
         ]
     )
-    hr_user = _user(role="employee", departments=["hr"])
-    db.add(hr_user)
+    hr_user = make_principal(db, org, role="employee", departments=["hr"])
     db.commit()
 
     result = retrieve(
@@ -250,12 +242,12 @@ def test_hr_department_user_sees_hr_chunk(db: Session):
 
 
 def test_empty_after_rerank_threshold_refuses_without_llm(db: Session):
-    doc = _document(access_roles=["all"])
+    org = make_org(db)
+    doc = _document(org, access_roles=["all"])
     db.add(doc)
     db.flush()
     db.add(_chunk(doc, page=1, content="Travel cap is 150 USD per day.", embedding=_vec(2)))
-    user = _user()
-    db.add(user)
+    user = make_principal(db, org)
     db.commit()
 
     get_settings.cache_clear()
@@ -277,7 +269,8 @@ def test_empty_after_rerank_threshold_refuses_without_llm(db: Session):
 
 
 def test_hybrid_bm25_recovers_lexical_chunk(db: Session):
-    doc = _document(access_roles=["all"])
+    org = make_org(db)
+    doc = _document(org, access_roles=["all"])
     db.add(doc)
     db.flush()
     wifi_vec = _vec(1)
@@ -300,8 +293,7 @@ def test_hybrid_bm25_recovers_lexical_chunk(db: Session):
             ),
         ]
     )
-    user = _user()
-    db.add(user)
+    user = make_principal(db, org)
     db.commit()
 
     result = retrieve(
@@ -327,12 +319,12 @@ def test_pipeline_limits_match_spec():
 
 
 def test_citation_shape_uses_uuid_doc_id(db: Session):
-    doc = _document(title="Policy.pdf", access_roles=["all"])
+    org = make_org(db)
+    doc = _document(org, title="Policy.pdf", access_roles=["all"])
     db.add(doc)
     db.flush()
     db.add(_chunk(doc, page=2, content="Remote work is allowed on Friday.", embedding=_vec(5)))
-    user = _user()
-    db.add(user)
+    user = make_principal(db, org)
     db.commit()
 
     result = retrieve(

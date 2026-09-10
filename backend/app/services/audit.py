@@ -46,9 +46,11 @@ def record_retrieval_audit(
     tokens_used: int | None = None,
     session_id: UUID | None = None,
     message_id: UUID | None = None,
+    organization_id: UUID,
     commit: bool = True,
 ) -> RagAuditLog:
     log = RagAuditLog(
+        organization_id=organization_id,
         user_id=user_id,
         session_id=session_id,
         message_id=message_id,

@@ -92,4 +92,4 @@
 - Текущая org — в сессии, не в теле chat/upload.
 - Чанки, документы, чат-сессии, аудит, ключ MinIO и ключ LLM-кэша несут `org_id`.
 - `require_admin` — admin **текущей** org. Оператора платформы с доступом к чужим корпусам нет.
-- Реализация — [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas). До закрытия M5 деплой = одна компания. Не класть двух клиентов в текущую схему.
+- Реализация — [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).

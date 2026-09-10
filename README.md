@@ -2,7 +2,7 @@
 
 Production-grade **enterprise RAG** for PDF knowledge bases: FastAPI, PostgreSQL/pgvector, Celery, Next.js. Permission-aware hybrid retrieval, cross-encoder rerank, and exact PDF page citations.
 
-Target deploy is **shared B2B SaaS** (many organizations on one stack). Until milestone M5 the runtime is **one implicit organization** — do not onboard a second customer on this schema.
+Target deploy is **shared B2B SaaS** (many organizations on one stack). Isolation is SQL `organization_id` plus inner `access_roles`.
 
 > Product spec: [docs/srs.md](docs/srs.md) (Russian). Tenancy: [docs/tenancy.md](docs/tenancy.md). Adapted from sibling [ChainWise](../chainwise) (cookies, Celery, SSE) with a different parser and **SQL RBAC on every search**.
 
@@ -62,11 +62,11 @@ Question path: session roles → SQL ACL → pgvector Top-25 + BM25 on that pool
 Retrieval is not “please ignore unauthorized chunks” in the system prompt. Every chat, inspect, list, and `/raw` query uses the session (never `access_roles` / `org_id` from the body):
 
 ```sql
-WHERE organization_id = :current_org          -- M5; one implicit org until then
+WHERE organization_id = :current_org
   AND access_roles && ARRAY['employee', 'all']::text[]
 ```
 
-`allowed_roles = {role} ∪ departments ∪ {all}`. The LLM cache key includes those roles (and `org_id` after M5). Eval ACL negatives: **0 leaks** — [reports/rag_benchmark.md](reports/rag_benchmark.md).
+`allowed_roles = {role} ∪ departments ∪ {all}` of the current membership. The LLM cache key includes `org_id` and those roles. Eval ACL negatives: **0 leaks** — [reports/rag_benchmark.md](reports/rag_benchmark.md).
 
 ## Stack
 

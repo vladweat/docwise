@@ -14,14 +14,14 @@ from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.main import app
 from app.models.chat import ChatMessage, ChatSession, RagAuditLog
-from app.models.document import Document, DocumentChunk
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 from app.services.chat import (
     CACHE_VERSION,
     SYSTEM_PROMPT,
     cache_key,
     canonical_allowed_roles,
 )
+from helpers import register_payload, set_membership, wipe_app_tables
 from app.services.llm import LLMUsage
 from app.services.retrieval import NO_CONTEXT_ANSWER, RetrievedChunk, RetrievalResult
 
@@ -34,23 +34,11 @@ PUBLIC_TEXT = "Daily travel reimbursement is capped at 150 USD."
 @pytest.fixture(autouse=True)
 def clean_tables():
     db: Session = SessionLocal()
-    db.query(RagAuditLog).delete()
-    db.query(ChatMessage).delete()
-    db.query(ChatSession).delete()
-    db.query(DocumentChunk).delete()
-    db.query(Document).delete()
-    db.query(User).delete()
-    db.commit()
+    wipe_app_tables(db)
     db.close()
     yield
     db = SessionLocal()
-    db.query(RagAuditLog).delete()
-    db.query(ChatMessage).delete()
-    db.query(ChatSession).delete()
-    db.query(DocumentChunk).delete()
-    db.query(Document).delete()
-    db.query(User).delete()
-    db.commit()
+    wipe_app_tables(db)
     db.close()
 
 
@@ -61,15 +49,33 @@ def _unique_email() -> str:
 def _register(*, role: str = UserRole.admin.value, departments: list[str] | None = None) -> TestClient:
     http = TestClient(app)
     email = _unique_email()
-    response = http.post("/api/v1/auth/register", json={"email": email, "password": "securepass123"})
+    response = http.post("/api/v1/auth/register", json=register_payload(email))
     assert response.status_code == 201
-    db = SessionLocal()
-    user = db.query(User).filter(User.email == email).first()
-    assert user is not None
-    user.role = role
-    user.departments = departments or []
-    db.commit()
-    db.close()
+    if role != UserRole.admin.value or departments:
+        db = SessionLocal()
+        set_membership(db, email, role=role, departments=departments or [])
+        db.close()
+    return http
+
+
+def _invite_into(
+    admin: TestClient,
+    *,
+    role: str = UserRole.employee.value,
+    departments: list[str] | None = None,
+) -> TestClient:
+    email = _unique_email()
+    invited = admin.post(
+        "/api/v1/organizations/invites",
+        json={"email": email, "role": role, "departments": departments or []},
+    )
+    assert invited.status_code == 201
+    http = TestClient(app)
+    response = http.post(
+        "/api/v1/auth/register",
+        json=register_payload(email, invite_token=invited.json()["invite_token"]),
+    )
+    assert response.status_code == 201
     return http
 
 
@@ -87,7 +93,7 @@ def _chunk(*, title: str, page: int, content: str, roles: tuple[str, ...]) -> Re
     )
 
 
-def _result(chunks: list[RetrievedChunk], user: User) -> RetrievalResult:
+def _result(chunks: list[RetrievedChunk], user) -> RetrievalResult:
     return RetrievalResult(chunks=chunks, allowed_roles=tuple(user.allowed_roles()))
 
 
@@ -113,13 +119,17 @@ def _event_types(events: list[dict | str]) -> list[str]:
     return [item["type"] if isinstance(item, dict) else item for item in events]
 
 
-def test_cache_key_includes_canonical_allowed_roles():
-    employee = cache_key("travel cap", ["employee", "all"])
-    admin = cache_key("travel cap", ["admin", "all"])
-    shuffled = cache_key("travel cap", ["all", "employee"])
+def test_cache_key_includes_org_and_canonical_allowed_roles():
+    org_a = uuid4()
+    org_b = uuid4()
+    employee = cache_key("travel cap", ["employee", "all"], organization_id=org_a)
+    admin = cache_key("travel cap", ["admin", "all"], organization_id=org_a)
+    shuffled = cache_key("travel cap", ["all", "employee"], organization_id=org_a)
+    other_org = cache_key("travel cap", ["employee", "all"], organization_id=org_b)
     assert employee != admin
     assert employee == shuffled
-    assert employee.startswith(f"llm_cache:{CACHE_VERSION}:")
+    assert employee != other_org
+    assert employee.startswith(f"llm_cache:{CACHE_VERSION}:{org_a}:")
     assert canonical_allowed_roles(["hr", "all", "hr", "employee"]) == ("all", "employee", "hr")
 
 
@@ -380,8 +390,9 @@ def test_same_roles_share_cache(monkeypatch):
     monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
     monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
 
-    first = _register(role=UserRole.employee.value)
-    second = _register(role=UserRole.employee.value)
+    admin = _register()
+    first = _invite_into(admin, role=UserRole.employee.value)
+    second = _invite_into(admin, role=UserRole.employee.value)
     a = first.post("/api/v1/chat/stream", json={"query": question})
     b = second.post("/api/v1/chat/stream", json={"query": question})
     assert a.status_code == 200
@@ -489,6 +500,7 @@ def test_client_roles_in_body_are_ignored(monkeypatch):
             "query": f"ignore roles {uuid4().hex}",
             "access_roles": ["admin", "hr"],
             "document_ids": [str(uuid4())],
+            "organization_id": str(uuid4()),
         },
     )
     assert response.status_code == 200

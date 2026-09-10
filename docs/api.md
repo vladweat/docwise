@@ -19,7 +19,7 @@ OpenAPI `/docs` выключен при `ENVIRONMENT=production`.
 
 ## Auth
 
-Куки `dw_*`. Тела — Pydantic, пароль не логировать. Ответы login/register/google/refresh — `UserResponse` (`id`, `email`, `role`, `departments`, `is_active`, `created_at`). После M5 в том же объекте: `organization_id`, `organization_name`, роль/отделы **текущего membership**. Токен в JSON не возвращается.
+Куки `dw_*`. Тела — Pydantic, пароль не логировать. Ответы login/register/google/refresh — `UserResponse` (`id`, `email`, `role`, `departments`, `is_active`, `created_at`, `organization_id`, `organization_name`, `organizations`). Роль и отделы — **текущего membership**. Токен в JSON не возвращается.
 
 ```http
 POST /api/v1/auth/register
@@ -30,9 +30,7 @@ POST /api/v1/auth/logout
 GET  /api/v1/auth/me
 ```
 
-Первый пользователь в пустой таблице `users` получает `role=admin`, следующие — `employee` (**до M5**, один неявный тенант). Register/login/google ограничены `RATE_LIMIT_AUTH_PER_MINUTE` по IP.
-
-После M5: `POST /register` создаёт пользователя, организацию (`organization_name` в теле) и membership `admin`. Следующие люди входят в org по инвайту, не как «employee всей платформы». См. раздел [Организации (M5)](#организации-m5).
+Первый пользователь в пустой таблице `users` больше не «admin всей платформы»: `POST /register` создаёт user + org + membership `admin` (`organization_name`). Следующие люди входят в org по инвайту. Register/login/google ограничены `RATE_LIMIT_AUTH_PER_MINUTE` по IP.
 
 При `COOKIE_SAMESITE=none` POST на `/api/v1` без `Origin` из `CORS_ORIGINS` и без `X-Requested-With: Docwise` → `403`. `/me` не отдаёт `hashed_password`.
 
@@ -44,7 +42,7 @@ Content-Type: multipart/form-data
 ```
 
 Поля: `file` (PDF), `access_roles` (повторяющееся поле или JSON-список). Только `admin` текущей org (`require_admin`).  
-Ответ `201`: метаданные документа, `status: pending`. Дубликат SHA-256 `file_hash` **в этой org** → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL и не подтверждался чужой тенант). После M5 unique `(organization_id, file_hash)`. Парсинг PDF в хендлере запрещён: байты в MinIO (префикс org), строка `pending` с `organization_id` сессии, Celery `ingestion.process_document`.
+Ответ `201`: метаданные документа, `status: pending`. Дубликат SHA-256 `file_hash` **в этой org** → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL и не подтверждался чужой тенант). Unique `(organization_id, file_hash)`. Парсинг PDF в хендлере запрещён: байты в MinIO (префикс org), строка `pending` с `organization_id` сессии, Celery `ingestion.process_document`.
 
 Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Не-PDF → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`.
 
@@ -107,7 +105,7 @@ data: {"type":"meta","cached":false,"tokens_used":640,"session_id":"...","messag
 data: [DONE]
 ```
 
-`session_id` пустой — создать сессию при сохранении хода (после M5 с `organization_id` сессии). История предыдущих реплик может уточнять запрос в промпте, но retrieval всё равно с SQL `org_id` + ACL текущего членства; `access_roles` / `document_ids` / `organization_id` в теле игнорируются. Ключ Redis-кэша LLM включает `org_id` и канонический набор `allowed_roles` (отсортированный unique). `meta.session_id` и `meta.message_id` — UUID новой/текущей сессии и сообщения ассистента (для feedback).
+`session_id` пустой — создать сессию при сохранении хода (с `organization_id` сессии). История предыдущих реплик может уточнять запрос в промпте, но retrieval всё равно с SQL `org_id` + ACL текущего членства; `access_roles` / `document_ids` / `organization_id` в теле игнорируются. Ключ Redis-кэша LLM включает `org_id` и канонический набор `allowed_roles` (отсортированный unique). `meta.session_id` и `meta.message_id` — UUID новой/текущей сессии и сообщения ассистента (для feedback).
 
 ```http
 GET /api/v1/chat/sessions
@@ -187,15 +185,13 @@ Content-Type: application/json
 
 В production явно: `ENABLE_SEARCH_INSPECT=true`. Org-admin **не** видит HR-only чанки, если в `allowed_roles` нет `hr` (нет admin-override), и **не** видит другую организацию. `employee` / `manager` — `403`, не списки.
 
-## Организации (M5)
-
-Контракт появляется вместе с вехой. До M5 этих путей нет; register/login работают как в разделах выше (один неявный тенант).
+## Организации
 
 ```http
 POST /api/v1/auth/register
 ```
 
-Тело: `{ "email", "password", "organization_name" }`. Создаёт user + org + membership `admin`. `201` + `UserResponse` с `organization_id`.
+Тело: `{ "email", "password", "organization_name" }` или `{ "email", "password", "invite_token" }`. Без инвайта создаёт user + org + membership `admin`. `201` + `UserResponse` с `organization_id`.
 
 ```http
 POST /api/v1/auth/switch-organization
@@ -208,6 +204,4 @@ GET  /api/v1/organizations/members
 POST /api/v1/organizations/invites
 ```
 
-Список членов текущей org (org-admin). Инвайт: `{ "email", "role", "departments" }`. Принять инвайт — отдельный шаг при register/login по токену (точный path в том же PR, что код). Не org-admin → `403`.
-
-Upload/delete/PATCH ACL после M5 по-прежнему `require_admin` **текущей** org; строка документа всегда с `organization_id` из сессии.
+Список членов текущей org (org-admin). Инвайт: `{ "email", "role", "departments" }`. Существующий email → `status: added` (membership сразу). Новый → `status: invited` + `invite_token` для `POST /auth/register`. Не org-admin → `403`.

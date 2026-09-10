@@ -45,10 +45,11 @@ def test_s3_endpoint_parts_strip_scheme():
     assert secure is True
 
 
-def test_object_key_stays_under_document_prefix():
+def test_object_key_stays_under_org_and_document_prefix():
+    org_id = uuid4()
     doc_id = uuid4()
-    key = object_key_for_document(doc_id, "../../secret.pdf")
-    assert key == f"{doc_id}/secret.pdf"
+    key = object_key_for_document(doc_id, "../../secret.pdf", organization_id=org_id)
+    assert key == f"orgs/{org_id}/{doc_id}/secret.pdf"
     assert ".." not in key
 
 

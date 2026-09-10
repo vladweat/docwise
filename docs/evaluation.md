@@ -28,7 +28,7 @@ Golden set гоняется под пользователем `eval-employee@doc
 
 - страница найденного чанка совпадает с `target_page` в доле кейсов;
 - пользователь-employee не получает чанки из `must_not_doc_ids` (exit code 1 при любой утечке);
-- после M5: пользователь org A не получает документы org B (в т.ч. с `access_roles = ['all']`).
+- пользователь org A не получает документы org B (в т.ч. с `access_roles = ['all']`).
 
 ## Запуск
 
@@ -44,7 +44,7 @@ make eval-retrieval
 python /eval/run_eval.py --seed
 ```
 
-`--seed` создаёт eval-пользователя и прогоняет фикстурные PDF через реальный `index_pdf` (не Celery). Требования: поднятый стек, ключ LLM, кэш FastEmbed. Unit-тесты CI **не** вызывают этот скрипт по умолчанию.
+`--seed` создаёт eval-пользователя (org `eval`) и прогоняет фикстурные PDF через реальный `index_pdf` (не Celery). Параллельно сеется decoy-документ в org `eval-foreign` с тегом `all`; раннер добавляет его UUID в `must_not_doc_ids`. Требования: поднятый стек, ключ LLM, кэш FastEmbed. Unit-тесты CI **не** вызывают этот скрипт по умолчанию.
 
 Локальное ACL-демо (employee vs HR, два PDF):
 

@@ -127,6 +127,7 @@ def index_pdf(
         db.add(
             DocumentChunk(
                 document_id=document.id,
+                organization_id=document.organization_id,
                 chunk_id=make_chunk_id(document.id, chunk.page_number, ordinal),
                 page_number=chunk.page_number,
                 section_title=chunk.section_title,

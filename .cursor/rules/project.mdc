@@ -25,7 +25,7 @@ Canonical product spec: `docs/srs.md`. Implementation deviations: `docs/decision
 ## Invariants
 
 - This is production-grade Enterprise RAG, not a naive chatbot over 500-char splits.
-- Access control is two SQL layers **before** the LLM: `organization_id = current_org` (M5) and `access_roles && allowed_roles`. Prompt-only RBAC or tenancy is forbidden. Until M5, one implicit org — do not host two customers.
+- Access control is two SQL layers **before** the LLM: `organization_id = current_org` and `access_roles && allowed_roles`. Prompt-only RBAC or tenancy is forbidden.
 - Every answer fact must be citeable to `{document_id, page_number}`. If context is insufficient, refuse — do not guess.
 - Chunks stay inside one page/section. Inject a meta header before embedding.
 - Chat streaming is SSE JSON envelopes (ChainWise): `citations` → `token` → `meta` → `[DONE]`.

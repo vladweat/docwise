@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Auth
 
-Canonical: `docs/auth.md`, `docs/tenancy.md`. Cookies `dw_*` (renamed from ChainWise `cw_*`). `get_current_user` / `require_admin` stay; `require_admin` is admin of the **current org** (after M5). Roles: `admin | manager | employee` plus `departments[]` on the membership (on `users` until M5).
+Canonical: `docs/auth.md`, `docs/tenancy.md`. Cookies `dw_*` (renamed from ChainWise `cw_*`). `get_current_user` / `require_admin` stay; `require_admin` is admin of the **current org**. Roles: `admin | manager | employee` plus `departments[]` on the membership.
 
 ```python
 # ❌ BAD — client chooses visibility or tenant
@@ -22,4 +22,4 @@ def allowed_roles(membership) -> list[str]:
 - Do not put `role` / `departments` / `org_id` / `organization_id` in the request body as authorization input.
 - KB write (upload, delete, ACL patch, invites): `require_admin` of the current org only (manager cannot). Retrieval still uses `org_id` + document ACL; no admin override; no cross-org read.
 - Raw PDF bytes only after the same intersection check as `GET /documents`. Prefer `404` over confirming a hidden title or another tenant’s file.
-- LLM Redis cache key must include `org_id` (M5) and the caller’s `allowed_roles`.
+- LLM Redis cache key must include `org_id` and the caller’s `allowed_roles`.

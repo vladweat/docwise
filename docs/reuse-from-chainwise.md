@@ -70,7 +70,7 @@ Google OAuth — опционально, не блокер v1.
 ## Что писать с нуля
 
 1. `pdf_parser.py` + page-bounded chunker (не `semantic_splitter.py` на AST).
-2. SQL-фильтр `organization_id = :current_org AND access_roles && allowed_roles` на **каждый** search (dense и sparse/BM25-кандидаты). До M5 в порте — только ACL (один неявный тенант).
+2. SQL-фильтр `organization_id = :current_org AND access_roles && allowed_roles` на **каждый** search (dense и sparse/BM25-кандидаты).
 3. Cross-encoder rerank Top-15 → Top-4, порог 0.25.
 4. PDF viewer + `#page=N` / подсветка; upload drag-and-drop + чекбоксы ролей.
 5. `eval/run_eval.py` (Ragas).

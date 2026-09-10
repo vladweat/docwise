@@ -20,7 +20,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.document import Document, DocumentChunk, DocumentStatus
-from app.models.user import User
 from app.services.embeddings import embed_texts
 
 logger = logging.getLogger(__name__)
@@ -103,8 +102,8 @@ class RetrievalResult:
         return NO_CONTEXT_ANSWER
 
 
-def allowed_roles_for(user: User) -> list[str]:
-    """`{role} ∪ departments ∪ {all}`. Never read roles from a request body."""
+def allowed_roles_for(user) -> list[str]:
+    """`{role} ∪ departments ∪ {all}` of the current membership. Never from a request body."""
     return list(user.allowed_roles())
 
 
@@ -207,15 +206,18 @@ def dense_search(
     query_vector: list[float],
     allowed_roles: list[str],
     *,
+    organization_id: UUID,
     limit: int = DENSE_CANDIDATE_LIMIT,
 ) -> list[tuple[DocumentChunk, float]]:
-    """Cosine Top-N with `access_roles && allowed_roles`. Does not load the corpus."""
+    """Cosine Top-N with org + `access_roles && allowed_roles`. Does not load the corpus."""
     if not query_vector or limit <= 0:
         return []
     distance = DocumentChunk.embedding.cosine_distance(query_vector)
     rows = (
         db.query(DocumentChunk, distance.label("distance"))
         .join(Document, Document.id == DocumentChunk.document_id)
+        .filter(DocumentChunk.organization_id == organization_id)
+        .filter(Document.organization_id == organization_id)
         .filter(Document.status == DocumentStatus.ready.value)
         .filter(chunk_acl_filter(allowed_roles))
         .filter(DocumentChunk.embedding.isnot(None))
@@ -247,14 +249,15 @@ def _sparse_ranking(query: str, candidates: list[DocumentChunk]) -> list[UUID]:
 
 def retrieve(
     db: Session,
-    user: User,
+    user,
     query: str,
     *,
     embedder=None,
     reranker=None,
 ) -> RetrievalResult:
-    """Hybrid search for the authenticated user. Roles come from `user`, not the body."""
+    """Hybrid search for the authenticated membership. Org and roles come from `user`, not the body."""
     allowed = allowed_roles_for(user)
+    organization_id = user.organization_id
     blank = RetrievalResult(chunks=[], allowed_roles=tuple(allowed))
     if not (query or "").strip():
         return blank
@@ -266,7 +269,7 @@ def retrieve(
     if not vectors:
         return blank
 
-    candidates = dense_search(db, vectors[0], allowed)
+    candidates = dense_search(db, vectors[0], allowed, organization_id=organization_id)
     visible = [
         (chunk, dist)
         for chunk, dist in candidates

@@ -14,9 +14,10 @@ from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.main import app
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 from app.services.document_service import parse_access_roles
 from app.services.storage import StorageError
+from helpers import register_payload, set_membership, wipe_app_tables
 
 MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
 
@@ -61,17 +62,11 @@ def _mock_celery(monkeypatch):
 @pytest.fixture(autouse=True)
 def clean_tables():
     db: Session = SessionLocal()
-    db.query(DocumentChunk).delete()
-    db.query(Document).delete()
-    db.query(User).delete()
-    db.commit()
+    wipe_app_tables(db)
     db.close()
     yield
     db = SessionLocal()
-    db.query(DocumentChunk).delete()
-    db.query(Document).delete()
-    db.query(User).delete()
-    db.commit()
+    wipe_app_tables(db)
     db.close()
 
 
@@ -81,27 +76,43 @@ def admin_client() -> TestClient:
     email = _unique_email()
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "securepass123"},
+        json=register_payload(email, organization_name="Docs Admin"),
     )
     assert response.status_code == 201
     assert response.json()["role"] == "admin"
     return client
 
 
-def _register_user(role: str, departments: list[str] | None = None) -> TestClient:
+def _register_user(
+    role: str,
+    departments: list[str] | None = None,
+    *,
+    admin_client: TestClient | None = None,
+) -> TestClient:
     client = TestClient(app)
     email = _unique_email()
+    if admin_client is not None:
+        invited = admin_client.post(
+            "/api/v1/organizations/invites",
+            json={"email": email, "role": role, "departments": departments or []},
+        )
+        assert invited.status_code == 201
+        body = invited.json()
+        assert body["status"] == "invited"
+        response = client.post(
+            "/api/v1/auth/register",
+            json=register_payload(email, invite_token=body["invite_token"]),
+        )
+        assert response.status_code == 201
+        return client
+
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "securepass123"},
+        json=register_payload(email),
     )
     assert response.status_code == 201
     db = SessionLocal()
-    user = db.query(User).filter(User.email == email).first()
-    assert user is not None
-    user.role = role
-    user.departments = departments or []
-    db.commit()
+    set_membership(db, email, role=role, departments=departments or [])
     db.close()
     return client
 
@@ -148,7 +159,7 @@ def test_upload_returns_201_pending_and_enqueues(admin_client: TestClient, stora
     assert body["file_size_bytes"] == len(content)
     assert body["total_pages"] is None
     assert enqueued == [UUID(body["id"])]
-    assert any(key.endswith("/Policy.pdf") for key in storage.objects)
+    assert any("/Policy.pdf" in key and key.startswith("orgs/") for key in storage.objects)
     db = SessionLocal()
     stored = db.get(Document, UUID(body["id"]))
     assert stored is not None
@@ -187,10 +198,6 @@ def test_upload_rejects_non_pdf_and_oversize(admin_client: TestClient, storage: 
 
 
 def test_upload_requires_admin(storage: FakeStorage):
-    TestClient(app).post(
-        "/api/v1/auth/register",
-        json={"email": _unique_email(), "password": "securepass123"},
-    )
     employee = _register_user(UserRole.employee.value)
     response = _upload(employee, filename="Policy.pdf", content=_pdf("emp"), roles=["all"])
     assert response.status_code == 403
@@ -229,7 +236,7 @@ def test_list_and_raw_hide_documents_outside_acl(admin_client: TestClient, stora
     assert title not in raw.text
     assert raw.headers.get("content-type", "").startswith("application/json")
 
-    hr_user = _register_user(UserRole.employee.value, departments=["hr"])
+    hr_user = _register_user(UserRole.employee.value, departments=["hr"], admin_client=admin_client)
     visible = hr_user.get("/api/v1/documents")
     assert visible.status_code == 200
     items = visible.json()["items"]
@@ -242,7 +249,7 @@ def test_list_and_raw_hide_documents_outside_acl(admin_client: TestClient, stora
     assert raw_ok.headers["content-type"].startswith("application/pdf")
     assert raw_ok.content == content
 
-    employee = _register_user(UserRole.employee.value)
+    employee = _register_user(UserRole.employee.value, admin_client=admin_client)
     hidden = employee.get("/api/v1/documents")
     assert hidden.status_code == 200
     assert hidden.json()["items"] == []
@@ -345,9 +352,12 @@ def test_delete_cascades_postgres_and_minio(admin_client: TestClient, storage: F
     assert response.status_code == 201
     doc_id = UUID(response.json()["id"])
     db = SessionLocal()
+    stored = db.get(Document, doc_id)
+    assert stored is not None
     db.add(
         DocumentChunk(
             document_id=doc_id,
+            organization_id=stored.organization_id,
             chunk_id=make_chunk_id(doc_id, 1, 0),
             page_number=1,
             access_roles=["hr"],
@@ -372,7 +382,7 @@ def test_delete_cascades_postgres_and_minio(admin_client: TestClient, storage: F
 def test_delete_requires_admin(admin_client: TestClient, storage: FakeStorage):
     response = _upload(admin_client, filename="Policy.pdf", content=_pdf("no-del"), roles=["all"])
     doc_id = response.json()["id"]
-    employee = _register_user(UserRole.employee.value)
+    employee = _register_user(UserRole.employee.value, admin_client=admin_client)
     assert employee.delete(f"/api/v1/documents/{doc_id}").status_code == 403
     db = SessionLocal()
     assert db.get(Document, UUID(doc_id)) is not None
@@ -412,9 +422,12 @@ def test_patch_acl_updates_document_and_chunks(admin_client: TestClient, storage
     assert response.status_code == 201
     doc_id = UUID(response.json()["id"])
     db = SessionLocal()
+    stored = db.get(Document, doc_id)
+    assert stored is not None
     db.add(
         DocumentChunk(
             document_id=doc_id,
+            organization_id=stored.organization_id,
             chunk_id=make_chunk_id(doc_id, 1, 0),
             page_number=1,
             access_roles=["hr"],
@@ -425,6 +438,7 @@ def test_patch_acl_updates_document_and_chunks(admin_client: TestClient, storage
     db.add(
         DocumentChunk(
             document_id=doc_id,
+            organization_id=stored.organization_id,
             chunk_id=make_chunk_id(doc_id, 2, 0),
             page_number=2,
             access_roles=["hr"],
@@ -454,12 +468,12 @@ def test_patch_acl_updates_document_and_chunks(admin_client: TestClient, storage
     assert all(chunk.embedding is not None for chunk in chunks)
     db.close()
 
-    hr = _register_user(UserRole.employee.value, departments=["hr"])
+    hr = _register_user(UserRole.employee.value, departments=["hr"], admin_client=admin_client)
     listed = hr.get("/api/v1/documents")
     assert listed.status_code == 200
     assert listed.json()["total"] == 0
 
-    eng = _register_user(UserRole.employee.value, departments=["engineering"])
+    eng = _register_user(UserRole.employee.value, departments=["engineering"], admin_client=admin_client)
     visible = eng.get("/api/v1/documents")
     assert visible.status_code == 200
     assert visible.json()["total"] == 1
@@ -469,7 +483,7 @@ def test_patch_acl_updates_document_and_chunks(admin_client: TestClient, storage
 def test_patch_acl_requires_admin(admin_client: TestClient, storage: FakeStorage):
     response = _upload(admin_client, filename="Policy.pdf", content=_pdf("no-acl"), roles=["all"])
     doc_id = response.json()["id"]
-    employee = _register_user(UserRole.employee.value)
+    employee = _register_user(UserRole.employee.value, admin_client=admin_client)
     denied = employee.patch(f"/api/v1/documents/{doc_id}", json={"access_roles": ["hr"]})
     assert denied.status_code == 403
     db = SessionLocal()
