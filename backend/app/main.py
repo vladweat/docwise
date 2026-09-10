@@ -26,6 +26,7 @@ from app.core.csrf import enforce_csrf
 from app.core.database import check_pgvector, check_postgres
 from app.core.sentry import init_sentry
 from app.services.billing import billing_readiness
+from app.services.domains import origin_allowed
 from app.services.storage import ensure_documents_bucket, get_object_storage
 from app.utils.logging import setup_logging
 from app.utils.redis_lock import get_redis_client
@@ -65,6 +66,15 @@ async def lifespan(_app: FastAPI):
     yield
 
 
+class TenantCORSMiddleware(CORSMiddleware):
+    """Allow configured SPA origins plus verified/platform hostnames (not the request body)."""
+
+    def is_allowed_origin(self, origin: str) -> bool:
+        if super().is_allowed_origin(origin):
+            return True
+        return origin_allowed(origin)
+
+
 class CsrfMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         try:
@@ -92,7 +102,7 @@ app.include_router(search_router, prefix="/api/v1")
 
 app.add_middleware(CsrfMiddleware)
 app.add_middleware(
-    CORSMiddleware,
+    TenantCORSMiddleware,
     allow_origins=settings.cors_origin_list(),
     allow_credentials=True,
     allow_methods=["*"],

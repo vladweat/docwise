@@ -338,21 +338,21 @@ flowchart LR
 
 ### M6d — Custom domain
 
-- [ ] Платформенный хост `{slug}.localhost` / `{slug}.docwise.app`; опционально verified CNAME
-- [ ] Cookie **host-only** (без `Domain=.docwise.app` / родителя)
-- [ ] `Host` → org совпадает с `org_id` сессии; хост пинит, не заменяет SQL-фильтр
-- [ ] На хосте Acme нельзя `switch-organization` в Globex
-- [ ] Неподтверждённый hostname не биндится; один hostname — одна org; CORS/CSRF allowlist из проверенного домена
-- [ ] Entitlement Enterprise; Compose без Let's Encrypt (`/etc/hosts`)
+- [x] Платформенный хост `{slug}.localhost` / `{slug}.docwise.app`; опционально verified CNAME
+- [x] Cookie **host-only** (без `Domain=.docwise.app` / родителя)
+- [x] `Host` → org совпадает с `org_id` сессии; хост пинит, не заменяет SQL-фильтр
+- [x] На хосте Acme нельзя `switch-organization` в Globex
+- [x] Неподтверждённый hostname не биндится; один hostname — одна org; CORS/CSRF allowlist из проверенного домена
+- [x] Entitlement Enterprise; Compose без Let's Encrypt (`/etc/hosts`)
 
 ### UI и тесты M6
 
-- [ ] Настройки org-admin: план, usage, SSO, домен; employee — отказ квоты без панели биллинга
-- [ ] Pytest: две org, `dev`-провайдер — `402` только у упёршейся; SSO Globex не попадает в fused/reranked/промпт/кэш Acme
-- [ ] Pytest: cookie/host Acme не открывает raw Globex; simulate billing чужой org → `404`
-- [ ] Живой Stripe и живой IdP в default CI не нужны
+- [x] Настройки org-admin: план, usage, SSO, домен; employee — отказ квоты без панели биллинга
+- [x] Pytest: две org, `dev`-провайдер — `402` только у упёршейся; SSO Globex не попадает в fused/reranked/промпт/кэш Acme
+- [x] Pytest: cookie/host Acme не открывает raw Globex; simulate billing чужой org → `404`
+- [x] Живой Stripe и живой IdP в default CI не нужны
 
-**Критерий вехи:** [ ] квоты `402`, SSO и hostname не пересекают org, включая `access_roles = ['all']`
+**Критерий вехи:** [x] квоты `402`, SSO и hostname не пересекают org, включая `access_roles = ['all']`
 
 ---
 

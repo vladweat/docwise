@@ -16,6 +16,7 @@ REFRESH_PREFIX = "refresh:"
 
 
 def cookie_params() -> dict:
+    """Host-only cookies: never set Domain (ADR-015). A parent Domain= would leak Acme's cookie onto Globex."""
     settings = get_settings()
     samesite = (settings.cookie_samesite or "lax").strip().lower()
     if samesite not in {"lax", "strict", "none"}:

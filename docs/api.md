@@ -258,4 +258,20 @@ PUT  /api/v1/organizations/domain
 POST /api/v1/organizations/domain/verify
 ```
 
-Org-admin. План без custom domain: `PUT` custom hostname → `403`; платформенный `{slug}` читается всегда. `verify` — TXT/HTTP challenge. Неподтверждённый Host не пинит сессию.
+Org-admin. План без custom domain: `PUT` custom hostname → `403`; платформенный `{slug}` читается всегда. `verify` — токен TXT/HTTP (Compose/`dev`: тот же токен из GET, без Let's Encrypt). Неподтверждённый Host не пинит сессию.
+
+`GET` / `PUT` / `verify` ответ:
+
+```json
+{
+  "slug": "acme-a1b2c3",
+  "platform_hostnames": ["acme-a1b2c3.localhost", "acme-a1b2c3.docwise.app"],
+  "custom_hostname": "kb.acme.example",
+  "custom_verified": false,
+  "verified_at": null,
+  "verification_token": "…",
+  "entitlement": true
+}
+```
+
+`PUT` тело `{ "hostname": "kb.acme.example" }` или `{ "hostname": null }` (снять custom). Свой `{slug}.localhost` / `{slug}.docwise.app` — `200`, custom не создаётся (уже в `platform_hostnames`). Свободный `{label}.docwise.app` можно сохранить как custom (verify). Чужой существующий `{slug}` на том же суффиксе → `409` без имени org. Чужой `organization_id` в теле → `404`. Hostname занят другой org → `409`. `verification_token` только пока custom не verified.

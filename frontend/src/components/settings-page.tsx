@@ -16,9 +16,12 @@ import {
   changeBillingPlan,
   fetchBillingSubscription,
   fetchBillingUsage,
+  fetchOrganizationDomain,
   fetchOrganizationSso,
   simulateDevBilling,
+  upsertOrganizationDomain,
   upsertOrganizationSso,
+  verifyOrganizationDomain,
 } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { PlanName, QuotaMeter } from "@/types/billing";
@@ -73,6 +76,7 @@ export function SettingsPage() {
     JSON.stringify(DEFAULT_ATTRIBUTE_MAP, null, 2),
   );
   const [ssoFormReady, setSsoFormReady] = useState(false);
+  const [customHostname, setCustomHostname] = useState("");
 
   const usageQuery = useQuery({
     queryKey: ["billing-usage", user?.organization_id],
@@ -90,6 +94,11 @@ export function SettingsPage() {
     queryFn: fetchOrganizationSso,
     enabled: Boolean(user) && canManage && ssoEnabled,
   });
+  const domainQuery = useQuery({
+    queryKey: ["org-domain", user?.organization_id],
+    queryFn: fetchOrganizationDomain,
+    enabled: Boolean(user) && canManage,
+  });
 
   useEffect(() => {
     setSsoFormReady(false);
@@ -103,6 +112,11 @@ export function SettingsPage() {
     setAttributeMapText(JSON.stringify(ssoQuery.data.attribute_map ?? DEFAULT_ATTRIBUTE_MAP, null, 2));
     setSsoFormReady(true);
   }, [ssoQuery.data, ssoFormReady]);
+
+  useEffect(() => {
+    if (!domainQuery.data) return;
+    setCustomHostname(domainQuery.data.custom_hostname ?? "");
+  }, [domainQuery.data]);
 
   const selectedPlan = draftPlan || subQuery.data?.plan || "starter";
   const isDev = subQuery.data?.provider === "dev";
@@ -179,7 +193,46 @@ export function SettingsPage() {
     },
   });
 
-  const busy = planMutation.isPending || simulateMutation.isPending || ssoMutation.isPending;
+  const domainMutation = useMutation({
+    mutationFn: () => upsertOrganizationDomain(customHostname.trim() || null),
+    onSuccess: async (result) => {
+      const saved = customHostname.trim().toLowerCase();
+      if (result.platform_hostnames.includes(saved)) {
+        pushToast("Это платформенный хост этой организации, он уже привязан.", "info");
+        setCustomHostname(result.custom_hostname ?? "");
+      } else {
+        pushToast("Домен сохранён. Неподтверждённый hostname не пинит сессию.", "info");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["org-domain"] });
+    },
+    onError: (err) => {
+      const message = err instanceof ApiRequestError ? err.message : "Не удалось сохранить домен";
+      pushToast(message, "error");
+    },
+  });
+
+  const verifyDomainMutation = useMutation({
+    mutationFn: () => {
+      const token = domainQuery.data?.verification_token;
+      if (!token) throw new ApiRequestError("Нет токена проверки", 400);
+      return verifyOrganizationDomain(token);
+    },
+    onSuccess: async () => {
+      pushToast("Домен подтверждён", "info");
+      await queryClient.invalidateQueries({ queryKey: ["org-domain"] });
+    },
+    onError: (err) => {
+      const message = err instanceof ApiRequestError ? err.message : "Не удалось подтвердить домен";
+      pushToast(message, "error");
+    },
+  });
+
+  const busy =
+    planMutation.isPending ||
+    simulateMutation.isPending ||
+    ssoMutation.isPending ||
+    domainMutation.isPending ||
+    verifyDomainMutation.isPending;
 
   return (
     <AuthGate>
@@ -405,6 +458,99 @@ export function SettingsPage() {
                       <Button type="button" size="sm" disabled={busy} onClick={() => ssoMutation.mutate()}>
                         Сохранить SSO
                       </Button>
+                    </>
+                  ) : null}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between gap-3">
+                  <div>
+                    <CardTitle>Домен</CardTitle>
+                    <CardDescription>
+                      Платформенный хост пинит эту org. Cookie host-only, без Domain на родителя.
+                    </CardDescription>
+                  </div>
+                  {domainQuery.data?.custom_verified ? (
+                    <Badge variant="success">Verified</Badge>
+                  ) : domainQuery.data?.custom_hostname ? (
+                    <Badge variant="warning">Не подтверждён</Badge>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm text-slate-300">
+                  {domainQuery.isLoading ? <p className="text-slate-400">Загрузка…</p> : null}
+                  {domainQuery.error ? (
+                    <p className="text-red-400">
+                      {domainQuery.error instanceof ApiRequestError
+                        ? domainQuery.error.message
+                        : "Не удалось загрузить домен"}
+                    </p>
+                  ) : null}
+                  {domainQuery.data ? (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        Платформа:{" "}
+                        {domainQuery.data.platform_hostnames.map((host) => (
+                          <code key={host} className="mr-2 text-slate-300">
+                            {host}
+                          </code>
+                        ))}
+                      </p>
+                      {!domainQuery.data.entitlement ? (
+                        <p className="text-slate-400">
+                          Свой CNAME входит в план Enterprise. Compose: `/etc/hosts`, без Let&apos;s Encrypt.
+                        </p>
+                      ) : (
+                        <>
+                          <div>
+                            <Label htmlFor="custom-host">Свой CNAME</Label>
+                            <Input
+                              id="custom-host"
+                              className="mt-1"
+                              value={customHostname}
+                              onChange={(event) => setCustomHostname(event.target.value)}
+                              placeholder="kb.acme.example"
+                              disabled={busy}
+                            />
+                            <p className="mt-1 text-xs text-slate-500">
+                              Свой CNAME вроде kb.acme.example. Имя на .docwise.app, которое ещё не занято
+                              другим slug, можно сохранить и подтвердить.
+                            </p>
+                          </div>
+                          {domainQuery.data.verification_token ? (
+                            <p className="text-xs text-slate-500">
+                              Токен проверки (TXT/HTTP, Compose — POST verify):{" "}
+                              <code className="break-all text-slate-300">
+                                {domainQuery.data.verification_token}
+                              </code>
+                            </p>
+                          ) : null}
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => domainMutation.mutate()}
+                            >
+                              Сохранить домен
+                            </Button>
+                            {domainQuery.data.custom_hostname && !domainQuery.data.custom_verified ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                disabled={busy || !domainQuery.data.verification_token}
+                                onClick={() => verifyDomainMutation.mutate()}
+                              >
+                                Подтвердить
+                              </Button>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            Неподтверждённый hostname не биндится. На хосте этой org нельзя переключиться в другую.
+                          </p>
+                        </>
+                      )}
                     </>
                   ) : null}
                 </CardContent>

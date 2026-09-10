@@ -15,11 +15,29 @@ import type {
   PlanName,
 } from "@/types/billing";
 import type { HealthResponse } from "@/types/health";
+import type { OrganizationDomain } from "@/types/domain";
 import type { DevSsoAssertion, SsoConnection, SsoUpsertRequest } from "@/types/sso";
 
 import { clearLegacyAuth } from "./auth-storage";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+const GENERIC_API_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+/** Same hostname as the page on `{slug}.localhost` / verified CNAME so host-only cookies stick. */
+export function apiUrl(): string {
+  if (typeof window === "undefined") return CONFIGURED_API_URL;
+  const host = window.location.hostname;
+  if (GENERIC_API_HOSTS.has(host)) return CONFIGURED_API_URL;
+  try {
+    const url = new URL(CONFIGURED_API_URL);
+    url.hostname = host;
+    return url.origin;
+  } catch {
+    return CONFIGURED_API_URL;
+  }
+}
+
+const API_URL = CONFIGURED_API_URL;
 
 export class ApiRequestError extends Error {
   constructor(
@@ -55,7 +73,7 @@ export async function apiFetch<T>(
   }
   headers.set("X-Requested-With", "Docwise");
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${apiUrl()}${path}`, {
     ...options,
     headers,
     cache: "no-store",
@@ -77,7 +95,7 @@ export async function apiFetch<T>(
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${API_URL}/ready`, {
+  const response = await fetch(`${apiUrl()}/ready`, {
     cache: "no-store",
     credentials: "include",
     headers: { "X-Requested-With": "Docwise" },
@@ -193,6 +211,24 @@ export async function upsertOrganizationSso(payload: SsoUpsertRequest): Promise<
   });
 }
 
+export async function fetchOrganizationDomain(): Promise<OrganizationDomain> {
+  return apiFetch<OrganizationDomain>("/api/v1/organizations/domain");
+}
+
+export async function upsertOrganizationDomain(hostname: string | null): Promise<OrganizationDomain> {
+  return apiFetch<OrganizationDomain>("/api/v1/organizations/domain", {
+    method: "PUT",
+    body: JSON.stringify({ hostname }),
+  });
+}
+
+export async function verifyOrganizationDomain(token: string): Promise<OrganizationDomain> {
+  return apiFetch<OrganizationDomain>("/api/v1/organizations/domain/verify", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
 export async function loginWithSso(slug: string, assertion: DevSsoAssertion): Promise<UserResponse> {
   return apiFetch<UserResponse>(`/api/v1/auth/sso/${encodeURIComponent(slug)}/acs`, {
     method: "POST",
@@ -201,7 +237,7 @@ export async function loginWithSso(slug: string, assertion: DevSsoAssertion): Pr
 }
 
 export function ssoLoginUrl(slug: string): string {
-  return `${API_URL}/api/v1/auth/sso/${encodeURIComponent(slug)}/login`;
+  return `${apiUrl()}/api/v1/auth/sso/${encodeURIComponent(slug)}/login`;
 }
 
 export async function fetchChatSessions(
@@ -237,7 +273,7 @@ export async function streamChat(
     "Content-Type": "application/json",
     "X-Requested-With": "Docwise",
   });
-  const response = await fetch(`${API_URL}/api/v1/chat/stream`, {
+  const response = await fetch(`${apiUrl()}/api/v1/chat/stream`, {
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -313,7 +349,7 @@ export async function deleteDocument(documentId: string): Promise<void> {
 
 export async function fetchDocumentPdf(documentId: string): Promise<Blob> {
   const headers = new Headers({ "X-Requested-With": "Docwise" });
-  const response = await fetch(`${API_URL}/api/v1/documents/${documentId}/raw`, {
+  const response = await fetch(`${apiUrl()}/api/v1/documents/${documentId}/raw`, {
     cache: "no-store",
     credentials: "include",
     headers,

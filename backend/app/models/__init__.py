@@ -3,7 +3,9 @@ from app.models.chat import ChatMessage, ChatMessageRole, ChatSession, RagAuditL
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.organization import (
     BillingStatus,
+    DomainKind,
     Organization,
+    OrganizationDomain,
     OrganizationInvite,
     OrganizationMembership,
     OrganizationPlan,
@@ -25,6 +27,8 @@ __all__ = [
     "OrganizationMembership",
     "OrganizationInvite",
     "OrganizationSsoConnection",
+    "OrganizationDomain",
+    "DomainKind",
     "SsoProtocol",
     "Document",
     "DocumentChunk",

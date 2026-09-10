@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     frontend_url: str = Field(default="", alias="FRONTEND_URL")
     sso_provider: str = Field(default="dev", alias="SSO_PROVIDER")
     sso_fresh_ttl_seconds: int = Field(default=900, alias="SSO_FRESH_TTL_SECONDS")
+    platform_host_suffixes: str = Field(
+        default="localhost,docwise.app",
+        alias="PLATFORM_HOST_SUFFIXES",
+    )
 
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]

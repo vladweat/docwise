@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from fastapi import HTTPException, Request, status
 
 from app.core.config import get_settings
+from app.services.domains import origin_allowed
 
 CSRF_HEADER_VALUE = "Docwise"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -15,10 +16,6 @@ def _csrf_exempt(path: str) -> bool:
     if path in CSRF_EXEMPT_PATHS:
         return True
     return path.startswith("/api/v1/auth/sso/") and path.endswith("/acs")
-
-
-def _origin_allowed(origin: str, allowed: list[str]) -> bool:
-    return origin.rstrip("/") in {item.rstrip("/") for item in allowed}
 
 
 def request_origin(request: Request) -> str | None:
@@ -53,7 +50,7 @@ def enforce_csrf(request: Request) -> None:
         return
 
     origin = request_origin(request)
-    if origin and _origin_allowed(origin, settings.cors_origin_list()):
+    if origin and origin_allowed(origin):
         return
 
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF check failed")
