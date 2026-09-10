@@ -1,4 +1,4 @@
-.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test lint health migrate
+.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test lint health migrate eval eval-retrieval
 
 # Шаг 1 (нужен интернет): скачать зависимости backend + frontend
 deps: venv embeddings deps-frontend
@@ -48,3 +48,10 @@ migrate:
 
 health:
 	curl -s http://localhost:8001/health | python3 -m json.tool
+
+# Live RAG eval (not default CI): LLM key + fixture PDFs. Writes reports/rag_benchmark.md
+eval:
+	docker compose exec -e PYTHONPATH=/app backend python /eval/run_eval.py --seed
+
+eval-retrieval:
+	docker compose exec -e PYTHONPATH=/app backend python /eval/run_eval.py --seed --retrieval-only

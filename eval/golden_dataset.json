@@ -1,0 +1,425 @@
+{
+  "eval_user_email": "eval-employee@docwise.local",
+  "items": [
+    {
+      "id": "hb-hours",
+      "kind": "positive",
+      "question": "What are the core working hours at Docwise?",
+      "ground_truth_answer": "Core working hours are 09:00 to 18:00 Europe/Moscow.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-lunch",
+      "kind": "positive",
+      "question": "When is the unpaid lunch break?",
+      "ground_truth_answer": "Lunch is 13:00 to 14:00.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-hybrid-office",
+      "kind": "positive",
+      "question": "Which weekdays must employees come to the office under the hybrid policy?",
+      "ground_truth_answer": "Office attendance is required on Tuesday, Wednesday, and Thursday.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-desk-booking",
+      "kind": "positive",
+      "question": "By when must a desk be booked in the Places portal?",
+      "ground_truth_answer": "A desk must be booked before 17:00 on the previous day.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-personal-devices",
+      "kind": "positive",
+      "question": "May employees store client personal data on personal devices?",
+      "ground_truth_answer": "No. Client personal data must not be stored on personal devices.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-security-email",
+      "kind": "positive",
+      "question": "Where should a security incident be reported, and how quickly?",
+      "ground_truth_answer": "Email security@docwise.example within one hour.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-vendor-gifts",
+      "kind": "positive",
+      "question": "What is the rule for gifts from vendors over 50 USD?",
+      "ground_truth_answer": "Gifts from vendors over 50 USD must be declined.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-warranty",
+      "kind": "positive",
+      "question": "How long is the standard laptop warranty?",
+      "ground_truth_answer": "The standard laptop warranty is 36 months.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 3,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "hb-badge-fee",
+      "kind": "positive",
+      "question": "What is the replacement fee after the first lost badge?",
+      "ground_truth_answer": "15 USD after the first free replacement.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000001",
+      "target_page": 3,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "lv-vacation-days",
+      "kind": "positive",
+      "question": "How many paid vacation days do employees get per calendar year?",
+      "ground_truth_answer": "20 days of paid vacation per calendar year.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000002",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "lv-sick-days",
+      "kind": "positive",
+      "question": "How many paid sick days are employees entitled to?",
+      "ground_truth_answer": "10 paid sick days.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000002",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "lv-notice",
+      "kind": "positive",
+      "question": "How far in advance must vacation requests be submitted?",
+      "ground_truth_answer": "At least fourteen days in advance.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000002",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "lv-parental",
+      "kind": "positive",
+      "question": "How long is parental leave?",
+      "ground_truth_answer": "Parental leave is 140 calendar days.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000002",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "lv-carryover",
+      "kind": "positive",
+      "question": "How many unused vacation days may be carried into the next year?",
+      "ground_truth_answer": "A maximum of five days.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000002",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "lv-bereavement",
+      "kind": "positive",
+      "question": "How many paid bereavement leave days are provided?",
+      "ground_truth_answer": "Three paid days.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000002",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "lv-unpaid",
+      "kind": "positive",
+      "question": "Who must approve unpaid leave?",
+      "ground_truth_answer": "Both the manager and HR.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000002",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "ex-taxi",
+      "kind": "positive",
+      "question": "Do taxi receipts under forty dollars need a manager signature?",
+      "ground_truth_answer": "No. Taxi receipts under 40 USD do not need a manager signature.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000003",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "ex-meals",
+      "kind": "positive",
+      "question": "What is the meal cap per person for local client meetings?",
+      "ground_truth_answer": "25 USD per person.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000003",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "ex-deadline",
+      "kind": "positive",
+      "question": "When are monthly expense reports due?",
+      "ground_truth_answer": "The fifth business day of the following month.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000003",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "ex-intl-approval",
+      "kind": "positive",
+      "question": "How far ahead must international travel be approved by a VP?",
+      "ground_truth_answer": "At least ten calendar days ahead.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000003",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "ex-per-diem",
+      "kind": "positive",
+      "question": "What is the international travel per diem?",
+      "ground_truth_answer": "75 USD per day.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000003",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "ex-business-class",
+      "kind": "positive",
+      "question": "When is a business class flight allowed?",
+      "ground_truth_answer": "Only if in-air time exceeds eight hours.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000003",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "ex-card-limit",
+      "kind": "positive",
+      "question": "What is the company card limit for individual contributors?",
+      "ground_truth_answer": "3000 USD.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000003",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "eng-buddy",
+      "kind": "positive",
+      "question": "How long is a new hire assigned a buddy?",
+      "ground_truth_answer": "30 days.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000004",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "eng-first-pr",
+      "kind": "positive",
+      "question": "Within how many working days must a new engineer open their first pull request?",
+      "ground_truth_answer": "Within five working days.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000004",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "eng-python",
+      "kind": "positive",
+      "question": "What is the default Python version for engineering?",
+      "ground_truth_answer": "Python 3.12.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000004",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "eng-prod-approvers",
+      "kind": "positive",
+      "question": "How many approvers are required for a production deploy?",
+      "ground_truth_answer": "Two approvers from the on-call rotation.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000004",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "eng-oncall",
+      "kind": "positive",
+      "question": "After how many days does the on-call starter rotation begin?",
+      "ground_truth_answer": "After 90 days.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000004",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-l3-band",
+      "kind": "acl_negative",
+      "question": "What is the individual contributor L3 salary band in USD?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-bonus-pct",
+      "kind": "acl_negative",
+      "question": "What percent of base salary is the annual performance bonus target?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-bonus-day",
+      "kind": "acl_negative",
+      "question": "On what date is the performance bonus paid?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-ceo-multiplier",
+      "kind": "acl_negative",
+      "question": "What is the CEO cash bonus multiplier for this fiscal year?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-q4-revenue",
+      "kind": "acl_negative",
+      "question": "What was Q4 revenue in USD?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-headcount-freeze",
+      "kind": "acl_negative",
+      "question": "Until which date is headcount frozen except for backfills?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-marketing-budget",
+      "kind": "acl_negative",
+      "question": "What is next quarter's marketing budget?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    }
+  ]
+}

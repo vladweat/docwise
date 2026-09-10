@@ -11,6 +11,7 @@
 | [M2 Retrieval + RBAC + SSE](#milestone-2--corpus-retrieval--rbac--sse) | готово | 3–4 дня |
 | [M3 Split-screen UI](#milestone-3--split-screen-ui) | открыто | 2–3 дня |
 | [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | открыто | 1–2 дня |
+| [M5 Shared tenancy](#milestone-5--shared-tenancy-b2b-saas) | открыто | после v1 |
 
 ```mermaid
 flowchart LR
@@ -19,9 +20,10 @@ flowchart LR
   M2 --> M3[M3 PDF UI]
   M2 --> M4[M4 eval + CI]
   M3 --> M4
+  M4 --> M5[M5 shared tenancy]
 ```
 
-M3 и M4 после M2 можно вести параллельно, но клик по цитате и eval оба требуют живого retrieval.
+M3 и M4 после M2 можно вести параллельно, но клик по цитате и eval оба требуют живого retrieval. Shared SaaS ([M5](#milestone-5--shared-tenancy-b2b-saas)) — после приёмки v1 (M3+M4): оборачивает уже существующую внутреннюю ACL в `org_id`. Не открывать M5, пока retrieval не фильтрует `access_roles` (критерий M2). Не сажать двух клиентов на инстанс до закрытия M5.
 
 ---
 
@@ -171,7 +173,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 ### Чат
 
 - [x] Маршруты `/` или `/chat`, `/chat/[sessionId]`, `/documents`, `/login`
-- [x] Split-pane ~45% чат / ~55% PDF (разделитель желателен)
+- [x] Split-pane: сессии (можно скрыть) / чат с min-width / PDF (можно скрыть)
 - [x] SSE-ридер: `citations | token | meta | error | done`
 - [x] Сноски-теги `Doc.pdf (стр. N)`, не `file.sol:L10-20` и не сырой `[^n]`
 - [x] Стрим токенов без ожидания полного ответа; ошибка чата — тост, не развал страницы
@@ -186,16 +188,16 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Админка KB
 
-- [ ] Таблица: название, размер, страницы, теги доступа, статус; `last_error` при failed
-- [ ] Drag-and-drop upload + чекбоксы ролей (`HR`, `Finance`, `General`/`all`, …)
-- [ ] Поллинг `GET .../status` со шагами parse → chunk → embed
-- [ ] Удаление с подтверждением; только manage KB
-- [ ] Не показывать документы вне ACL
+- [x] Таблица: название, размер, страницы, теги доступа, статус; `last_error` при failed
+- [x] Drag-and-drop upload + чекбоксы ролей (`HR`, `Finance`, `General`/`all`, …)
+- [x] Поллинг `GET .../status` со шагами parse → chunk → embed
+- [x] Удаление с подтверждением; только manage KB
+- [x] Не показывать документы вне ACL
 
 ### Тесты / проверка M3
 
 - [ ] Ручной проход: вопрос → сноска → верная страница (браузер)
-- [ ] Employee не видит HR-файл в списке и не открывает `/raw`
+- [x] Employee не видит HR-файл в списке и не открывает `/raw`
 
 **Критерий вехи:** [ ] клик по цитате открывает нужную страницу
 
@@ -209,11 +211,13 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Eval
 
-- [ ] `eval/golden_dataset.json` ≥ 30 вопросов: `question`, `ground_truth_answer`, `target_doc_id`, желательно `target_page`, `must_not_doc_ids`
-- [ ] `eval/run_eval.py` гоняет **реальный** retrieval+generation под роль eval-пользователя
-- [ ] `reports/rag_benchmark.md`: Faithfulness, Context Precision, Answer Relevance
-- [ ] ACL-негативы: ноль утечек `must_not_doc_ids`
-- [ ] Eval не в default CI (нужен ключ LLM и проиндексированные фикстуры)
+- [x] `eval/golden_dataset.json` ≥ 30 вопросов: `question`, `ground_truth_answer`, `target_doc_id`, желательно `target_page`, `must_not_doc_ids`
+- [x] `eval/run_eval.py` гоняет **реальный** retrieval+generation под роль eval-пользователя
+- [x] `reports/rag_benchmark.md`: Faithfulness, Context Precision, Answer Relevance
+- [x] ACL-негативы: ноль утечек `must_not_doc_ids`
+- [x] Eval не в default CI (нужен ключ LLM и проиндексированные фикстуры)
+
+Первый прогон 2026-09-10 (employee, 35 кейсов): Faithfulness 1.000, Context Precision 0.976, ACL 0 утечек. Answer Relevance 0.789 — два miss после порога реранкера, не RBAC. Отчёт: [rag_benchmark.md](../reports/rag_benchmark.md).
 
 ### CI и качество репо
 
@@ -241,16 +245,60 @@ M3 и M4 после M2 можно вести параллельно, но кли
 - [ ] Пользователь без роли не видит чанк в inspect, chat и `/raw`
 - [ ] Нехватка контекста → отказ «в документах нет информации», без выдуманных фактов
 - [ ] Повторный ingest того же `document_id` не плодит дубли в `document_chunks`
-- [ ] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек
+- [x] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек
 - [ ] CI: lint + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах
+
+Shared SaaS — не часть приёмки v1; критерии M5.
 
 ---
 
-## Вне скоупа v1
+## Milestone 5 — Shared tenancy (B2B SaaS)
 
-Не открывать отдельные вехи, пока не закрыта приёмка:
+Спека: [tenancy.md](tenancy.md), [auth.md](auth.md), [data-model.md](data-model.md), [api.md](api.md), [ADR-012](decisions.md). Не подменять `org_id` тегом в `access_roles`. Не класть двух клиентов на схему M0–M4.
 
-- мультитеннант, SSO/SAML
+**Критерий:** две организации в одном Postgres; employee A не видит документ B с тегом `all` в list, `/raw`, chat, inspect и LLM-кэше.
+
+### Данные
+
+- [ ] Таблицы `organizations`, `organization_memberships` (role + departments на членстве)
+- [ ] `organization_id` NOT NULL на `documents`, `document_chunks`, `chat_sessions`, `rag_audit_logs`
+- [ ] Unique `(organization_id, file_hash)` вместо глобального unique `file_hash`
+- [ ] Миграция существующих строк в одну bootstrap-org; `users.role` / `departments` переносятся на membership
+- [ ] Чанк копирует `organization_id` документа при ingest и при PATCH ACL (org не меняется)
+
+### Auth и API
+
+- [ ] Register создаёт user + org + membership `admin` (`organization_name`)
+- [ ] Инвайты org-admin; существующий email получает membership, не вторую «глобальную» роль
+- [ ] Access-токен / сессия несут текущий `org_id`; `POST /auth/switch-organization` только для своего membership
+- [ ] `org_id` / `organization_id` в теле chat/search/upload игнорируются как источник прав
+- [ ] `require_admin` — admin текущей org; нет platform-admin с чтением чужих корпусов
+- [ ] MinIO-ключи с префиксом `orgs/{organization_id}/`
+- [ ] LLM cache: `llm_cache:{version}:{org_id}:{roles_hash}:{question_hash}`
+
+### Retrieval
+
+- [ ] Каждый dense и sparse/FTS: `organization_id = :current_org AND access_roles && allowed_roles`
+- [ ] `all` = все члены этой org, не все залогиненные в SaaS
+- [ ] 409 дубля hash не подтверждает файл другой org; 404 на чужой raw неотличим от «нет файла»
+
+### UI и тесты
+
+- [ ] Имя текущей org в шапке; инвайты для org-admin; не слать org id в теле чата
+- [ ] Pytest: два тенанта, одинаковые теги `all` / `hr` — ноль пересечений в list, raw, fused, reranked, промпте, кэше
+- [ ] Eval: `must_not_doc_ids` другой org — ноль утечек
+
+**Критерий вехи:** [ ] кросс-орг утечек нет, включая `access_roles = ['all']`
+
+---
+
+## Вне скоупа (позже M5)
+
+Не открывать отдельные вехи, пока не закрыты приёмка v1 и критерий M5:
+
+- SSO/SAML, биллинг, квоты как продукт, custom domain
+- консоль оператора платформы (чтение чужих корпусов запрещено и там, пока нет явного break-glass в SRS)
+- Postgres RLS как defense-in-depth (не замена `org_id` в запросах)
 - онлайн-редактирование файлов
 - агенты с tool-calling за пределы корпуса
 - обучение своих эмбеддингов
