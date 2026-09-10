@@ -182,6 +182,7 @@ def test_admin_billing_usage_and_subscription_are_current_org_only():
     assert sub.json()["plan"] == "starter"
     assert sub.json()["entitlements"]["sso"] is False
     assert sub.json()["billing_status"] == "active"
+    assert sub.json()["provider"] == "dev"
 
     other = globex.get("/api/v1/billing/usage")
     assert other.json()["pages"]["used"] == 99

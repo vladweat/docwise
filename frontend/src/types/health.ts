@@ -5,4 +5,5 @@ export interface HealthResponse {
   redis: string;
   pgvector: string;
   minio: string;
+  billing: string;
 }

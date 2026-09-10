@@ -66,6 +66,9 @@ services:
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
       LD_LIBRARY_PATH: /usr/local/lib
+      BILLING_PROVIDER: ${BILLING_PROVIDER:-dev}
+      SSO_PROVIDER: ${SSO_PROVIDER:-dev}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
@@ -108,6 +111,8 @@ services:
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
       LD_LIBRARY_PATH: /usr/local/lib
+      BILLING_PROVIDER: ${BILLING_PROVIDER:-dev}
+      SSO_PROVIDER: ${SSO_PROVIDER:-dev}
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       http_proxy: ${http_proxy:-${HTTP_PROXY:-}}

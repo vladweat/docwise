@@ -7,8 +7,15 @@ import type {
 } from "@/types/auth";
 import type { ChatSessionDetail, ChatSessionListResponse, ChatStreamEvent } from "@/types/chat";
 import type { DocumentListResponse, DocumentResponse, DocumentStatusResponse } from "@/types/document";
-import type { BillingSubscription, BillingUsage } from "@/types/billing";
+import type {
+  BillingSubscription,
+  BillingUsage,
+  ChangePlanResponse,
+  DevSimulateAction,
+  PlanName,
+} from "@/types/billing";
 import type { HealthResponse } from "@/types/health";
+import type { DevSsoAssertion, SsoConnection, SsoUpsertRequest } from "@/types/sso";
 
 import { clearLegacyAuth } from "./auth-storage";
 
@@ -156,6 +163,45 @@ export async function fetchBillingSubscription(): Promise<BillingSubscription> {
 
 export async function fetchBillingUsage(): Promise<BillingUsage> {
   return apiFetch<BillingUsage>("/api/v1/billing/usage");
+}
+
+export async function changeBillingPlan(plan: PlanName): Promise<ChangePlanResponse> {
+  return apiFetch<ChangePlanResponse>("/api/v1/billing/plan", {
+    method: "POST",
+    body: JSON.stringify({ plan }),
+  });
+}
+
+export async function simulateDevBilling(
+  action: DevSimulateAction,
+  plan?: PlanName,
+): Promise<BillingSubscription> {
+  return apiFetch<BillingSubscription>("/api/v1/billing/dev/simulate", {
+    method: "POST",
+    body: JSON.stringify(plan ? { action, plan } : { action }),
+  });
+}
+
+export async function fetchOrganizationSso(): Promise<SsoConnection> {
+  return apiFetch<SsoConnection>("/api/v1/organizations/sso");
+}
+
+export async function upsertOrganizationSso(payload: SsoUpsertRequest): Promise<SsoConnection> {
+  return apiFetch<SsoConnection>("/api/v1/organizations/sso", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function loginWithSso(slug: string, assertion: DevSsoAssertion): Promise<UserResponse> {
+  return apiFetch<UserResponse>(`/api/v1/auth/sso/${encodeURIComponent(slug)}/acs`, {
+    method: "POST",
+    body: JSON.stringify(assertion),
+  });
+}
+
+export function ssoLoginUrl(slug: string): string {
+  return `${API_URL}/api/v1/auth/sso/${encodeURIComponent(slug)}/login`;
 }
 
 export async function fetchChatSessions(

@@ -71,6 +71,8 @@ jobs:
       OPENAI_API_KEY: ""
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
+      BILLING_PROVIDER: dev
+      SSO_PROVIDER: dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

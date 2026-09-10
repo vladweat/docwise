@@ -13,7 +13,7 @@ GET /ready
 
 `GET /health` — liveness процесса: `200` `{ "status": "ok" }` без проверки зависимостей.
 
-`GET /ready` — Postgres, pgvector, Redis, MinIO. M6: при `BILLING_PROVIDER=stripe` без ключей billing не `ok`. `BILLING_PROVIDER=dev` в `/ready` помечается явно (`dev`). `200` если обязательные зависимости `ok`, иначе `503` с теми же полями и `"status": "degraded"`.
+`GET /ready` — Postgres, pgvector, Redis, MinIO. M6: поле `billing`: при `BILLING_PROVIDER=dev` значение `"dev"` (это не ошибка). При `BILLING_PROVIDER=stripe` без ключей `"error"` — billing не `ok`. `200` если обязательные зависимости `ok` и billing `ok` или `dev`, иначе `503` с теми же полями и `"status": "degraded"`.
 
 OpenAPI `/docs` выключен при `ENVIRONMENT=production`.
 
@@ -218,7 +218,7 @@ GET  /api/v1/billing/usage
 POST /api/v1/billing/plan
 ```
 
-`subscription`: `plan`, `billing_status`, период, entitlements (`sso`, `custom_domain`). `usage`: seats / pages / tokens и капы плана. Только org-admin; иначе `403`.
+`subscription`: `plan`, `billing_status`, период, entitlements (`sso`, `custom_domain`), `provider` (`dev` \| `stripe`). `usage`: seats / pages / tokens и капы плана. Только org-admin; иначе `403`.
 
 `POST /billing/plan` тело `{ "plan": "team" }`. `BILLING_PROVIDER=dev` — пишет Postgres сразу. `stripe` — `{ "checkout_url": "..." }` (без ключей → `503`). Не org-admin → `403`.
 
@@ -241,7 +241,7 @@ GET  /api/v1/auth/sso/{slug}/login
 POST /api/v1/auth/sso/{slug}/acs
 ```
 
-`{slug}` → org коннектора. Нет коннектора / нет entitlement → `404` (не подтверждать чужой slug отдельно от «нет SSO»). Успех ACS — Set-Cookie `dw_*`, редирект на фронт. Compose `SSO_PROVIDER=dev` принимает фикстурную assertion.
+`{slug}` → org коннектора. Нет коннектора / нет entitlement → `404` (не подтверждать чужой slug отдельно от «нет SSO»). Успех ACS — Set-Cookie `dw_*`; POST IdP/form → редирект на фронт; `X-Requested-With: Docwise` → `UserResponse` как у login (фикстура Compose). Тело `SSO_PROVIDER=dev`: `{ "email", "email_verified", "groups" }`. Поля `organization_id` / `org_id` в assertion игнорируются. Bearer не принимается.
 
 ```http
 GET  /api/v1/organizations/sso

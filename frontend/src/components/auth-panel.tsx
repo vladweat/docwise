@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
@@ -13,12 +14,15 @@ import { Separator } from "@/components/ui/separator";
 type AuthMode = "login" | "register";
 
 export function AuthPanel() {
-  const { login, register, error, clearError } = useAuth();
+  const { login, register, loginSso, error, clearError } = useAuth();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [organizationName, setOrganizationName] = useState("");
   const [inviteToken, setInviteToken] = useState("");
+  const [ssoSlug, setSsoSlug] = useState(searchParams.get("sso") ?? "");
+  const [ssoGroups, setSsoGroups] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -39,13 +43,35 @@ export function AuthPanel() {
     }
   }
 
+  async function handleSso(e: FormEvent) {
+    e.preventDefault();
+    clearError();
+    const slug = ssoSlug.trim();
+    if (!slug) return;
+    setSubmitting(true);
+    try {
+      await loginSso(slug, {
+        email,
+        email_verified: true,
+        groups: ssoGroups
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+      });
+    } catch {
+      // error handled in context
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function switchMode(next: AuthMode) {
     setMode(next);
     clearError();
   }
 
   return (
-    <Panel title="Вход" subtitle="Email и пароль или Google">
+    <Panel title="Вход" subtitle="Email и пароль, Google или SSO">
       <div className="mb-4 grid w-full grid-cols-2 gap-2">
         {(["login", "register"] as const).map((tab) => (
           <Button
@@ -132,6 +158,40 @@ export function AuthPanel() {
       </div>
 
       <GoogleSignInButton organizationName={mode === "register" ? organizationName : undefined} />
+
+      {mode === "login" ? (
+        <form onSubmit={handleSso} className="mt-4 space-y-3 border-t border-slate-800 pt-4">
+          <p className="text-xs text-slate-500">
+            SSO по slug организации. Compose (`SSO_PROVIDER=dev`) принимает фикстуру без Okta.
+          </p>
+          <div>
+            <Label htmlFor="sso-slug">SSO slug</Label>
+            <Input
+              id="sso-slug"
+              value={ssoSlug}
+              onChange={(e) => setSsoSlug(e.target.value)}
+              placeholder="globex-ab12cd"
+            />
+          </div>
+          <div>
+            <Label htmlFor="sso-groups">Группы IdP (через запятую)</Label>
+            <Input
+              id="sso-groups"
+              value={ssoGroups}
+              onChange={(e) => setSsoGroups(e.target.value)}
+              placeholder="admins, hr-team"
+            />
+          </div>
+          <Button
+            type="submit"
+            variant="secondary"
+            disabled={submitting || !ssoSlug.trim() || !email}
+            className="w-full"
+          >
+            Войти через SSO
+          </Button>
+        </form>
+      ) : null}
     </Panel>
   );
 }

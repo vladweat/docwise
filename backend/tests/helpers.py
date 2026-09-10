@@ -13,11 +13,13 @@ from app.models.user import User, UserRole
 
 WIPE_SQL = """
 TRUNCATE TABLE
+    billing_events,
     rag_audit_logs,
     chat_messages,
     chat_sessions,
     document_chunks,
     documents,
+    organization_sso_connections,
     organization_invites,
     organization_memberships,
     users,

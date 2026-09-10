@@ -320,21 +320,21 @@ flowchart LR
 
 ### M6b — Порт биллинга (`dev` / `stripe`)
 
-- [ ] `BILLING_PROVIDER=dev` \| `stripe`; Compose и не-`production` — `dev`; квоты не вызывают провайдера
-- [ ] Dev: org-admin меняет план / `past_due` / отмену; UI-бейдж Dev billing; `POST /billing/dev/simulate` только текущая org, иначе `404`
-- [ ] `past_due` / cancel → `organizations.status = suspended` (вход в org как в M5)
-- [ ] Адаптер Stripe в коде допустим; живой `api.stripe.com` не критерий; без ключей при `stripe` — billing в `/ready` не `ok`
-- [ ] Таблица `billing_events` (идемпотентность `provider` + `external_id`); вебхук не читает корпус
+- [x] `BILLING_PROVIDER=dev` \| `stripe`; Compose и не-`production` — `dev`; квоты не вызывают провайдера
+- [x] Dev: org-admin меняет план / `past_due` / отмену; UI-бейдж Dev billing; `POST /billing/dev/simulate` только текущая org, иначе `404`
+- [x] `past_due` / cancel → `organizations.status = suspended` (вход в org как в M5)
+- [x] Адаптер Stripe в коде допустим; живой `api.stripe.com` не критерий; без ключей при `stripe` — billing в `/ready` не `ok`
+- [x] Таблица `billing_events` (идемпотентность `provider` + `external_id`); вебхук не читает корпус
 
 ### M6c — SSO / SAML
 
-- [ ] Коннектор принадлежит одной org; org из URL/коннектора (`/auth/sso/{slug}/…`), не из assertion и не из тела
-- [ ] SP-initiated + ACS; успех → те же `dw_*` cookies; Bearer по-прежнему игнорируется
-- [ ] JIT — только membership **этой** org; роли других org не трогать; без JIT нужен инвайт
-- [ ] `sso_enforced`: пароль и Google не сажают в эту org; `switch-organization` без свежего SSO → отказ
-- [ ] Маппинг групп IdP → `role` / `departments` таблицей org-admin; не писать группы в `access_roles` документов
-- [ ] Email без verified-эквивалента — отказ. Compose: `SSO_PROVIDER=dev` (фикстурная assertion), не живой Okta
-- [ ] Entitlement: план без SSO → `403` на коннектор, не «неверный IdP»
+- [x] Коннектор принадлежит одной org; org из URL/коннектора (`/auth/sso/{slug}/…`), не из assertion и не из тела
+- [x] SP-initiated + ACS; успех → те же `dw_*` cookies; Bearer по-прежнему игнорируется
+- [x] JIT — только membership **этой** org; роли других org не трогать; без JIT нужен инвайт
+- [x] `sso_enforced`: пароль и Google не сажают в эту org; `switch-organization` без свежего SSO → отказ
+- [x] Маппинг групп IdP → `role` / `departments` таблицей org-admin; не писать группы в `access_roles` документов
+- [x] Email без verified-эквивалента — отказ. Compose: `SSO_PROVIDER=dev` (фикстурная assertion), не живой Okta
+- [x] Entitlement: план без SSO → `403` на коннектор, не «неверный IdP»
 
 ### M6d — Custom domain
 
