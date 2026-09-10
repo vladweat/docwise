@@ -1,10 +1,13 @@
 import logging
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from sqlalchemy.orm import Session
+from starlette.responses import RedirectResponse
 
 from app.core.auth_cookies import (
     REFRESH_COOKIE,
@@ -15,21 +18,34 @@ from app.core.auth_cookies import (
     set_auth_cookies,
 )
 from app.core.config import get_settings
+from app.core.csrf import CSRF_HEADER_VALUE
 from app.core.deps import get_current_user, get_db
 from app.core.principal import Principal
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.organization import Organization, OrganizationStatus
 from app.models.user import User, UserRole
 from app.schemas.auth import GoogleAuthRequest, LoginRequest, RegisterRequest, SwitchOrganizationRequest
+from app.schemas.sso import DevSsoAssertion
 from app.schemas.user import UserResponse
+from app.services.sso import (
+    SSO_NOT_FOUND,
+    SSO_REQUIRED,
+    complete_sso_login,
+    has_sso_fresh,
+    mark_sso_fresh,
+    public_sso_target,
+    session_allowed_for_org,
+)
 from app.services.tenancy import (
     accept_invite,
     add_membership,
     create_organization,
+    first_membership,
     get_membership,
     get_pending_invite,
     principal_from_parts,
     resolve_principal,
+    resolve_principal_for_password,
     user_response,
 )
 from app.utils.rate_limit import client_ip, enforce_rate_limit
@@ -50,22 +66,33 @@ def _auth_rate_limit(request: Request) -> None:
     enforce_rate_limit("auth", client_ip(request), settings.rate_limit_auth_per_minute)
 
 
-def _issue_session(principal: Principal, response: Response) -> Principal:
+def _issue_session(principal: Principal, response: Response, *, sso: bool = False) -> Principal:
     org_id = str(principal.organization_id)
-    access = create_access_token(principal.email, role=principal.role, org_id=org_id)
-    refresh = create_refresh_token(principal.email, role=principal.role, org_id=org_id)
+    access = create_access_token(principal.email, role=principal.role, org_id=org_id, sso=sso)
+    refresh = create_refresh_token(principal.email, role=principal.role, org_id=org_id, sso=sso)
     set_auth_cookies(response, access_token=access, refresh_token=refresh)
+    if sso:
+        mark_sso_fresh(principal.id, principal.organization_id)
     return principal
 
 
-def _principal_or_403(db: Session, user: User, organization_id: UUID | None) -> Principal:
-    principal = resolve_principal(db, user, organization_id)
+def _principal_or_403(
+    db: Session,
+    user: User,
+    organization_id: UUID | None,
+    *,
+    from_sso: bool = False,
+) -> Principal:
+    if from_sso:
+        principal = resolve_principal(db, user, organization_id)
+    else:
+        principal = resolve_principal_for_password(db, user, organization_id)
     if principal is None:
-        membership = None
-        if organization_id is not None:
-            from app.services.tenancy import get_membership as _get
-
-            membership = _get(db, user.id, organization_id)
+        membership = (
+            get_membership(db, user.id, organization_id)
+            if organization_id is not None
+            else first_membership(db, user.id)
+        )
         if membership is not None:
             org = db.get(Organization, membership.organization_id)
             if org is not None and org.status == OrganizationStatus.suspended.value:
@@ -73,6 +100,8 @@ def _principal_or_403(db: Session, user: User, organization_id: UUID | None) -> 
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Organization is suspended",
                 )
+            if org is not None and org.sso_enforced and not from_sso:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_REQUIRED)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_NO_MEMBERSHIP)
     return principal
 
@@ -126,8 +155,13 @@ def register(
 
     if body.invite_token:
         principal = _register_with_invite(db, body)
-    else:
-        principal = _register_with_org(db, body)
+        db.commit()
+        db.refresh(principal.user)
+        if principal.organization.sso_enforced:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_REQUIRED)
+        _issue_session(principal, response)
+        return user_response(db, principal)
+    principal = _register_with_org(db, body)
     db.commit()
     db.refresh(principal.user)
     _issue_session(principal, response)
@@ -246,6 +280,67 @@ def google_auth(
     return user_response(db, principal)
 
 
+def _sso_json_response(request: Request) -> bool:
+    header = (request.headers.get("x-requested-with") or "").strip()
+    if header == CSRF_HEADER_VALUE:
+        return True
+    accept = (request.headers.get("accept") or "").lower()
+    return "application/json" in accept and "text/html" not in accept
+
+
+@router.get("/sso/{slug}/login")
+def sso_login(slug: str, request: Request, db: Session = Depends(get_db)) -> RedirectResponse:
+    _auth_rate_limit(request)
+    target = public_sso_target(db, slug)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
+    organization, _connection = target
+    settings = get_settings()
+    if settings.sso_provider_name != "dev":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
+    location = f"{settings.public_frontend_url()}/login?sso={quote(organization.slug, safe='')}"
+    return RedirectResponse(url=location, status_code=status.HTTP_302_FOUND)
+
+
+@router.post("/sso/{slug}/acs")
+def sso_acs(
+    slug: str,
+    body: DevSsoAssertion,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Response:
+    _auth_rate_limit(request)
+    target = public_sso_target(db, slug)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
+    organization, connection = target
+    settings = get_settings()
+    if settings.sso_provider_name != "dev":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=SSO_NOT_FOUND)
+    if body.email_verified is not True:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email is not verified",
+        )
+    principal = complete_sso_login(
+        db,
+        organization,
+        connection,
+        email=str(body.email),
+        groups=list(body.groups or []),
+    )
+    db.commit()
+    db.refresh(principal.user)
+    if _sso_json_response(request):
+        payload = user_response(db, principal)
+        json_response = JSONResponse(content=payload.model_dump(mode="json"))
+        _issue_session(principal, json_response, sso=True)
+        return json_response
+    redirect = RedirectResponse(url=f"{settings.public_frontend_url()}/", status_code=status.HTTP_302_FOUND)
+    _issue_session(principal, redirect, sso=True)
+    return redirect
+
+
 @router.post("/refresh", response_model=UserResponse)
 def refresh_session(request: Request, response: Response, db: Session = Depends(get_db)) -> UserResponse:
     raw = request.cookies.get(REFRESH_COOKIE)
@@ -276,7 +371,8 @@ def refresh_session(request: Request, response: Response, db: Session = Depends(
         )
 
     principal = resolve_principal(db, user, org_id)
-    if principal is None:
+    sso_claim = payload.get("sso") is True
+    if principal is None or not session_allowed_for_org(principal.organization, sso_claim=sso_claim):
         revoke_refresh_token(raw)
         clear_auth_cookies(response)
         raise HTTPException(
@@ -285,7 +381,7 @@ def refresh_session(request: Request, response: Response, db: Session = Depends(
         )
 
     revoke_refresh_token(raw)
-    _issue_session(principal, response)
+    _issue_session(principal, response, sso=sso_claim)
     return user_response(db, principal)
 
 
@@ -318,6 +414,8 @@ def switch_organization(
     organization = db.get(Organization, membership.organization_id)
     if organization is None or organization.status != OrganizationStatus.active.value:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+    if organization.sso_enforced and not has_sso_fresh(current_user.id, organization.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_REQUIRED)
     principal = principal_from_parts(current_user.user, membership, organization)
-    _issue_session(principal, response)
+    _issue_session(principal, response, sso=organization.sso_enforced)
     return user_response(db, principal)

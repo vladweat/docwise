@@ -1,17 +1,24 @@
 import re
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.deps import get_db, require_admin
 from app.core.principal import Principal
+from app.models.organization import OrganizationSsoConnection
 from app.models.user import User
+from app.schemas.billing import foreign_organization_id
 from app.schemas.organization import (
     InviteCreateRequest,
     InviteCreateResponse,
     MemberListResponse,
     MemberResponse,
 )
+from app.schemas.sso import SsoConnectionResponse, SsoUpsertRequest
+from app.services.billing import NOT_FOUND
+from app.services.sso import parse_attribute_map, require_sso_entitlement, sso_paths
 from app.services.tenancy import add_membership, create_invite, list_members
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -106,3 +113,95 @@ def create_organization_invite(
         status="invited",
         invite_token=token,
     )
+
+
+def _sso_response(org, connection: OrganizationSsoConnection | None) -> SsoConnectionResponse:
+    login_path, acs_path = sso_paths(org.slug)
+    settings = get_settings()
+    if connection is None:
+        return SsoConnectionResponse(
+            configured=False,
+            slug=org.slug,
+            protocol="saml",
+            idp_entity_id=None,
+            idp_metadata={},
+            jit_enabled=False,
+            attribute_map=parse_attribute_map({}),
+            sso_enforced=bool(org.sso_enforced),
+            login_path=login_path,
+            acs_path=acs_path,
+            provider=settings.sso_provider_name,
+        )
+    return SsoConnectionResponse(
+        configured=True,
+        slug=org.slug,
+        protocol=connection.protocol,
+        idp_entity_id=connection.idp_entity_id,
+        idp_metadata=dict(connection.idp_metadata or {}),
+        jit_enabled=bool(connection.jit_enabled),
+        attribute_map=parse_attribute_map(connection.attribute_map),
+        sso_enforced=bool(org.sso_enforced),
+        login_path=login_path,
+        acs_path=acs_path,
+        provider=settings.sso_provider_name,
+    )
+
+
+@router.get("/sso", response_model=SsoConnectionResponse)
+def get_organization_sso(
+    db: Session = Depends(get_db),
+    current_user: Principal = Depends(require_admin),
+) -> SsoConnectionResponse:
+    org = current_user.organization
+    require_sso_entitlement(org)
+    connection = (
+        db.query(OrganizationSsoConnection)
+        .filter(OrganizationSsoConnection.organization_id == org.id)
+        .first()
+    )
+    return _sso_response(org, connection)
+
+
+@router.put("/sso", response_model=SsoConnectionResponse)
+def upsert_organization_sso(
+    body: SsoUpsertRequest,
+    db: Session = Depends(get_db),
+    current_user: Principal = Depends(require_admin),
+) -> SsoConnectionResponse:
+    if foreign_organization_id(body, current_user.organization_id) is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    org = current_user.organization
+    require_sso_entitlement(org)
+    attribute_map = parse_attribute_map(body.attribute_map)
+    metadata = body.idp_metadata if isinstance(body.idp_metadata, dict) else {}
+    entity_id = (body.idp_entity_id or "").strip() or None
+    connection = (
+        db.query(OrganizationSsoConnection)
+        .filter(OrganizationSsoConnection.organization_id == org.id)
+        .first()
+    )
+    now = datetime.now(UTC).replace(tzinfo=None)
+    if connection is None:
+        connection = OrganizationSsoConnection(
+            organization_id=org.id,
+            protocol=body.protocol.value,
+            idp_entity_id=entity_id,
+            idp_metadata=metadata,
+            attribute_map=attribute_map,
+            jit_enabled=body.jit_enabled,
+            updated_at=now,
+        )
+        db.add(connection)
+    else:
+        connection.protocol = body.protocol.value
+        connection.idp_entity_id = entity_id
+        connection.idp_metadata = metadata
+        connection.attribute_map = attribute_map
+        connection.jit_enabled = body.jit_enabled
+        connection.updated_at = now
+    org.sso_enforced = body.sso_enforced
+    db.add(org)
+    db.commit()
+    db.refresh(org)
+    db.refresh(connection)
+    return _sso_response(org, connection)

@@ -126,6 +126,21 @@ def first_membership(db: Session, user_id: UUID) -> OrganizationMembership | Non
     )
 
 
+def first_password_membership(db: Session, user_id: UUID) -> OrganizationMembership | None:
+    """Skip SSO-enforced orgs so password/Google cannot land there."""
+    return (
+        db.query(OrganizationMembership)
+        .join(Organization, Organization.id == OrganizationMembership.organization_id)
+        .filter(
+            OrganizationMembership.user_id == user_id,
+            Organization.sso_enforced.is_(False),
+            Organization.status == OrganizationStatus.active.value,
+        )
+        .order_by(OrganizationMembership.created_at.asc(), OrganizationMembership.id.asc())
+        .first()
+    )
+
+
 def principal_from_parts(
     user: User,
     membership: OrganizationMembership,
@@ -152,6 +167,32 @@ def resolve_principal(
     if organization is None:
         return None
     if organization.status != OrganizationStatus.active.value:
+        return None
+    return principal_from_parts(user, membership, organization)
+
+
+def resolve_principal_for_password(
+    db: Session,
+    user: User,
+    organization_id: UUID | None,
+) -> Principal | None:
+    if not user.is_active:
+        return None
+    if organization_id is not None:
+        membership = get_membership(db, user.id, organization_id)
+        if membership is not None:
+            organization = db.get(Organization, membership.organization_id)
+            if (
+                organization is not None
+                and organization.status == OrganizationStatus.active.value
+                and not organization.sso_enforced
+            ):
+                return principal_from_parts(user, membership, organization)
+    membership = first_password_membership(db, user.id)
+    if membership is None:
+        return None
+    organization = db.get(Organization, membership.organization_id)
+    if organization is None or organization.status != OrganizationStatus.active.value:
         return None
     return principal_from_parts(user, membership, organization)
 

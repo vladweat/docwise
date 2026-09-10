@@ -8,6 +8,13 @@ from app.core.config import get_settings
 
 CSRF_HEADER_VALUE = "Docwise"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+CSRF_EXEMPT_PATHS = {"/api/v1/billing/webhooks/stripe"}
+
+
+def _csrf_exempt(path: str) -> bool:
+    if path in CSRF_EXEMPT_PATHS:
+        return True
+    return path.startswith("/api/v1/auth/sso/") and path.endswith("/acs")
 
 
 def _origin_allowed(origin: str, allowed: list[str]) -> bool:
@@ -30,6 +37,8 @@ def request_origin(request: Request) -> str | None:
 def enforce_csrf(request: Request) -> None:
     """Require Origin allowlist or X-Requested-With when cookies are cross-site (SameSite=None)."""
     if request.method in SAFE_METHODS:
+        return
+    if _csrf_exempt(request.url.path):
         return
     if not request.url.path.startswith("/api/v1"):
         return

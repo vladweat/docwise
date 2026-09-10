@@ -1,3 +1,4 @@
+from app.models.billing import BillingEvent, BillingProvider
 from app.models.chat import ChatMessage, ChatMessageRole, ChatSession, RagAuditLog
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.organization import (
@@ -6,7 +7,9 @@ from app.models.organization import (
     OrganizationInvite,
     OrganizationMembership,
     OrganizationPlan,
+    OrganizationSsoConnection,
     OrganizationStatus,
+    SsoProtocol,
 )
 from app.models.user import User, UserRole
 
@@ -17,8 +20,12 @@ __all__ = [
     "OrganizationStatus",
     "OrganizationPlan",
     "BillingStatus",
+    "BillingEvent",
+    "BillingProvider",
     "OrganizationMembership",
     "OrganizationInvite",
+    "OrganizationSsoConnection",
+    "SsoProtocol",
     "Document",
     "DocumentChunk",
     "DocumentStatus",

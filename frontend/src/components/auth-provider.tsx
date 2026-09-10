@@ -17,6 +17,7 @@ import {
   fetchMe,
   login,
   loginWithGoogle,
+  loginWithSso,
   logout as apiLogout,
   register,
   switchOrganization,
@@ -24,6 +25,7 @@ import {
 import { clearLegacyAuth } from "@/lib/auth-storage";
 import { resetClientSessionState } from "@/lib/reset-client-state";
 import type { UserResponse } from "@/types/auth";
+import type { DevSsoAssertion } from "@/types/sso";
 
 interface AuthContextValue {
   user: UserResponse | null;
@@ -33,6 +35,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, organizationName: string, inviteToken?: string) => Promise<void>;
   loginGoogle: (idToken: string, extras?: { organization_name?: string }) => Promise<void>;
+  loginSso: (slug: string, assertion: DevSsoAssertion) => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -154,6 +157,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyUser],
   );
 
+  const handleSsoLogin = useCallback(
+    async (slug: string, assertion: DevSsoAssertion) => {
+      setError(null);
+      try {
+        const me = await loginWithSso(slug, assertion);
+        applyUser(me);
+      } catch (err) {
+        const message = err instanceof ApiRequestError ? err.message : "SSO login failed";
+        setError(message);
+        throw err;
+      }
+    },
+    [applyUser],
+  );
+
   const handleSwitchOrganization = useCallback(
     async (organizationId: string) => {
       setError(null);
@@ -178,12 +196,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: handleLogin,
       register: handleRegister,
       loginGoogle: handleGoogleLogin,
+      loginSso: handleSsoLogin,
       switchOrganization: handleSwitchOrganization,
       logout: handleLogout,
       refreshUser,
       clearError: () => setError(null),
     }),
-    [user, loading, error, handleLogin, handleRegister, handleGoogleLogin, handleSwitchOrganization, handleLogout, refreshUser],
+    [user, loading, error, handleLogin, handleRegister, handleGoogleLogin, handleSsoLogin, handleSwitchOrganization, handleLogout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

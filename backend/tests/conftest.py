@@ -43,6 +43,10 @@ os.environ["PLAN_TEAM_TOKENS"] = "100000000"
 os.environ["PLAN_ENTERPRISE_SEATS"] = "1000"
 os.environ["PLAN_ENTERPRISE_PAGES"] = "1000000"
 os.environ["PLAN_ENTERPRISE_TOKENS"] = "100000000"
+os.environ["BILLING_PROVIDER"] = "dev"
+os.environ["SSO_PROVIDER"] = "dev"
+os.environ["STRIPE_SECRET_KEY"] = ""
+os.environ["STRIPE_WEBHOOK_SECRET"] = ""
 
 
 def _ensure_test_database() -> None:

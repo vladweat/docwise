@@ -12,6 +12,19 @@ export interface BillingSubscription {
   current_period_start: string | null;
   current_period_end: string | null;
   entitlements: PlanEntitlements;
+  provider: "dev" | "stripe";
+}
+
+export type DevSimulateAction = "set_plan" | "past_due" | "cancel" | "activate";
+
+export interface ChangePlanResponse {
+  provider: "dev" | "stripe";
+  plan?: PlanName | null;
+  billing_status?: BillingStatus | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  entitlements?: PlanEntitlements | null;
+  checkout_url?: string | null;
 }
 
 export interface QuotaMeter {

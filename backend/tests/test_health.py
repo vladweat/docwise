@@ -26,5 +26,7 @@ def test_ready_checks_dependencies():
     assert "redis" in data
     assert "pgvector" in data
     assert "minio" in data
+    assert "billing" in data
+    assert data["billing"] in {"dev", "ok", "error"}
     assert "qdrant" not in data
     assert "slither" not in data

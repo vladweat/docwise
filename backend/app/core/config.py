@@ -54,9 +54,48 @@ class Settings(BaseSettings):
     plan_enterprise_seats: int = Field(default=100, alias="PLAN_ENTERPRISE_SEATS")
     plan_enterprise_pages: int = Field(default=20_000, alias="PLAN_ENTERPRISE_PAGES")
     plan_enterprise_tokens: int = Field(default=10_000_000, alias="PLAN_ENTERPRISE_TOKENS")
+    billing_provider: str = Field(default="dev", alias="BILLING_PROVIDER")
+    stripe_secret_key: str = Field(default="", alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str = Field(default="", alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_starter: str = Field(default="", alias="STRIPE_PRICE_STARTER")
+    stripe_price_team: str = Field(default="", alias="STRIPE_PRICE_TEAM")
+    stripe_price_enterprise: str = Field(default="", alias="STRIPE_PRICE_ENTERPRISE")
+    frontend_url: str = Field(default="", alias="FRONTEND_URL")
+    sso_provider: str = Field(default="dev", alias="SSO_PROVIDER")
+    sso_fresh_ttl_seconds: int = Field(default=900, alias="SSO_FRESH_TTL_SECONDS")
 
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
+    @property
+    def billing_provider_name(self) -> str:
+        raw = (self.billing_provider or "dev").strip().lower()
+        return raw or "dev"
+
+    @property
+    def stripe_configured(self) -> bool:
+        return bool(self.stripe_secret_key.strip() and self.stripe_webhook_secret.strip())
+
+    def stripe_price_id(self, plan: str) -> str:
+        key = (plan or "").strip().lower()
+        mapping = {
+            "starter": self.stripe_price_starter,
+            "team": self.stripe_price_team,
+            "enterprise": self.stripe_price_enterprise,
+        }
+        return mapping.get(key, "").strip()
+
+    @property
+    def sso_provider_name(self) -> str:
+        raw = (self.sso_provider or "dev").strip().lower()
+        return raw or "dev"
+
+    def public_frontend_url(self) -> str:
+        explicit = self.frontend_url.strip().rstrip("/")
+        if explicit:
+            return explicit
+        origins = self.cors_origin_list()
+        return origins[0].rstrip("/") if origins else "http://localhost:3001"
 
     @property
     def search_inspect_enabled(self) -> bool:

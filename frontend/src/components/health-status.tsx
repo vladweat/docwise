@@ -8,10 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchHealth } from "@/lib/api";
 import type { HealthResponse } from "@/types/health";
 
-const CHECKS = ["postgres", "redis", "pgvector", "minio"] as const;
+const CHECKS = ["postgres", "redis", "pgvector", "minio", "billing"] as const;
 
-function StatusBadge({ ok }: { ok: boolean }) {
-  return <Badge variant={ok ? "success" : "destructive"}>{ok ? "ok" : "error"}</Badge>;
+function checkOk(key: (typeof CHECKS)[number], value: string): boolean {
+  if (key === "billing") return value === "ok" || value === "dev";
+  return value === "ok";
+}
+
+function StatusBadge({ value, ok }: { value: string; ok: boolean }) {
+  return <Badge variant={ok ? (value === "dev" ? "warning" : "success") : "destructive"}>{value}</Badge>;
 }
 
 export function HealthStatus() {
@@ -53,7 +58,7 @@ export function HealthStatus() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-medium text-slate-400">Backend status</CardTitle>
-          <StatusBadge ok={allOk} />
+          <StatusBadge value={health.status} ok={allOk} />
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-lg font-semibold capitalize">{health.status}</p>
@@ -61,7 +66,7 @@ export function HealthStatus() {
             {CHECKS.map((key) => (
               <li key={key} className="flex items-center justify-between text-sm">
                 <span className="text-slate-400">{key}</span>
-                <StatusBadge ok={health[key] === "ok"} />
+                <StatusBadge value={health[key]} ok={checkOk(key, health[key])} />
               </li>
             ))}
           </ul>

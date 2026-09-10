@@ -9,6 +9,7 @@ from app.core.database import SessionLocal
 from app.core.principal import Principal
 from app.core.security import decode_access_token
 from app.models.user import User, UserRole
+from app.services.sso import session_allowed_for_org
 from app.services.tenancy import resolve_principal
 
 
@@ -65,6 +66,11 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Princip
 
     principal = resolve_principal(db, user, org_id)
     if principal is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    if not session_allowed_for_org(principal.organization, sso_claim=payload.get("sso") is True):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",

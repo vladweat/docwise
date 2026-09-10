@@ -25,6 +25,7 @@ from app.core.config import DEFAULT_SECRET_KEY, get_settings
 from app.core.csrf import enforce_csrf
 from app.core.database import check_pgvector, check_postgres
 from app.core.sentry import init_sentry
+from app.services.billing import billing_readiness
 from app.services.storage import ensure_documents_bucket, get_object_storage
 from app.utils.logging import setup_logging
 from app.utils.redis_lock import get_redis_client
@@ -110,6 +111,7 @@ class ReadyResponse(BaseModel):
     redis: str
     pgvector: str
     minio: str
+    billing: str
 
 
 def _check_redis() -> bool:
@@ -139,6 +141,7 @@ def health() -> LivenessResponse:
 
 @app.get("/ready", response_model=None)
 def ready() -> ReadyResponse | JSONResponse:
+    runtime = get_settings()
     checks = {"postgres": "error", "redis": "error", "pgvector": "error", "minio": "error"}
 
     try:
@@ -165,10 +168,14 @@ def ready() -> ReadyResponse | JSONResponse:
     except Exception as exc:
         logger.warning("MinIO check failed: %s", exc)
 
-    all_ok = all(v == "ok" for v in checks.values())
+    billing = billing_readiness()
+    required_ok = all(value == "ok" for value in checks.values())
+    billing_ok = billing in {"ok", "dev"}
+    all_ok = required_ok and billing_ok
     payload = ReadyResponse(
         status="ok" if all_ok else "degraded",
-        environment=settings.environment,
+        environment=runtime.environment,
+        billing=billing,
         **checks,
     )
     if not all_ok:
