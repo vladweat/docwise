@@ -5,30 +5,36 @@ alwaysApply: true
 
 # RBAC for retrieval
 
-Canonical: `docs/auth.md`. A junior employee must never receive answers derived from documents they cannot open. This is the core enterprise requirement.
+Canonical: `docs/auth.md` and `docs/tenancy.md`. A junior employee must never receive answers derived from documents they cannot open. An employee of another company must never receive answers from this company’s corpus — including documents tagged `all`. This is the core enterprise requirement.
 
 ## Enforcement
 
-- Persist `access_roles` on the `documents` row **and** on every `document_chunks` row.
-- On every search/chat/inspect request, filter with the authenticated user's `role` and `departments`:
+- Persist `organization_id` (M5) and `access_roles` on the `documents` row **and** on every `document_chunks` row.
+- On every search/chat/inspect request, filter with the session org **and** the membership `role` / `departments`:
 
 ```sql
-WHERE access_roles && ARRAY['employee', 'all']::text[]
+WHERE organization_id = :current_org
+  AND access_roles && ARRAY['employee', 'all']::text[]
 ```
 
-- Apply the filter to **both** dense and sparse/FTS queries. Do not fuse, rerank, or send to the LLM any row that failed the filter.
-- `GET /documents` and `GET /documents/{id}/raw` use the same rule. No file bytes without access.
-- Never “explain why a document was omitted” if that would confirm a restricted file exists.
+Until M5 only the `access_roles` conjunct exists (one implicit tenant). Do not deploy two customers on that schema.
+
+- Apply both conjuncts to **dense and sparse/FTS**. Do not fuse, rerank, or send to the LLM any row that failed.
+- `GET /documents` and `GET /documents/{id}/raw` use the same rule. No file bytes without access. Foreign org → same `404` as missing ACL.
+- Never “explain why a document was omitted” if that would confirm a restricted or cross-tenant file exists.
 
 ## Forbidden
 
 - Filtering only in the prompt (“ignore chunks the user should not see”)
-- Client-supplied `access_roles` / `document_ids` that bypass the token
+- Client-supplied `access_roles` / `document_ids` / `org_id` / `organization_id` that bypass the token
+- Using department tags (`hr`, `all`) as tenant ids
+- LLM cache keyed only by roles (must include `org_id` after M5)
 - Logging full chunk text of restricted docs in audit trails visible to the same user
 - Admin-only debug payloads on production chat endpoints
+- Platform operator reading customer corpora (not in M5)
 
 ## Roles
 
-Users: `admin` | `manager` | `employee`, plus `departments[]` (e.g. `engineering`, `hr`). 
-Documents: `access_roles[]` (e.g. `admin`, `hr`, `all`). 
-`admin` may manage the knowledge base; retrieval still respects document ACLs unless an explicit admin override exists in the SRS.
+Membership (after M5; on `users` until then): `admin` | `manager` | `employee`, plus `departments[]` (e.g. `engineering`, `hr`).
+Documents: `access_roles[]` (e.g. `admin`, `hr`, `all`) **inside** the org.
+Org-`admin` may manage that org’s KB; retrieval still respects document ACLs. No admin override. No cross-org read.

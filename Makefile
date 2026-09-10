@@ -1,4 +1,4 @@
-.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test lint health migrate eval eval-retrieval
+.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test lint typecheck health migrate eval eval-retrieval demo
 
 # Шаг 1 (нужен интернет): скачать зависимости backend + frontend
 deps: venv embeddings deps-frontend
@@ -36,12 +36,15 @@ logs:
 logs-frontend:
 	docker compose logs -f frontend
 
-# pytest ходит в docwise_test, не в рабочую БД
+# pytest ходит в docwise_test, не в рабочую БД. Без coverage-гейтов ChainWise.
 test:
-	docker compose exec backend python -m pytest tests/ -v --cov-report=term-missing
+	docker compose exec backend python -m pytest tests/ -v
 
 lint:
 	docker compose exec backend python -m flake8 app tests scripts
+
+typecheck:
+	cd frontend && npx tsc --noEmit
 
 migrate:
 	docker compose exec backend python -m alembic upgrade head
@@ -55,3 +58,7 @@ eval:
 
 eval-retrieval:
 	docker compose exec -e PYTHONPATH=/app backend python /eval/run_eval.py --seed --retrieval-only
+
+# Local demo: employee vs HR + handbook (all) / HR compensation (hr)
+demo:
+	docker compose exec -e PYTHONPATH=/app backend python /eval/seed_demo.py

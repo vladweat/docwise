@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+# Unit CI only: ruff, pytest (parser / RRF / ACL), frontend tsc.
+# No GPU, no live LLM, no eval runner, no ChainWise coverage gates.
+
 jobs:
   backend-lint:
     runs-on: ubuntu-latest
@@ -15,8 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install flake8
-      - run: flake8 app tests scripts
+      - run: pip install ruff
+      - run: ruff check app tests scripts
 
   frontend-typecheck:
     runs-on: ubuntu-latest
@@ -65,6 +68,9 @@ jobs:
       CELERY_RESULT_BACKEND: redis://localhost:6379/0
       SECRET_KEY: ci-secret-key
       S3_ENDPOINT: http://127.0.0.1:9
+      OPENAI_API_KEY: ""
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -74,4 +80,4 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Run pytest
         working-directory: backend
-        run: python -m pytest tests/ -v --cov-report=term-missing
+        run: python -m pytest tests/ -v

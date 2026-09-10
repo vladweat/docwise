@@ -10,7 +10,7 @@
 | [M1 PDF ingest](#milestone-1--pdf-ingest) | готово | 2–3 дня |
 | [M2 Retrieval + RBAC + SSE](#milestone-2--corpus-retrieval--rbac--sse) | готово | 3–4 дня |
 | [M3 Split-screen UI](#milestone-3--split-screen-ui) | открыто | 2–3 дня |
-| [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | открыто | 1–2 дня |
+| [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | готово | 1–2 дня |
 | [M5 Shared tenancy](#milestone-5--shared-tenancy-b2b-saas) | открыто | после v1 |
 
 ```mermaid
@@ -221,18 +221,18 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### CI и качество репо
 
-- [ ] GitHub Actions: ruff или flake8 + pytest (парсер, RRF, ACL)
-- [ ] Frontend `tsc --noEmit` в CI
-- [ ] Нет coverage-хуков на `pragma_parser` / `risk_scorer`
-- [ ] CI зелёный на `main` / PR
+- [x] GitHub Actions: ruff или flake8 + pytest (парсер, RRF, ACL)
+- [x] Frontend `tsc --noEmit` в CI
+- [x] Нет coverage-хуков на `pragma_parser` / `risk_scorer`
+- [x] CI зелёный на `main` / PR
 
 ### Портфолио
 
-- [ ] Английский README: схема, why not naive RAG, стек, как поднять demo
-- [ ] В README — ссылка на метрики eval и коротко про SQL-RBAC
-- [ ] Demo-скрипт или раздел: тестовые пользователи employee vs hr, два PDF с разным ACL
+- [x] Английский README: схема, why not naive RAG, стек, как поднять demo
+- [x] В README — ссылка на метрики eval и коротко про SQL-RBAC
+- [x] Demo-скрипт или раздел: тестовые пользователи employee vs hr, два PDF с разным ACL
 
-**Критерий вехи:** [ ] зелёный CI; нулевые ACL-утечки в eval
+**Критерий вехи:** [x] зелёный CI; нулевые ACL-утечки в eval
 
 ---
 
@@ -246,7 +246,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 - [ ] Нехватка контекста → отказ «в документах нет информации», без выдуманных фактов
 - [ ] Повторный ingest того же `document_id` не плодит дубли в `document_chunks`
 - [x] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек
-- [ ] CI: lint + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах
+- [x] CI: lint + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах
 
 Shared SaaS — не часть приёмки v1; критерии M5.
 

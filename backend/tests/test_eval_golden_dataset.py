@@ -47,7 +47,7 @@ def test_golden_dataset_meets_eval_contract():
     corpus_mod = _load_module("corpus")
     golden = dataset_mod.load_golden_dataset(_eval_dir() / "golden_dataset.json")
 
-    assert golden.eval_user_email == "eval-employee@docwise.local"
+    assert golden.eval_user_email == "eval-employee@docwise.example.com"
     assert len(golden.items) >= dataset_mod.MIN_CASES
     assert len(golden.acl_negatives) >= 5
     assert len(golden.positives) >= 20
@@ -87,6 +87,28 @@ def test_acl_leak_helper_and_ci_does_not_run_eval():
     if ci.is_file():
         assert "run_eval.py" not in text
         assert "golden_dataset.json" not in text
+        assert "seed_demo.py" not in text
+        assert "pragma_parser" not in text
+        assert "risk_scorer" not in text
+        assert "--cov=" not in text
+        assert "ruff check" in text
+        assert "tsc --noEmit" in text
+        assert "pytest tests/" in text
+
+
+def test_demo_accounts_split_employee_and_hr_acl():
+    corpus = _load_module("corpus")
+    accounts = {item.email: item for item in corpus.DEMO_ACCOUNTS}
+    employee = accounts["employee@docwise.example.com"]
+    hr = accounts["hr@docwise.example.com"]
+    assert employee.role == "employee"
+    assert list(employee.departments) == []
+    assert hr.role == "employee"
+    assert "hr" in hr.departments
+
+    specs = {item.slug: item for item in corpus.demo_specs()}
+    assert specs["employee-handbook"].access_roles == ("all",)
+    assert specs["hr-compensation"].access_roles == ("hr",)
 
 
 def test_golden_json_is_valid_utf8():

@@ -1,8 +1,33 @@
 # Модель данных
 
-Два слоя в одном Postgres: таблицы пользователей/файлов/чатов и индекс чанков с pgvector. ACL чанка дублирует `documents.access_roles`. Первичные ключи — **UUID** (`gen_random_uuid()` / SQLAlchemy `uuid4`). Роли и фильтр: [auth.md](auth.md).
+Два слоя в одном Postgres: таблицы пользователей/организаций/файлов/чатов и индекс чанков с pgvector. Изоляция компаний — `org_id` ([tenancy.md](tenancy.md)). ACL чанка дублирует `documents.access_roles`; `org_id` чанка дублирует документ. Первичные ключи — **UUID** (`gen_random_uuid()` / SQLAlchemy `uuid4`). Роли и фильтр: [auth.md](auth.md).
+
+До M5 таблиц организаций нет: `users.role` / `users.departments` и глобальный unique `file_hash` — схема одного неявного тенанта. Ниже — **целевая** модель SaaS; миграция M5 переносит роли на membership и создаёт bootstrap-org для уже существующих строк.
 
 ## PostgreSQL
+
+### `organizations` (M5)
+
+| Поле | Тип | Заметки |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `name` | String | Отображаемое имя компании |
+| `slug` | String unique | Стабильный ключ; для будущих URL, не для ACL |
+| `status` | `active` \| `suspended` | Suspended — логин в эту org отклоняется |
+| `created_at` | DateTime | |
+
+### `organization_memberships` (M5)
+
+| Поле | Тип | Заметки |
+| --- | --- | --- |
+| `id` | UUID PK | |
+| `organization_id` | UUID FK → organizations | Каскад при удалении org (отдельная процедура, не случайный DELETE) |
+| `user_id` | UUID FK → users | |
+| `role` | `admin` \| `manager` \| `employee` | CHECK; **не** колонка `users` после M5 |
+| `departments` | `ARRAY(String)` | Например `['engineering', 'hr']` |
+| `created_at` | DateTime | |
+
+Unique `(organization_id, user_id)`. `allowed_roles` для поиска = `{membership.role}` ∪ `membership.departments` ∪ `{all}` — только этой org.
 
 ### `users`
 
@@ -13,35 +38,38 @@
 | `hashed_password` | String nullable | Пусто у Google-only аккаунта |
 | `google_id` | String unique nullable | `sub` из ID token |
 | `is_active` | Boolean | |
-| `role` | `admin` \| `manager` \| `employee` | CHECK-ограничение; первый зарегистрированный пользователь — `admin` |
-| `departments` | `ARRAY(String)` | Например `['engineering', 'hr']` |
+| `role` | `admin` \| `manager` \| `employee` | Только до M5. После — на membership; колонку убрать или оставить unused |
+| `departments` | `ARRAY(String)` | Только до M5; далее на membership |
 | `created_at` | DateTime | |
 
-Роли ChainWise — только `user`/`admin`. Здесь: `admin` | `manager` | `employee` плюс `departments[]`.  
-`user.allowed_roles` для фильтра поиска = `{role}` ∪ `departments` ∪ `{all}` (сборка — в [retrieval](retrieval.md)).
+Роли ChainWise — только `user`/`admin`. Здесь: `admin` | `manager` | `employee` плюс `departments[]` **на членстве в организации**.  
+`allowed_roles` для фильтра поиска = `{role}` ∪ `departments` ∪ `{all}` текущей org (сборка — в [retrieval](retrieval.md)). Email уникален глобально: один человек — несколько org.
 
 ### `documents`
 
 | Поле | Тип | Заметки |
 | --- | --- | --- |
 | `id` | UUID PK | |
+| `organization_id` | UUID FK → organizations | M5; NOT NULL. Источник — сессия upload, не тело |
 | `title` | String | Имя для UI |
-| `file_path` | String | Ключ в MinIO |
-| `file_hash` | String | SHA-256, UNIQUE, защита от дублей |
+| `file_path` | String | Ключ в MinIO (`orgs/{org_id}/…`) |
+| `file_hash` | String | SHA-256; unique **вместе с** `organization_id` |
 | `file_size_bytes` | Integer | |
 | `total_pages` | Integer | Заполняется после парсинга |
-| `access_roles` | `ARRAY(String)` | Например `['admin', 'hr']` |
+| `access_roles` | `ARRAY(String)` | Например `['admin', 'hr']` — внутри org, не id компании |
 | `status` | Enum `pending` \| `processing` \| `ready` \| `failed` | В ChainWise аналог — `indexing`; при порте переименовать |
 | `last_error` | Text nullable | Как `contracts.last_error` в ChainWise |
+| `ingestion_stage` | String nullable | `parse` \| `chunk` \| `embed`; для поллинга `GET .../status` |
 | `created_at`, `updated_at` | DateTime | |
 
-Индексы: `file_hash`, `status`, GIN по `access_roles`.
+Индексы: unique `(organization_id, file_hash)` (до M5 — unique `file_hash`), `status`, `(organization_id)`, GIN по `access_roles`.
 
 ### `chat_sessions`
 
 | Поле | Тип | Заметки |
 | --- | --- | --- |
 | `id` | UUID PK | |
+| `organization_id` | UUID FK | M5; копия с пользователя на момент создания, сессии не пересекают org |
 | `user_id` | UUID FK → users | |
 | `title` | String nullable | Можно заполнять по первому вопросу |
 | `created_at`, `updated_at` | DateTime | |
@@ -62,6 +90,7 @@
 | Поле | Тип | Заметки |
 | --- | --- | --- |
 | `id` | UUID PK | |
+| `organization_id` | UUID FK | M5; та же org, что у retrieval |
 | `user_id` | UUID FK | |
 | `session_id` / `message_id` | UUID nullable | Связь с чатом |
 | `query` | Text | |
@@ -75,14 +104,15 @@
 
 ## Postgres: таблица `document_chunks`
 
-Расширение `vector`. Dense: `embedding vector(384)`, cosine (`BAAI/bge-small-en-v1.5`). Индекс HNSW. ACL и `document_id` — обычные колонки + GIN по `access_roles`.
+Расширение `vector`. Dense: `embedding vector(384)`, cosine (`BAAI/bge-small-en-v1.5`). Индекс HNSW. ACL, `document_id` и (M5) `organization_id` — обычные колонки + GIN по `access_roles` + btree/hash по `organization_id`.
 
-Sparse/BM25: колонка `tsvector` / FTS или in-memory BM25 только по dense-кандидатам (см. [retrieval](retrieval.md)).
+Sparse/BM25: колонка `tsvector` / FTS или in-memory BM25 только по dense-кандидатам (см. [retrieval.md](retrieval.md)). Каждый поиск: `organization_id = :current_org` **и** GIN ACL.
 
 | Поле | Тип | Заметки |
 | --- | --- | --- |
 | `id` | UUID PK | стабильный ключ чанка в API |
 | `document_id` | UUID FK | как `contract_id` в ChainWise, но UUID |
+| `organization_id` | UUID | M5; копия с документа (не JOIN вместо фильтра) |
 | `chunk_id` | String unique | стабильный ключ для re-upsert (`{document_id}:{page}:{n}`) |
 | `page_number` | Integer | |
 | `section_title` | String nullable | |
@@ -94,12 +124,12 @@ Sparse/BM25: колонка `tsvector` / FTS или in-memory BM25 только 
 | `doc_title` | String nullable | для цитат |
 | `bbox` / `highlight_rects` | JSONB nullable | подсветка во вьюере |
 
-При переиндексации удалять строки по `document_id`, затем вставлять заново.
+При переиндексации удалять строки по `document_id`, затем вставлять заново. `organization_id` чанка всегда равен документу.
 
 ## MinIO
 
-Bucket `documents` — приватный (без anonymous `s3:GetObject`). `documents.file_path` — ключ объекта. Байты отдаются только через API (`GET /documents/{id}/raw`). Публичные URL и вечные pre-signed ссылки запрещены.
+Bucket `documents` — приватный (без anonymous `s3:GetObject`). `documents.file_path` — ключ объекта. После M5 префикс `orgs/{organization_id}/…`. Байты отдаются только через API (`GET /documents/{id}/raw`). Публичные URL и вечные pre-signed ссылки запрещены.
 
 ## Согласованность ACL
 
-`documents.access_roles` — источник истины. Колонка чанка обязана совпадать. Смена ролей: `PATCH /api/v1/documents/{id}` обновляет документ **и** все его чанки (без re-embed). Поиск никогда не доверяет ролям, присланным клиентом в теле запроса.
+`documents.access_roles` — источник истины для **внутренней** ACL. `documents.organization_id` — источник истины для тенанта. Обе колонки чанка обязаны совпадать с документом. Смена ролей: `PATCH /api/v1/documents/{id}` обновляет документ **и** все его чанки (без re-embed). `organization_id` с клиента не принимается. Поиск никогда не доверяет ролям и org, присланным в теле запроса.

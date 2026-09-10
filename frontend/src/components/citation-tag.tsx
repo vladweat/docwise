@@ -25,7 +25,7 @@ export function CitationTag({
       }}
       title={citation.snippet}
       className={cn(
-        "inline-flex max-w-full items-center rounded-full border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-left text-[11px] font-medium text-blue-200",
+        "inline-flex max-w-full items-center truncate rounded-full border border-blue-500/40 bg-blue-500/15 px-2 py-0.5 text-left text-[11px] font-medium text-blue-200",
         "hover:bg-blue-500/25 focus-visible:ring-2 focus-visible:ring-blue-500/60",
         className,
       )}

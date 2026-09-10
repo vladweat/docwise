@@ -4,41 +4,71 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = "dw-split-left-pct";
+const STORAGE_KEY = "dw-split-chat-pct";
 const DEFAULT_PCT = 45;
-const MIN_PCT = 28;
-const MAX_PCT = 70;
+const CHAT_MIN_PX = 440;
+const PDF_MIN_PX = 320;
+
+function clampChatWidth(desired: number, total: number): number {
+  if (total <= 0) return 0;
+  const minChat = Math.min(CHAT_MIN_PX, total);
+  const leftover = Math.max(0, total - minChat);
+  const pdfMin = leftover >= PDF_MIN_PX ? PDF_MIN_PX : leftover;
+  const maxChat = Math.max(minChat, total - pdfMin);
+  return Math.min(Math.max(desired, minChat), maxChat);
+}
 
 export function SplitPane({
   left,
   right,
+  collapsed = false,
+  onCollapsedChange,
 }: {
   left: ReactNode;
   right: ReactNode;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }) {
-  const [leftPct, setLeftPct] = useState(DEFAULT_PCT);
+  const [chatWidth, setChatWidth] = useState(0);
   const dragging = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const pctRef = useRef(leftPct);
-  pctRef.current = leftPct;
+  const pctRef = useRef(DEFAULT_PCT);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const value = raw ? Number(raw) : NaN;
-      if (value >= MIN_PCT && value <= MAX_PCT) setLeftPct(value);
+      if (value >= 20 && value <= 80) pctRef.current = value;
     } catch {
       // ignore
     }
-  }, []);
+
+    const el = rootRef.current;
+    if (!el) return;
+
+    const apply = () => {
+      const total = el.getBoundingClientRect().width;
+      if (collapsed) {
+        setChatWidth(total);
+        return;
+      }
+      setChatWidth(clampChatWidth((pctRef.current / 100) * total, total));
+    };
+
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    apply();
+    return () => observer.disconnect();
+  }, [collapsed]);
 
   useEffect(() => {
     const onMove = (event: PointerEvent) => {
-      if (!dragging.current || !rootRef.current) return;
+      if (!dragging.current || !rootRef.current || collapsed) return;
       event.preventDefault();
       const rect = rootRef.current.getBoundingClientRect();
-      const next = ((event.clientX - rect.left) / rect.width) * 100;
-      setLeftPct(Math.min(MAX_PCT, Math.max(MIN_PCT, next)));
+      const next = clampChatWidth(event.clientX - rect.left, rect.width);
+      pctRef.current = rect.width > 0 ? (next / rect.width) * 100 : pctRef.current;
+      setChatWidth(next);
     };
     const onUp = () => {
       if (!dragging.current) return;
@@ -57,30 +87,48 @@ export function SplitPane({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, []);
+  }, [collapsed]);
 
   return (
-    <div ref={rootRef} className="flex min-h-0 min-w-0 flex-1">
-      <div className="flex min-h-0 min-w-0 flex-col" style={{ width: `${leftPct}%` }}>
+    <div ref={rootRef} className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div
+        className={cn(
+          "flex min-h-0 min-w-0 flex-col overflow-hidden",
+          collapsed || chatWidth <= 0 ? "flex-1" : "shrink-0",
+        )}
+        style={collapsed || chatWidth <= 0 ? undefined : { width: chatWidth }}
+      >
         {left}
       </div>
-      <button
-        type="button"
-        aria-label="Изменить ширину панелей"
+      {collapsed ? null : (
+        <button
+          type="button"
+          aria-label="Изменить ширину панелей"
+          title="Двойной щелчок — скрыть панель документа"
+          className={cn(
+            "group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-slate-800 hover:bg-blue-500/70",
+            "focus-visible:bg-blue-500/70 focus-visible:outline-none",
+          )}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            dragging.current = true;
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+          }}
+          onDoubleClick={() => onCollapsedChange?.(true)}
+        >
+          <span className="absolute inset-y-0 -left-1 -right-1" />
+        </button>
+      )}
+      <div
         className={cn(
-          "group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-slate-800 hover:bg-blue-500/70",
-          "focus-visible:bg-blue-500/70 focus-visible:outline-none",
+          "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+          collapsed && "hidden",
         )}
-        onPointerDown={(event) => {
-          event.preventDefault();
-          dragging.current = true;
-          document.body.style.cursor = "col-resize";
-          document.body.style.userSelect = "none";
-        }}
+        aria-hidden={collapsed}
       >
-        <span className="absolute inset-y-0 -left-1 -right-1" />
-      </button>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{right}</div>
+        {right}
+      </div>
     </div>
   );
 }

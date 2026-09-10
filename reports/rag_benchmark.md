@@ -3,7 +3,7 @@
 **Conclusion (2026-09-10):** not naive RAG. SQL ACL holds (0 leaks of HR/Finance). Answers stay inside Top-4 (Faithfulness 1.000). Two positive misses after rerank 0.25 (`hb-security-email`, `eng-python`) are retrieval quality, not an RBAC hole.
 
 Generated: `2026-09-10T06:23:08+00:00`
-Eval user: `eval-employee@docwise.local` (role `employee`, departments `[]`)
+Eval user: `eval-employee@docwise.example.com` (role `employee`, departments `[]`)
 Cases: 35 (28 positive, 7 ACL-negative)
 Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` (retrieval + generation + Ragas judges)
 

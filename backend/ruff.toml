@@ -1,0 +1,7 @@
+line-length = 120
+target-version = "py312"
+exclude = [".git", "__pycache__", ".venv", "venv", ".pytest_cache"]
+
+[lint]
+select = ["E", "F", "W"]
+ignore = ["E402"]

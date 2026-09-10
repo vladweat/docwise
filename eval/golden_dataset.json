@@ -1,5 +1,5 @@
 {
-  "eval_user_email": "eval-employee@docwise.local",
+  "eval_user_email": "eval-employee@docwise.example.com",
   "items": [
     {
       "id": "hb-hours",

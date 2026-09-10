@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, FileText } from "lucide-react";
+import { ChevronLeft, FileText, PanelRightClose } from "lucide-react";
 import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,23 @@ const PdfViewer = dynamic(() => import("@/components/pdf-viewer").then((mod) => 
     </div>
   ),
 });
+
+function ClosePaneButton({ onClose }: { onClose?: () => void }) {
+  if (!onClose) return null;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="hidden size-8 shrink-0 lg:inline-flex"
+      onClick={onClose}
+      aria-label="Скрыть панель документа"
+      title="Скрыть панель документа"
+    >
+      <PanelRightClose />
+    </Button>
+  );
+}
 
 export function PdfPlaceholder() {
   return (
@@ -29,26 +46,12 @@ export function PdfPlaceholder() {
 export function PdfPane({
   target,
   onBack,
+  onClose,
 }: {
   target: ViewerTarget | null;
   onBack?: () => void;
+  onClose?: () => void;
 }) {
-  if (!target) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col bg-slate-950">
-        {onBack ? (
-          <div className="shrink-0 border-b border-slate-800 px-2 py-1.5 lg:hidden">
-            <Button type="button" variant="ghost" size="sm" onClick={onBack}>
-              <ChevronLeft />
-              К чату
-            </Button>
-          </div>
-        ) : null}
-        <PdfPlaceholder />
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-slate-950">
       <div className="flex shrink-0 items-center gap-2 border-b border-slate-800 px-2 py-1.5">
@@ -59,11 +62,18 @@ export function PdfPane({
           </Button>
         ) : null}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-slate-100">{target.docTitle}</p>
-          <p className="text-[11px] text-slate-500">стр. {target.page}</p>
+          {target ? (
+            <>
+              <p className="truncate text-sm font-medium text-slate-100">{target.docTitle}</p>
+              <p className="text-[11px] text-slate-500">стр. {target.page}</p>
+            </>
+          ) : (
+            <p className="truncate text-sm text-slate-500">Документ</p>
+          )}
         </div>
+        <ClosePaneButton onClose={onClose} />
       </div>
-      <PdfViewer target={target} />
+      {target ? <PdfViewer target={target} /> : <PdfPlaceholder />}
     </div>
   );
 }

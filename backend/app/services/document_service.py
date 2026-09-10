@@ -256,7 +256,12 @@ def list_documents(
 
 def document_status(db: Session, user: User, document_id: UUID) -> DocumentStatusResponse:
     document = get_visible_document(db, user, document_id)
-    return DocumentStatusResponse.model_validate(document)
+    return DocumentStatusResponse(
+        id=document.id,
+        status=document.status,
+        last_error=document.last_error,
+        stage=document.ingestion_stage,
+    )
 
 
 def document_pdf_bytes(

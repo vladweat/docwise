@@ -1,0 +1,30 @@
+---
+description: Shared B2B SaaS tenancy — org_id is the outer ACL wall, roles stay inside the org
+alwaysApply: true
+---
+
+# Tenancy (shared B2B SaaS)
+
+Canonical: `docs/tenancy.md`, ADR-012 in `docs/decisions.md`. Product is **many organizations on one deploy**.
+
+Until M5 ships, the runtime is **one implicit organization**. Do not onboard a second customer onto the current schema.
+
+## Two filters, always SQL
+
+```sql
+WHERE organization_id = :current_org
+  AND access_roles && ARRAY['employee', 'hr', 'all']::text[]
+```
+
+`current_org` comes from the session, never from the request body. `all` means everyone **in this org**, not every logged-in SaaS user.
+
+## Do not
+
+- Use `access_roles = ['acme']` as a fake tenant
+- Share LLM cache across orgs (key must include `org_id` + `allowed_roles`)
+- Keep a global unique `file_hash` after M5 — unique `(organization_id, file_hash)`
+- Copy `org_id` onto chunks from the Celery argument; load it from the `documents` row
+- Let org-admin bypass inner ACL or read another org
+- Confirm another tenant’s file exists (`404` / hash `409` only within the current org)
+
+Users are global; `role` and `departments` live on `organization_memberships` after M5. `require_admin` is admin of the **current** org.

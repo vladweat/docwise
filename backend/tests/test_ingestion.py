@@ -219,6 +219,7 @@ def test_downloads_from_minio_and_marks_ready(db: Session, storage: FakeStorage,
     assert stored is not None
     assert stored.status == DocumentStatus.ready.value
     assert stored.last_error is None
+    assert stored.ingestion_stage == "embed"
     assert stored.total_pages == 2
     assert seen["bytes"] == MIN_PDF
     assert str(document.id) not in locks
@@ -279,6 +280,7 @@ def test_index_failure_sets_last_error_and_deletes_chunks(db: Session, storage: 
     assert stored is not None
     assert stored.status == DocumentStatus.failed.value
     assert stored.last_error == "embed boom"
+    assert stored.ingestion_stage == "parse"
     assert db.query(DocumentChunk).filter_by(document_id=document.id).count() == 0
     assert str(document.id) not in locks
 
@@ -294,6 +296,7 @@ def test_missing_minio_object_fails(db: Session, storage: FakeStorage):
     assert stored is not None
     assert stored.status == DocumentStatus.failed.value
     assert stored.last_error is not None
+    assert stored.ingestion_stage == "parse"
     assert "download" in stored.last_error.lower()
 
 
@@ -358,6 +361,27 @@ def test_index_pdf_blank_pdf_fails(db: Session):
     document = _seed(db, FakeStorage(), pdf=blank_pdf_bytes())
     with pytest.raises(IngestionError, match="no extractable text"):
         index_pdf(db, document, blank_pdf_bytes())
+    db.refresh(document)
+    assert document.ingestion_stage == "chunk"
+
+
+def test_index_pdf_advances_parse_chunk_embed_stages(db: Session, monkeypatch):
+    seen: list[str] = []
+    from app.services import ingestion as ingestion_mod
+
+    original = ingestion_mod.set_ingestion_stage
+
+    def spy(session: Session, document: Document, stage: str) -> None:
+        seen.append(stage)
+        original(session, document, stage)
+
+    monkeypatch.setattr(ingestion_mod, "set_ingestion_stage", spy)
+    document = _seed(db, FakeStorage(), pdf=policy_pdf_bytes())
+    ingestion_mod.index_pdf(db, document, policy_pdf_bytes())
+    db.flush()
+    db.refresh(document)
+    assert seen == ["parse", "chunk", "embed"]
+    assert document.ingestion_stage == "embed"
 
 
 def test_index_pdf_persists_page_chunks_acl_and_embeddings(db: Session, stub_embeddings):

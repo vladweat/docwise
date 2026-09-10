@@ -21,10 +21,18 @@ ENGINEERING_ID = UUID("aaaaaaaa-1111-4111-8111-000000000004")
 HR_COMP_ID = UUID("aaaaaaaa-1111-4111-8111-000000000005")
 FINANCE_ID = UUID("aaaaaaaa-1111-4111-8111-000000000006")
 
-DEFAULT_EVAL_EMAIL = "eval-employee@docwise.local"
+DEFAULT_EVAL_EMAIL = "eval-employee@docwise.example.com"
 DEFAULT_EVAL_PASSWORD = "eval-employee-pass"
 
 RESTRICTED_DOC_IDS = (str(HR_COMP_ID), str(FINANCE_ID))
+
+DEMO_ADMIN_EMAIL = "admin@docwise.example.com"
+DEMO_EMPLOYEE_EMAIL = "employee@docwise.example.com"
+DEMO_HR_EMAIL = "hr@docwise.example.com"
+DEMO_ADMIN_PASSWORD = "demo-admin-pass"
+DEMO_EMPLOYEE_PASSWORD = "demo-employee-pass"
+DEMO_HR_PASSWORD = "demo-hr-pass"
+DEMO_DOC_SLUGS = ("employee-handbook", "hr-compensation")
 
 
 @dataclass(frozen=True)
@@ -34,6 +42,14 @@ class FixtureSpec:
     filename: str
     access_roles: tuple[str, ...]
     builder: str
+
+
+@dataclass(frozen=True)
+class DemoAccount:
+    email: str
+    password: str
+    role: str
+    departments: tuple[str, ...]
 
 
 CATALOG: tuple[FixtureSpec, ...] = (
@@ -47,9 +63,20 @@ CATALOG: tuple[FixtureSpec, ...] = (
 
 CATALOG_BY_ID = {str(item.id): item for item in CATALOG}
 
+DEMO_ACCOUNTS: tuple[DemoAccount, ...] = (
+    DemoAccount(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "admin", ()),
+    DemoAccount(DEMO_EMPLOYEE_EMAIL, DEMO_EMPLOYEE_PASSWORD, "employee", ()),
+    DemoAccount(DEMO_HR_EMAIL, DEMO_HR_PASSWORD, "employee", ("hr",)),
+)
+
 
 def restricted_doc_ids() -> tuple[str, ...]:
     return RESTRICTED_DOC_IDS
+
+
+def demo_specs() -> tuple[FixtureSpec, ...]:
+    by_slug = {item.slug: item for item in CATALOG}
+    return tuple(by_slug[slug] for slug in DEMO_DOC_SLUGS)
 
 
 def build_pdf(spec: FixtureSpec) -> bytes:
@@ -64,14 +91,115 @@ def build_pdf(spec: FixtureSpec) -> bytes:
     return builders[spec.builder]()
 
 
+def upsert_user(
+    db,
+    *,
+    email: str,
+    password: str,
+    role: str,
+    departments: list[str] | tuple[str, ...],
+    reset_password: bool = False,
+):
+    """Create or update a local user. `reset_password` always writes a new hash."""
+    from app.core.security import hash_password
+    from app.models.user import User
+
+    dept_list = list(departments)
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        user = User(
+            email=email,
+            hashed_password=hash_password(password),
+            role=role,
+            departments=dept_list,
+            is_active=True,
+        )
+        db.add(user)
+        logger.info("created user %s role=%s departments=%s", email, role, dept_list)
+        return user
+    user.role = role
+    user.departments = dept_list
+    user.is_active = True
+    if reset_password or not user.hashed_password:
+        user.hashed_password = hash_password(password)
+    logger.info("updated user %s role=%s departments=%s", email, role, dept_list)
+    return user
+
+
+def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec]) -> list[dict]:
+    from app.models.document import Document, DocumentStatus
+    from app.services.ingestion import delete_chunks_for_document, index_pdf
+    from app.services.storage import object_key_for_document
+
+    indexed: list[dict] = []
+    for spec in specs:
+        pdf_bytes = build_pdf(spec)
+        digest = hashlib.sha256(pdf_bytes).hexdigest()
+        conflict = (
+            db.query(Document)
+            .filter(Document.file_hash == digest, Document.id != spec.id)
+            .first()
+        )
+        if conflict is not None:
+            raise RuntimeError(
+                f"Fixture hash collides with existing document {conflict.id} ({conflict.title}). "
+                "Delete that row or skip seeding."
+            )
+        key = object_key_for_document(spec.id, spec.filename)
+        storage.put_bytes(key, pdf_bytes, content_type="application/pdf")
+        document = db.get(Document, spec.id)
+        if document is None:
+            document = Document(
+                id=spec.id,
+                title=spec.filename,
+                file_path=key,
+                file_hash=digest,
+                file_size_bytes=len(pdf_bytes),
+                access_roles=list(spec.access_roles),
+                status=DocumentStatus.processing.value,
+            )
+            db.add(document)
+        else:
+            document.title = spec.filename
+            document.file_path = key
+            document.file_hash = digest
+            document.file_size_bytes = len(pdf_bytes)
+            document.access_roles = list(spec.access_roles)
+            document.status = DocumentStatus.processing.value
+            document.last_error = None
+        db.commit()
+        db.refresh(document)
+        delete_chunks_for_document(db, document.id)
+        result = index_pdf(db, document, pdf_bytes)
+        document.total_pages = result.total_pages
+        document.status = DocumentStatus.ready.value
+        document.last_error = None
+        document.ingestion_stage = "embed"
+        db.commit()
+        indexed.append(
+            {
+                "id": str(spec.id),
+                "slug": spec.slug,
+                "access_roles": list(spec.access_roles),
+                "chunks": result.chunk_count,
+                "pages": result.total_pages,
+            }
+        )
+        logger.info(
+            "seeded %s id=%s roles=%s chunks=%s",
+            spec.filename,
+            spec.id,
+            spec.access_roles,
+            result.chunk_count,
+        )
+    return indexed
+
+
 def seed_corpus(*, email: str | None = None, password: str | None = None) -> dict:
     """Upsert fixture PDFs and the employee eval user, then run real `index_pdf`."""
     from app.core.database import SessionLocal
-    from app.core.security import hash_password
-    from app.models.document import Document, DocumentStatus
-    from app.models.user import User, UserRole
-    from app.services.ingestion import delete_chunks_for_document, index_pdf
-    from app.services.storage import get_object_storage, object_key_for_document
+    from app.models.user import UserRole
+    from app.services.storage import get_object_storage
 
     eval_email = (email or os.environ.get("EVAL_USER_EMAIL") or DEFAULT_EVAL_EMAIL).strip()
     eval_password = password or os.environ.get("EVAL_USER_PASSWORD") or DEFAULT_EVAL_PASSWORD
@@ -79,89 +207,51 @@ def seed_corpus(*, email: str | None = None, password: str | None = None) -> dic
     db = SessionLocal()
     storage = get_object_storage()
     storage.ensure_private_bucket()
-    indexed: list[dict] = []
     try:
-        user = db.query(User).filter(User.email == eval_email).first()
-        if user is None:
-            user = User(
-                email=eval_email,
-                hashed_password=hash_password(eval_password),
-                role=UserRole.employee.value,
-                departments=[],
-                is_active=True,
-            )
-            db.add(user)
-            logger.info("created eval user %s", eval_email)
-        else:
-            user.role = UserRole.employee.value
-            user.departments = []
-            user.is_active = True
-            if not user.hashed_password:
-                user.hashed_password = hash_password(eval_password)
-            logger.info("reset eval user %s to employee with no departments", eval_email)
+        upsert_user(
+            db,
+            email=eval_email,
+            password=eval_password,
+            role=UserRole.employee.value,
+            departments=[],
+            reset_password=False,
+        )
         db.commit()
+        indexed = index_specs(db, storage, CATALOG)
+        return {"eval_user_email": eval_email, "documents": indexed}
+    finally:
+        db.close()
 
-        for spec in CATALOG:
-            pdf_bytes = build_pdf(spec)
-            digest = hashlib.sha256(pdf_bytes).hexdigest()
-            conflict = (
-                db.query(Document)
-                .filter(Document.file_hash == digest, Document.id != spec.id)
-                .first()
+
+def seed_demo() -> dict:
+    """Upsert employee vs HR users and two PDFs with different ACLs for the local demo."""
+    from app.core.database import SessionLocal
+    from app.services.storage import get_object_storage
+
+    db = SessionLocal()
+    storage = get_object_storage()
+    storage.ensure_private_bucket()
+    try:
+        users = []
+        for account in DEMO_ACCOUNTS:
+            user = upsert_user(
+                db,
+                email=account.email,
+                password=account.password,
+                role=account.role,
+                departments=account.departments,
+                reset_password=True,
             )
-            if conflict is not None:
-                raise RuntimeError(
-                    f"Eval fixture hash collides with existing document {conflict.id} ({conflict.title}). "
-                    "Delete that row or skip seeding."
-                )
-            key = object_key_for_document(spec.id, spec.filename)
-            storage.put_bytes(key, pdf_bytes, content_type="application/pdf")
-            document = db.get(Document, spec.id)
-            if document is None:
-                document = Document(
-                    id=spec.id,
-                    title=spec.filename,
-                    file_path=key,
-                    file_hash=digest,
-                    file_size_bytes=len(pdf_bytes),
-                    access_roles=list(spec.access_roles),
-                    status=DocumentStatus.processing.value,
-                )
-                db.add(document)
-            else:
-                document.title = spec.filename
-                document.file_path = key
-                document.file_hash = digest
-                document.file_size_bytes = len(pdf_bytes)
-                document.access_roles = list(spec.access_roles)
-                document.status = DocumentStatus.processing.value
-                document.last_error = None
-            db.commit()
-            db.refresh(document)
-            delete_chunks_for_document(db, document.id)
-            result = index_pdf(db, document, pdf_bytes)
-            document.total_pages = result.total_pages
-            document.status = DocumentStatus.ready.value
-            document.last_error = None
-            document.ingestion_stage = "embed"
-            db.commit()
-            indexed.append(
+            users.append(
                 {
-                    "id": str(spec.id),
-                    "slug": spec.slug,
-                    "access_roles": list(spec.access_roles),
-                    "chunks": result.chunk_count,
-                    "pages": result.total_pages,
+                    "email": user.email,
+                    "role": user.role,
+                    "departments": list(user.departments or []),
                 }
             )
-            logger.info(
-                "seeded %s id=%s roles=%s chunks=%s",
-                spec.filename,
-                spec.id,
-                spec.access_roles,
-                result.chunk_count,
-            )
-        return {"eval_user_email": eval_email, "documents": indexed}
+        db.commit()
+        indexed = index_specs(db, storage, demo_specs())
+        return {"users": users, "documents": indexed}
     finally:
         db.close()
 

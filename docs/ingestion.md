@@ -2,11 +2,12 @@
 
 Задача Celery: `process_document(doc_id)` (как `load_contract_task` в ChainWise). Redis-лок `indexing_lock:{document_id}`, TTL как в `redis_lock.py`.
 
-Идемпотентность: повторный запуск для того же `doc_id` удаляет старые строки `document_chunks` и перезаписывает чанки. Статусы: `pending → processing → ready | failed`.
+Идемпотентность: повторный запуск для того же `doc_id` удаляет старые строки `document_chunks` и перезаписывает чанки. Статусы: `pending → processing → ready | failed`. Во время `processing` поле `ingestion_stage` проходит `parse → chunk → embed` (коммитится между шагами для `GET /documents/{id}/status`).
 
 ## 1. Extraction
 
 1. Скачать объект из MinIO по `documents.file_path`.
+2. Документ уже несёт `organization_id` (M5); воркер **не** принимает org из аргументов задачи как источник истины — только строка Postgres.
 2. Открыть PDF через `fitz` (PyMuPDF).
 3. Для каждой физической страницы:
    - извлечь текст в порядке чтения;
@@ -47,7 +48,7 @@ DOCX (если поддерживается в вехе): конвертация
 
 1. Батч dense-векторов FastEmbed `BAAI/bge-small-en-v1.5` (384d cosine) по `embed_text`.
 2. `delete` строк `document_chunks` по `document_id`.
-3. Insert: vectors + payload (`document_id`, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` с документа, `content`, `token_count`).
+3. Insert: vectors + payload (`document_id`, `organization_id` с документа, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` с документа, `content`, `token_count`).
 4. `documents.status = ready`. Любое исключение: `failed` + `last_error`, без «частично готового» индекса (либо явный rollback delete).
 
 Sparse BM25/FTS — в M2 (пока dense-кандидаты, затем in-memory BM25, см. [decisions.md](decisions.md) ADR-005).
@@ -63,4 +64,5 @@ Sparse BM25/FTS — в M2 (пока dense-кандидаты, затем in-memo
 - у каждого чанка одна `page_number`;
 - таблица сериализована в Markdown и `is_table=true`;
 - `access_roles` чанка равны ролям документа;
+- после M5 `organization_id` чанка равен документу;
 - повторный `process_document` не плодит дубликаты в `document_chunks`.

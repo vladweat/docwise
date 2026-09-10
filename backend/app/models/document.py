@@ -40,6 +40,10 @@ class Document(Base):
             "status IN ('pending', 'processing', 'ready', 'failed')",
             name="ck_documents_status",
         ),
+        CheckConstraint(
+            "ingestion_stage IS NULL OR ingestion_stage IN ('parse', 'chunk', 'embed')",
+            name="ck_documents_ingestion_stage",
+        ),
         Index("ix_documents_file_hash", "file_hash", unique=True),
         Index("ix_documents_status", "status"),
         Index("ix_documents_access_roles", "access_roles", postgresql_using="gin"),
@@ -61,6 +65,7 @@ class Document(Base):
         server_default=DocumentStatus.pending.value,
     )
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ingestion_stage: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
