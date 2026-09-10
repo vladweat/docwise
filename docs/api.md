@@ -2,7 +2,7 @@
 
 Базовый префикс: `/api/v1`. Формат: JSON, ошибки в теле `{ "detail": "..." }` (стиль FastAPI). Auth: только httpOnly cookies `dw_access` / `dw_refresh` (см. [auth.md](auth.md)). Bearer в v1 не принимается. Идентификаторы в JSON — UUID-строки.
 
-Все эндпоинты `/api/v1/*`, кроме login/register/google, требуют cookie-сессию. Списки документов и чанки поиска ограничены текущей организацией и ACL ([tenancy.md](tenancy.md)). Поля `org_id` / `organization_id` / `access_roles` / `document_ids` в теле чата и поиска не являются источником прав.
+Все эндпоинты `/api/v1/*`, кроме login/register/google, `GET/POST /auth/sso/{slug}/*` и Stripe webhook, требуют cookie-сессию. Списки документов и чанки поиска ограничены текущей организацией и ACL ([tenancy.md](tenancy.md)). Поля `org_id` / `organization_id` / `access_roles` / `document_ids` в теле чата и поиска не являются источником прав.
 
 ## Health
 
@@ -13,7 +13,7 @@ GET /ready
 
 `GET /health` — liveness процесса: `200` `{ "status": "ok" }` без проверки зависимостей.
 
-`GET /ready` — Postgres, pgvector, Redis, MinIO. `200` если все `ok`, иначе `503` с теми же полями и `"status": "degraded"`.
+`GET /ready` — Postgres, pgvector, Redis, MinIO. M6: при `BILLING_PROVIDER=stripe` без ключей billing не `ok`. `BILLING_PROVIDER=dev` в `/ready` помечается явно (`dev`). `200` если обязательные зависимости `ok`, иначе `503` с теми же полями и `"status": "degraded"`.
 
 OpenAPI `/docs` выключен при `ENVIRONMENT=production`.
 
@@ -25,12 +25,14 @@ OpenAPI `/docs` выключен при `ENVIRONMENT=production`.
 POST /api/v1/auth/register
 POST /api/v1/auth/login
 POST /api/v1/auth/google
+GET  /api/v1/auth/sso/{slug}/login
+POST /api/v1/auth/sso/{slug}/acs
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET  /api/v1/auth/me
 ```
 
-Первый пользователь в пустой таблице `users` больше не «admin всей платформы»: `POST /register` создаёт user + org + membership `admin` (`organization_name`). Следующие люди входят в org по инвайту. Register/login/google ограничены `RATE_LIMIT_AUTH_PER_MINUTE` по IP.
+Первый пользователь в пустой таблице `users` больше не «admin всей платформы»: `POST /register` создаёт user + org + membership `admin` (`organization_name`). Следующие люди входят в org по инвайту. Register/login/google ограничены `RATE_LIMIT_AUTH_PER_MINUTE` по IP. SSO login/ACS — по slug коннектора ([auth.md](auth.md) M6).
 
 При `COOKIE_SAMESITE=none` POST на `/api/v1` без `Origin` из `CORS_ORIGINS` и без `X-Requested-With: Docwise` → `403`. `/me` не отдаёт `hashed_password`.
 
@@ -44,7 +46,7 @@ Content-Type: multipart/form-data
 Поля: `file` (PDF), `access_roles` (повторяющееся поле или JSON-список). Только `admin` текущей org (`require_admin`).  
 Ответ `201`: метаданные документа, `status: pending`. Дубликат SHA-256 `file_hash` **в этой org** → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL и не подтверждался чужой тенант). Unique `(organization_id, file_hash)`. Парсинг PDF в хендлере запрещён: байты в MinIO (префикс org), строка `pending` с `organization_id` сессии, Celery `ingestion.process_document`.
 
-Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Не-PDF → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`.
+Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Не-PDF → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`. Квота страниц плана (M6): текущая сумма `total_pages` ≥ капа → `402` `{ "detail": "Organization quota exceeded" }` без Celery. Не использовать `404` на свою квоту.
 
 ```http
 GET /api/v1/documents
@@ -93,7 +95,7 @@ Content-Type: application/json
 }
 ```
 
-Ответ: `Content-Type: text/event-stream`. Cookie-сессия, лимит `RATE_LIMIT_CHAT_PER_MINUTE` по `user.id`. Формат как в ChainWise (не именованные `event:` из чернового ТЗ):
+Ответ: `Content-Type: text/event-stream`. Cookie-сессия, лимит `RATE_LIMIT_CHAT_PER_MINUTE` по `user.id`. Квота токенов периода (M6): если исчерпана → SSE `{ "type": "error", "content": "Organization quota exceeded" }` **до** retrieval (тот же смысл, что HTTP `402`). Формат как в ChainWise (не именованные `event:` из чернового ТЗ):
 
 ```
 data: {"type":"citations","citations":[{"doc_id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","doc_title":"Travel.pdf","page":4,"snippet":"..."}]}
@@ -197,11 +199,63 @@ POST /api/v1/auth/register
 POST /api/v1/auth/switch-organization
 ```
 
-Тело: `{ "organization_id": "<uuid>" }`. Только если есть membership. Перевыпускает куки с новым `org_id`. Чужой id → `404` (без списка доступных org в `detail`).
+Тело: `{ "organization_id": "<uuid>" }`. Только если есть membership. Перевыпускает куки с новым `org_id`. Чужой id → `404` (без списка доступных org в `detail`). Если `Host` привязан к другой org (M6) → отказ, без смены cookie.
 
 ```http
 GET  /api/v1/organizations/members
 POST /api/v1/organizations/invites
 ```
 
-Список членов текущей org (org-admin). Инвайт: `{ "email", "role", "departments" }`. Существующий email → `status: added` (membership сразу). Новый → `status: invited` + `invite_token` для `POST /auth/register`. Не org-admin → `403`.
+Список членов текущей org (org-admin). Инвайт: `{ "email", "role", "departments" }`. Существующий email → `status: added` (membership сразу). Новый → `status: invited` + `invite_token` для `POST /auth/register`. Не org-admin → `403`. Seats ≥ капа плана → `402`.
+
+## Биллинг и квоты (M6)
+
+Канон: [billing.md](billing.md). Только cookie-сессия текущей org. Поля `organization_id` / `plan` в теле не источник прав (план в теле `POST /billing/plan` — желаемый план, применяется провайдером к **сессионной** org).
+
+```http
+GET  /api/v1/billing/subscription
+GET  /api/v1/billing/usage
+POST /api/v1/billing/plan
+```
+
+`subscription`: `plan`, `billing_status`, период, entitlements (`sso`, `custom_domain`). `usage`: seats / pages / tokens и капы плана. Только org-admin; иначе `403`.
+
+`POST /billing/plan` тело `{ "plan": "team" }`. `BILLING_PROVIDER=dev` — пишет Postgres сразу. `stripe` — `{ "checkout_url": "..." }` (без ключей → `503`). Не org-admin → `403`.
+
+```http
+POST /api/v1/billing/dev/simulate
+```
+
+Тело: `{ "action": "set_plan" | "past_due" | "cancel" | "activate", "plan": "enterprise" }`. Только `BILLING_PROVIDER=dev` **и** org-admin текущей org. Иначе `404` `{ "detail": "Not Found" }` (как выключенный inspect). Не принимает `organization_id`.
+
+```http
+POST /api/v1/billing/webhooks/stripe
+```
+
+Без cookie. Подпись Stripe. Идемпотентность `billing_events`. Не критерий M6; без адаптера — `404`.
+
+## SSO (M6)
+
+```http
+GET  /api/v1/auth/sso/{slug}/login
+POST /api/v1/auth/sso/{slug}/acs
+```
+
+`{slug}` → org коннектора. Нет коннектора / нет entitlement → `404` (не подтверждать чужой slug отдельно от «нет SSO»). Успех ACS — Set-Cookie `dw_*`, редирект на фронт. Compose `SSO_PROVIDER=dev` принимает фикстурную assertion.
+
+```http
+GET  /api/v1/organizations/sso
+PUT  /api/v1/organizations/sso
+```
+
+Org-admin текущей org. План без SSO → `403`. Тело upsert: metadata IdP, `jit_enabled`, `attribute_map`, `sso_enforced`.
+
+## Домен (M6)
+
+```http
+GET  /api/v1/organizations/domain
+PUT  /api/v1/organizations/domain
+POST /api/v1/organizations/domain/verify
+```
+
+Org-admin. План без custom domain: `PUT` custom hostname → `403`; платформенный `{slug}` читается всегда. `verify` — TXT/HTTP challenge. Неподтверждённый Host не пинит сессию.

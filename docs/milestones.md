@@ -12,6 +12,7 @@
 | [M3 Split-screen UI](#milestone-3--split-screen-ui) | готово | 2–3 дня |
 | [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | готово | 1–2 дня |
 | [M5 Shared tenancy](#milestone-5--shared-tenancy-b2b-saas) | готово | после v1 |
+| [M6 Commercial SaaS](#milestone-6--commercial-saas) | не начато | после M5 |
 
 ```mermaid
 flowchart LR
@@ -21,9 +22,10 @@ flowchart LR
   M2 --> M4[M4 eval + CI]
   M3 --> M4
   M4 --> M5[M5 shared tenancy]
+  M5 --> M6[M6 plans quotas SSO domain]
 ```
 
-M3 и M4 после M2 можно вести параллельно, но клик по цитате и eval оба требуют живого retrieval. Shared SaaS ([M5](#milestone-5--shared-tenancy-b2b-saas)) оборачивает внутреннюю ACL в `org_id`.
+M3 и M4 после M2 можно вести параллельно, но клик по цитате и eval оба требуют живого retrieval. Shared SaaS ([M5](#milestone-5--shared-tenancy-b2b-saas)) оборачивает внутреннюю ACL в `org_id`. Коммерческая оболочка ([M6](#milestone-6--commercial-saas)): планы, квоты, SSO, custom domain; биллинг за портом (`dev` по умолчанию).
 
 ---
 
@@ -248,7 +250,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 - [x] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек
 - [x] CI: lint + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах
 
-Shared SaaS — не часть приёмки v1; критерии M5.
+Shared SaaS — не часть приёмки v1; критерии M5. Коммерческая оболочка (планы, SSO, домен) — критерии M6.
 
 ---
 
@@ -292,13 +294,76 @@ Shared SaaS — не часть приёмки v1; критерии M5.
 
 ---
 
-## Вне скоупа (позже M5)
+## Milestone 6 — Commercial SaaS
 
-Не открывать отдельные вехи, пока не закрыты приёмка v1 и критерий M5:
+Спеки: [billing.md](billing.md), [tenancy.md](tenancy.md), [auth.md](auth.md), [data-model.md](data-model.md), [api.md](api.md), [ADR-013](decisions.md)–[ADR-015](decisions.md). План и квоты — колонки org, не клиент и не промпт. SSO и hostname не подменяют SQL `organization_id`. Срезы можно мержить по отдельности; критерий вехи — все четыре.
 
-- SSO/SAML, биллинг, квоты как продукт, custom domain
+**Критерий:** две org на одном Compose (`BILLING_PROVIDER=dev`): Acme Starter упирается в страницы → `402` на upload; Globex Enterprise SSO не открывает Acme (в т.ч. `all`); хост Acme не принимает сессию Globex.
+
+```mermaid
+flowchart LR
+  M5[M5 org_id] --> A[M6a планы и квоты]
+  A --> B[M6b billing port]
+  A --> C[M6c SSO]
+  A --> D[M6d custom domain]
+```
+
+### M6a — Планы и квоты
+
+- [x] `organizations.plan` (`starter` \| `team` \| `enterprise`), период, `billing_status`; новая org — `starter`
+- [x] Квоты seats / indexed pages / chat tokens за период из конфига плана ([billing.md](billing.md))
+- [x] Upload: текущие страницы ≥ капа → `402`, без Celery; ingest сверх капа → `failed`, без `ready`
+- [x] Chat: токены периода ≥ капа → отказ **до** retrieval (SSE `type: error`)
+- [x] Инвайт / JIT: seats ≥ капа → `402`
+- [x] `429` остаётся антиабьюзом; entitlement SSO/домена — `403`; свою квоту не маскировать под `404`
+- [x] Org-admin: `GET /billing/usage` + `GET /billing/subscription`; employee не видит чужой usage и не узнаёт чужие файлы из `402`
+
+### M6b — Порт биллинга (`dev` / `stripe`)
+
+- [ ] `BILLING_PROVIDER=dev` \| `stripe`; Compose и не-`production` — `dev`; квоты не вызывают провайдера
+- [ ] Dev: org-admin меняет план / `past_due` / отмену; UI-бейдж Dev billing; `POST /billing/dev/simulate` только текущая org, иначе `404`
+- [ ] `past_due` / cancel → `organizations.status = suspended` (вход в org как в M5)
+- [ ] Адаптер Stripe в коде допустим; живой `api.stripe.com` не критерий; без ключей при `stripe` — billing в `/ready` не `ok`
+- [ ] Таблица `billing_events` (идемпотентность `provider` + `external_id`); вебхук не читает корпус
+
+### M6c — SSO / SAML
+
+- [ ] Коннектор принадлежит одной org; org из URL/коннектора (`/auth/sso/{slug}/…`), не из assertion и не из тела
+- [ ] SP-initiated + ACS; успех → те же `dw_*` cookies; Bearer по-прежнему игнорируется
+- [ ] JIT — только membership **этой** org; роли других org не трогать; без JIT нужен инвайт
+- [ ] `sso_enforced`: пароль и Google не сажают в эту org; `switch-organization` без свежего SSO → отказ
+- [ ] Маппинг групп IdP → `role` / `departments` таблицей org-admin; не писать группы в `access_roles` документов
+- [ ] Email без verified-эквивалента — отказ. Compose: `SSO_PROVIDER=dev` (фикстурная assertion), не живой Okta
+- [ ] Entitlement: план без SSO → `403` на коннектор, не «неверный IdP»
+
+### M6d — Custom domain
+
+- [ ] Платформенный хост `{slug}.localhost` / `{slug}.docwise.app`; опционально verified CNAME
+- [ ] Cookie **host-only** (без `Domain=.docwise.app` / родителя)
+- [ ] `Host` → org совпадает с `org_id` сессии; хост пинит, не заменяет SQL-фильтр
+- [ ] На хосте Acme нельзя `switch-organization` в Globex
+- [ ] Неподтверждённый hostname не биндится; один hostname — одна org; CORS/CSRF allowlist из проверенного домена
+- [ ] Entitlement Enterprise; Compose без Let's Encrypt (`/etc/hosts`)
+
+### UI и тесты M6
+
+- [ ] Настройки org-admin: план, usage, SSO, домен; employee — отказ квоты без панели биллинга
+- [ ] Pytest: две org, `dev`-провайдер — `402` только у упёршейся; SSO Globex не попадает в fused/reranked/промпт/кэш Acme
+- [ ] Pytest: cookie/host Acme не открывает raw Globex; simulate billing чужой org → `404`
+- [ ] Живой Stripe и живой IdP в default CI не нужны
+
+**Критерий вехи:** [ ] квоты `402`, SSO и hostname не пересекают org, включая `access_roles = ['all']`
+
+---
+
+## Вне скоупа (позже M6)
+
+Не открывать, пока не закрыт критерий M6:
+
 - консоль оператора платформы (чтение чужих корпусов запрещено и там, пока нет явного break-glass в SRS)
 - Postgres RLS как defense-in-depth (не замена `org_id` в запросах)
+- SCIM / directory sync; маппинг групп IdP сразу в `access_roles` документов
+- боевой эквайринг как критерий (ЮKassa, Stripe live); адаптер Stripe в коде — опция M6b
 - онлайн-редактирование файлов
 - агенты с tool-calling за пределы корпуса
 - обучение своих эмбеддингов

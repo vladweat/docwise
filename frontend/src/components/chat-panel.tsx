@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiRequestError, fetchChatSession, streamChat } from "@/lib/api";
 import { NO_CONTEXT_ANSWER, splitAnswerParts, uniqueCitations } from "@/lib/chat";
+import { userFacingApiMessage } from "@/lib/quota";
 import { cn } from "@/lib/utils";
 import { useChatStore, type UiMessage } from "@/stores/chat-store";
 import { useToastStore } from "@/stores/toast-store";
@@ -175,8 +176,9 @@ export function ChatPanel({
         return;
       }
       if (event.type === "error") {
-        chat.patchMessage(assistantId, { content: event.content, error: true });
-        useToastStore.getState().push(event.content);
+        const message = userFacingApiMessage(undefined, event.content);
+        chat.patchMessage(assistantId, { content: message, error: true });
+        useToastStore.getState().push(message);
       }
     };
 
@@ -189,7 +191,7 @@ export function ChatPanel({
       if (controller.signal.aborted) return;
       const message =
         err instanceof ApiRequestError
-          ? err.message
+          ? userFacingApiMessage(err.status, err.message)
           : err instanceof Error
             ? err.message
             : "Не удалось получить ответ";

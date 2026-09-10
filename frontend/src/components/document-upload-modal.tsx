@@ -13,6 +13,7 @@ import {
   rolesOverlap,
 } from "@/lib/access-roles";
 import { ApiRequestError, uploadDocument } from "@/lib/api";
+import { userFacingApiMessage } from "@/lib/quota";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/stores/toast-store";
 
@@ -46,7 +47,9 @@ export function DocumentUploadModal({
       resetAndClose();
     },
     onError: (err) => {
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось загрузить файл";
+      const raw = err instanceof ApiRequestError ? err.message : "Не удалось загрузить файл";
+      const message =
+        err instanceof ApiRequestError ? userFacingApiMessage(err.status, err.message) : raw;
       setError(message);
       pushToast(message, "error");
     },

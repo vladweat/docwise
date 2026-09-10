@@ -12,15 +12,19 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.principal import Principal
 from app.models.organization import (
+    BillingStatus,
     Organization,
     OrganizationInvite,
     OrganizationMembership,
+    OrganizationPlan,
     OrganizationStatus,
 )
 from app.models.user import User, UserRole
 from app.schemas.user import OrganizationSummary, UserResponse
+from app.services.quotas import enforce_seat_quota
 
 INVITE_TTL = timedelta(days=14)
 ORG_NAME_MIN = 1
@@ -48,12 +52,27 @@ def normalize_org_name(name: str) -> str:
     return cleaned
 
 
+def _new_org_period() -> tuple[datetime, datetime]:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    days = max(int(get_settings().plan_period_days), 1)
+    return now, now + timedelta(days=days)
+
+
 def create_organization(db: Session, name: str) -> Organization:
     cleaned = normalize_org_name(name)
     base = slugify_org_name(cleaned)
+    period_start, period_end = _new_org_period()
     for _ in range(8):
         slug = f"{base}-{secrets.token_hex(3)}"[:SLUG_MAX]
-        org = Organization(name=cleaned, slug=slug, status=OrganizationStatus.active.value)
+        org = Organization(
+            name=cleaned,
+            slug=slug,
+            status=OrganizationStatus.active.value,
+            plan=OrganizationPlan.starter.value,
+            billing_status=BillingStatus.active.value,
+            current_period_start=period_start,
+            current_period_end=period_end,
+        )
         try:
             with db.begin_nested():
                 db.add(org)
@@ -75,6 +94,7 @@ def add_membership(
     role: str,
     departments: list[str] | None = None,
 ) -> OrganizationMembership:
+    enforce_seat_quota(db, organization.id)
     membership = OrganizationMembership(
         organization_id=organization.id,
         user_id=user.id,
@@ -191,6 +211,7 @@ def create_invite(
             status_code=status.HTTP_409_CONFLICT,
             detail="An invite for this email is already pending",
         )
+    enforce_seat_quota(db, organization.id)
     token = secrets.token_urlsafe(32)
     invite = OrganizationInvite(
         organization_id=organization.id,

@@ -34,6 +34,15 @@ os.environ["COOKIE_SECURE"] = "false"
 os.environ["RATE_LIMIT_AUTH_PER_MINUTE"] = "0"
 os.environ["RATE_LIMIT_UPLOAD_PER_MINUTE"] = "0"
 os.environ["RATE_LIMIT_CHAT_PER_MINUTE"] = "0"
+os.environ["PLAN_STARTER_SEATS"] = "1000"
+os.environ["PLAN_STARTER_PAGES"] = "1000000"
+os.environ["PLAN_STARTER_TOKENS"] = "100000000"
+os.environ["PLAN_TEAM_SEATS"] = "1000"
+os.environ["PLAN_TEAM_PAGES"] = "1000000"
+os.environ["PLAN_TEAM_TOKENS"] = "100000000"
+os.environ["PLAN_ENTERPRISE_SEATS"] = "1000"
+os.environ["PLAN_ENTERPRISE_PAGES"] = "1000000"
+os.environ["PLAN_ENTERPRISE_TOKENS"] = "100000000"
 
 
 def _ensure_test_database() -> None:

@@ -7,6 +7,7 @@ import type {
 } from "@/types/auth";
 import type { ChatSessionDetail, ChatSessionListResponse, ChatStreamEvent } from "@/types/chat";
 import type { DocumentListResponse, DocumentResponse, DocumentStatusResponse } from "@/types/document";
+import type { BillingSubscription, BillingUsage } from "@/types/billing";
 import type { HealthResponse } from "@/types/health";
 
 import { clearLegacyAuth } from "./auth-storage";
@@ -147,6 +148,14 @@ export async function createOrganizationInvite(payload: {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function fetchBillingSubscription(): Promise<BillingSubscription> {
+  return apiFetch<BillingSubscription>("/api/v1/billing/subscription");
+}
+
+export async function fetchBillingUsage(): Promise<BillingUsage> {
+  return apiFetch<BillingUsage>("/api/v1/billing/usage");
 }
 
 export async function fetchChatSessions(

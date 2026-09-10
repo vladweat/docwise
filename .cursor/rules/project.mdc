@@ -30,6 +30,7 @@ Canonical product spec: `docs/srs.md`. Implementation deviations: `docs/decision
 - Chunks stay inside one page/section. Inject a meta header before embedding.
 - Chat streaming is SSE JSON envelopes (ChainWise): `citations` → `token` → `meta` → `[DONE]`.
 - Primary keys are UUID (API and Postgres), not ChainWise integer ids.
+- After M5, commercial envelope (plans, quotas, SSO, custom domain) must not weaken SQL `org_id` + ACL. Billing default is `dev` (`docs/billing.md`).
 
 ## Layout
 

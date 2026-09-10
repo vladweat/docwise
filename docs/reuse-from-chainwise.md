@@ -89,7 +89,7 @@ FTS / BM25 Top-25          ┘
 
 ## Порядок работ
 
-См. [roadmap](milestones.md): форк каркаса → ingest PDF → corpus retrieval + RBAC → UI → eval → shared tenancy (M5). Закрытый пункт отмечают `- [x]` в том же изменении.
+См. [roadmap](milestones.md): форк каркаса → ingest PDF → corpus retrieval + RBAC → UI → eval → shared tenancy (M5) → commercial SaaS (M6). Закрытый пункт отмечают `- [x]` в том же изменении.
 
 ## Shared SaaS (не из ChainWise)
 

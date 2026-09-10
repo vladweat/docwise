@@ -18,6 +18,7 @@ from app.models.document import EMBEDDING_DIM, Document, DocumentChunk, Document
 from app.services.chunker import chunk_parsed_document
 from app.services.embeddings import EmbeddingError, embed_texts
 from app.services.pdf_parser import PdfParserError, parse_pdf
+from app.services.quotas import IngestionQuotaError, assert_ingest_pages_allowed
 from app.services.storage import ObjectStorage, StorageError, get_object_storage
 from app.utils.redis_lock import acquire_indexing_lock, release_indexing_lock
 
@@ -101,6 +102,13 @@ def index_pdf(
         parsed = parse_pdf(pdf_bytes)
     except PdfParserError as exc:
         raise IngestionError(str(exc)) from exc
+
+    assert_ingest_pages_allowed(
+        db,
+        document.organization_id,
+        parsed.total_pages,
+        exclude_document_id=document.id,
+    )
 
     set_ingestion_stage(db, document, STAGE_CHUNK)
     chunks = chunk_parsed_document(parsed)
@@ -197,6 +205,13 @@ def run_ingestion(
         if result.total_pages is not None:
             document.total_pages = result.total_pages
         db.flush()
+        if result.total_pages is not None:
+            assert_ingest_pages_allowed(
+                db,
+                document.organization_id,
+                result.total_pages,
+                exclude_document_id=document.id,
+            )
         chunk_count = (
             db.query(DocumentChunk)
             .filter(DocumentChunk.document_id == document.id)
@@ -218,6 +233,20 @@ def run_ingestion(
             "document_id": str(document.id),
             "chunk_count": chunk_count,
             "total_pages": document.total_pages,
+        }
+    except IngestionQuotaError as exc:
+        persist_ingestion_failure(db, doc_uuid, exc)
+        failed = db.get(Document, doc_uuid)
+        if failed is not None and storage is not None:
+            try:
+                storage.delete_object(failed.file_path)
+            except StorageError:
+                logger.warning("MinIO cleanup failed after page quota document_id=%s", doc_uuid)
+        logger.warning("ingestion page quota exceeded document_id=%s", doc_uuid)
+        return {
+            "status": "failed",
+            "document_id": str(doc_uuid),
+            "detail": str(exc),
         }
     except Exception as exc:
         persist_ingestion_failure(db, doc_uuid, exc)

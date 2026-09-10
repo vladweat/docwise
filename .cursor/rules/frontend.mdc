@@ -22,6 +22,7 @@ alwaysApply: false
 
 - Table: title, size, pages, access tags, status (`pending|processing|ready|failed`).
 - Drag-and-drop upload modal with `access_roles` (`HR`, `Finance`, `General`, …). After M5, show current org name; do not send `organization_id` in the chat body.
+- Org-admin `/settings`: plan, usage, SSO, domain. If `BILLING_PROVIDER=dev`, show a **Dev billing** badge — not a live checkout. Employee hitting quota sees a toast, not another org’s usage.
 - Poll `GET /documents/{id}/status` until `ready` or `failed`; show `stage` (`parse` → `chunk` → `embed`).
 - PDF bytes come from `GET /documents/{id}/raw` (auth + org + ACL). Never use a public bucket URL.
 

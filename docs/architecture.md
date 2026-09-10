@@ -93,6 +93,6 @@ flowchart TB
 
 В скоупе продукта: PDF (приоритет), DOCX по возможности; роли и отделы **внутри** org; shared SaaS с `org_id` ([M5](milestones.md#milestone-5--shared-tenancy-b2b-saas)); английские/русские корпоративные документы.
 
-Shared SaaS: много организаций на одном деплое. Изоляция — SQL `organization_id` плюс внутренняя ACL.
+Shared SaaS: много организаций на одном деплое. Изоляция — SQL `organization_id` плюс внутренняя ACL. После M5 — [M6](milestones.md#milestone-6--commercial-saas): планы/квоты, SSO, custom domain; биллинг за портом (`dev` по умолчанию).
 
-Вне скоупа до отдельных вех: SSO/SAML, биллинг, консоль оператора платформы, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение собственных эмбеддингов. Не тащить из ChainWise: Slither, solc, Etherscan, XGBoost risk score, генератор PDF-отчётов.
+Вне скоупа до отдельных вех: консоль оператора платформы, SCIM, боевой эквайринг как критерий, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение собственных эмбеддингов. Не тащить из ChainWise: Slither, solc, Etherscan, XGBoost risk score, генератор PDF-отчётов.

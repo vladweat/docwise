@@ -96,17 +96,23 @@ def build_pdf(spec: FixtureSpec) -> bytes:
 
 
 def get_or_create_org(db, *, name: str, slug: str):
-    from app.models.organization import Organization, OrganizationStatus
+    from app.models.organization import Organization, OrganizationPlan, OrganizationStatus
 
     org = db.query(Organization).filter(Organization.slug == slug).first()
     if org is None:
-        org = Organization(name=name, slug=slug, status=OrganizationStatus.active.value)
+        org = Organization(
+            name=name,
+            slug=slug,
+            status=OrganizationStatus.active.value,
+            plan=OrganizationPlan.enterprise.value,
+        )
         db.add(org)
         db.flush()
         logger.info("created organization %s slug=%s", name, slug)
     else:
         org.name = name
         org.status = OrganizationStatus.active.value
+        org.plan = OrganizationPlan.enterprise.value
     return org
 
 

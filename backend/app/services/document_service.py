@@ -25,6 +25,7 @@ from app.schemas.document import (
     DocumentResponse,
     DocumentStatusResponse,
 )
+from app.services.quotas import enforce_page_quota_for_upload
 from app.services.storage import ObjectStorage, StorageError, get_object_storage, object_key_for_document
 
 logger = logging.getLogger(__name__)
@@ -187,6 +188,8 @@ def create_document_from_upload(
     )
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=DUPLICATE_HASH_DETAIL)
+
+    enforce_page_quota_for_upload(db, org_id)
 
     document_id = uuid4()
     title = _title_from_filename(filename)

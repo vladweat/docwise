@@ -35,7 +35,9 @@ Docwise закрывает это связкой: **изоляция орган�
 
 Слои доступа: **организация** (`org_id`) снаружи, роли/отделы внутри. Shared SaaS — SQL `organization_id` плюс внутренняя ACL; см. [tenancy.md](tenancy.md) и [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
 
-Вне скоупа до отдельных вех: SSO/SAML, биллинг, консоль оператора платформы, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение своих эмбеддингов, DOCX как обязательный формат (желателен, не блокер).
+После M5 — коммерческая оболочка ([M6](milestones.md#milestone-6--commercial-saas)): планы и квоты, SSO/SAML, custom domain; биллинг за портом (`dev` по умолчанию, Stripe не обязателен).
+
+Вне скоупа до отдельных вех: консоль оператора платформы, SCIM, боевой эквайринг как критерий, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение своих эмбеддингов, DOCX как обязательный формат (желателен, не блокер).
 
 ---
 
@@ -106,6 +108,12 @@ Docwise закрывает это связкой: **изоляция орган�
 - Self-serve: регистрация создаёт организацию; дальше — инвайты org-admin.
 - Спека: [tenancy.md](tenancy.md). Приёмка — критерии M5, не §6 v1.
 
+### FR-8. Планы, SSO, домен (после M5)
+
+- У организации есть план (`starter` \| `team` \| `enterprise`) и квоты seats / страниц / токенов чата за период. Исчерпание → `402` на upload / инвайт / chat **до** retrieval. Rate limit по-прежнему `429`.
+- SSO/SAML и custom domain — entitlement Enterprise. Org SSO берётся из коннектора, не из assertion. Hostname пинит org; SQL `organization_id` не отменяется.
+- Провайдер оплаты не источник ACL. Compose закрывает приёмку на `BILLING_PROVIDER=dev`. Спека: [billing.md](billing.md). Приёмка — [M6](milestones.md#milestone-6--commercial-saas).
+
 ---
 
 ## 5. Нефункциональные требования
@@ -125,3 +133,5 @@ Docwise закрывает это связкой: **изоляция орган�
 - [x] CI: ruff + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах.
 
 Shared SaaS (после v1): нулевые утечки **между организациями**, в том числе на документах с `access_roles = ['all']`. Критерии — [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
+
+Коммерческая оболочка (после M5): квоты и SSO/домен не пересекают org; приёмка на `dev`-биллинге без живого Stripe. Критерии — [M6](milestones.md#milestone-6--commercial-saas).
