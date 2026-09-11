@@ -3,7 +3,7 @@ import uuid
 import pytest
 from fastapi import HTTPException
 
-from app.utils.rate_limit import enforce_rate_limit
+from app.core.rate_limit import enforce_rate_limit
 
 
 def test_enforce_rate_limit_blocks_after_limit():

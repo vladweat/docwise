@@ -16,15 +16,15 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.main import app
-from app.models.billing import BillingEvent, BillingProvider
+from app.models.billing import BillingEvent, BillingProvider, BillingStatus
 from app.models.document import Document, DocumentChunk, DocumentStatus
-from app.models.organization import BillingStatus, Organization, OrganizationStatus
+from app.models.organization import Organization, OrganizationStatus
 from app.services.billing import billing_readiness, get_billing_port
 from app.services.billing.stripe_adapter import StripeBillingPort
 from app.services.quotas import QUOTA_EXCEEDED
 from helpers import make_org, register_payload, wipe_app_tables
+from pdf_fixtures import tagged_pdf_bytes
 
-MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
 WHSEC = "whsec_test_docwise"
 
 
@@ -59,7 +59,7 @@ def clean_tables():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.document_service.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
 
 
 def _unique_email(prefix: str = "bill") -> str:
@@ -263,7 +263,7 @@ def test_stripe_plan_returns_checkout_url_without_live_api(monkeypatch):
 
 
 def test_quotas_still_work_when_stripe_provider(monkeypatch):
-    from app.api.documents import get_storage
+    from app.api.v1.documents import get_storage
 
     monkeypatch.setenv("PLAN_STARTER_PAGES", "1")
     _set_stripe_env(monkeypatch, secret="", webhook="")
@@ -289,14 +289,14 @@ def test_quotas_still_work_when_stripe_provider(monkeypatch):
         db.close()
         blocked = acme.post(
             "/api/v1/documents/upload",
-            files={"file": ("over.pdf", MIN_PDF, "application/pdf")},
+            files={"file": ("over.pdf", tagged_pdf_bytes("stripe-over"), "application/pdf")},
             data={"access_roles": ["all"]},
         )
         assert blocked.status_code == 402
         assert blocked.json()["detail"] == QUOTA_EXCEEDED
         allowed = globex.post(
             "/api/v1/documents/upload",
-            files={"file": ("ok.pdf", MIN_PDF.replace(b"%%EOF", b"%g\n%%EOF"), "application/pdf")},
+            files={"file": ("ok.pdf", tagged_pdf_bytes("stripe-ok"), "application/pdf")},
             data={"access_roles": ["all"]},
         )
         assert allowed.status_code == 201
@@ -381,7 +381,66 @@ def test_stripe_webhook_on_dev_provider_is_404():
     assert response.status_code == 404
 
 
-def test_webhook_does_not_read_corpus(monkeypatch):
+def test_stripe_webhook_ignores_metadata_org_without_customer_binding(monkeypatch):
+    acme, _ = _register("Acme")
+    globex, _ = _register("Globex")
+    _set_stripe_env(monkeypatch)
+    victim = _org_id(globex)
+    payload = json.dumps(
+        {
+            "id": "evt_meta_only",
+            "type": "invoice.paid",
+            "data": {
+                "object": {
+                    "id": "in_meta",
+                    "customer": "cus_unknown",
+                    "metadata": {"organization_id": str(victim)},
+                }
+            },
+        }
+    ).encode()
+    response = TestClient(app).post(
+        "/api/v1/billing/webhooks/stripe",
+        content=payload,
+        headers={"stripe-signature": _sign(payload)},
+    )
+    assert response.status_code == 200
+    db = SessionLocal()
+    org = db.get(Organization, victim)
+    assert org.stripe_customer_id is None
+    assert db.query(BillingEvent).filter(BillingEvent.external_id == "evt_meta_only").count() == 0
+    db.close()
+
+
+def test_stripe_checkout_session_binds_customer_via_client_reference(monkeypatch):
+    http, _ = _register("Acme")
+    org_id = _org_id(http)
+    _set_stripe_env(monkeypatch)
+    payload = json.dumps(
+        {
+            "id": "evt_checkout_1",
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "id": "cs_1",
+                    "client_reference_id": str(org_id),
+                    "customer": "cus_bound",
+                    "subscription": "sub_bound",
+                }
+            },
+        }
+    ).encode()
+    response = TestClient(app).post(
+        "/api/v1/billing/webhooks/stripe",
+        content=payload,
+        headers={"stripe-signature": _sign(payload)},
+    )
+    assert response.status_code == 200
+    db = SessionLocal()
+    org = db.get(Organization, org_id)
+    assert org.stripe_customer_id == "cus_bound"
+    assert org.stripe_subscription_id == "sub_bound"
+    db.close()
     source = inspect.getsource(StripeBillingPort.handle_webhook)
     assert "DocumentChunk" not in source
     assert "document_chunks" not in source

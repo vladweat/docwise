@@ -9,7 +9,7 @@
 - RBAC enforcement: SQL-фильтр `organization_id` **и** `access_roles && allowed_roles` на pgvector/FTS **до** LLM. Промпт не является механизмом ACL и не изолирует компании. План, SAML-атрибут и hostname не заменяют этот фильтр; hostname может только пиннить org.
 - Один и тот же ACL на list / status / raw / search / inspect / chat, плюс тот же `org_id`.
 - Не подтверждать существование чужого файла («документ X скрыт»), в том числе файла другой организации.
-- LLM cache key включает `org_id` (M5) и `allowed_roles` вызывающего (иначе кэш — дыра ACL или кросс-тенант).
+- LLM cache key включает `org_id` (M5), поколение индекса и `allowed_roles` вызывающего (иначе кэш — дыра ACL, кросс-тенант или ответ после смены корпуса).
 - Секреты только в env. Не коммитить `.env`, ключи, дампы NDA. Stripe keys не обязательны для Compose (`BILLING_PROVIDER=dev`).
 - Audit: `rag_audit_logs` без тела чанков (только UUID после реранкера). Inspect в production за `ENABLE_SEARCH_INSPECT` (по умолчанию выкл); чужой файл не подтверждается.
 - Upload: лимит размера (ориентир 50 MB), только PDF в v1, SHA-256, rate limit как в ChainWise. Квота страниц org → `402` (не `429`).
@@ -20,6 +20,7 @@
 
 - Парсинг и эмбеддинги только в Celery, не в upload-handler.
 - Redis lock `indexing_lock:{document_id}`. Повтор задачи идемпотентен.
+- Celery: `acks_late`, `worker_prefetch_multiplier=1`, `soft_time_limit` 20 мин / `time_limit` 25 мин, до 3 ретраев с backoff (не ретраить `SoftTimeLimitExceeded` / `TimeLimitExceeded`).
 - Падение воркера: `failed` + `last_error`, индекс либо полный, либо удалён (нет «полуготового» документа со статусом ready).
 - Каскадный DELETE: Postgres (документ + чанки), объект MinIO. Частичный успех логировать и ретраить удаление индекса.
 
@@ -44,7 +45,7 @@
 
 - Faithfulness: ответ только из Top-4. Иначе фиксированная фраза отказа.
 - Каждая фактическая клауза — цитата `{doc_id, page}`.
-- Eval: [evaluation.md](evaluation.md). Релиз: Faithfulness ≥ 0.8 и **ноль** ACL-утечек на `must_not_doc_ids`. Первый прогон 2026-09-10: Faithfulness 1.000, Context Precision 0.976, Answer Relevance 0.789, page hit 0.929, ACL PASS. Ноль утечек `must_not` документов **другой** org, даже с тегом `all`.
+- Eval: [evaluation.md](evaluation.md). Релиз: Faithfulness ≥ 0.8 и **ноль** ACL-утечек на `must_not_doc_ids`. Прогон 2026-09-10 (ещё interim sparse): Faithfulness 1.000, Context Precision 0.976, Answer Relevance 0.789, page hit 0.929, ACL PASS. После независимого FTS живой прогон не обновлялся. Ноль утечек `must_not` документов **другой** org, даже с тегом `all`.
 
 ## Совместимость и i18n
 

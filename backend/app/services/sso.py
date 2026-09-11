@@ -4,19 +4,20 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from pydantic import ValidationError
 from redis import RedisError
 from sqlalchemy.orm import Session
 
+from app.api import API_V1
 from app.core.config import get_settings
+from app.core.errors import BadRequestError, ForbiddenError, UnauthorizedError, UnavailableError
 from app.core.principal import Principal
 from app.models.organization import (
     Organization,
     OrganizationInvite,
-    OrganizationSsoConnection,
     OrganizationStatus,
 )
+from app.models.sso import OrganizationSsoConnection
 from app.models.user import User, UserRole
 from app.schemas.sso import SsoAttributeMap
 from app.services.quotas import plan_limits
@@ -26,7 +27,7 @@ from app.services.tenancy import (
     get_membership,
     principal_from_parts,
 )
-from app.utils.redis_lock import get_redis_client
+from app.core.redis import get_redis_client
 
 SSO_NOT_FOUND = "Not found"
 SSO_REQUIRED = "SSO sign-in required"
@@ -42,7 +43,7 @@ ROLE_RANK = {
 
 
 def sso_paths(slug: str) -> tuple[str, str]:
-    return f"/api/v1/auth/sso/{slug}/login", f"/api/v1/auth/sso/{slug}/acs"
+    return f"{API_V1}/auth/sso/{slug}/login", f"{API_V1}/auth/sso/{slug}/acs"
 
 
 def sso_fresh_ttl_seconds() -> int:
@@ -54,20 +55,14 @@ def mark_sso_fresh(user_id: UUID, organization_id: UUID) -> None:
     try:
         get_redis_client().set(f"{SSO_FRESH_PREFIX}{user_id}:{organization_id}", "1", ex=ttl)
     except RedisError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Session store unavailable",
-        ) from exc
+        raise UnavailableError("Session store unavailable") from exc
 
 
 def has_sso_fresh(user_id: UUID, organization_id: UUID) -> bool:
     try:
         stored = get_redis_client().get(f"{SSO_FRESH_PREFIX}{user_id}:{organization_id}")
     except RedisError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Session store unavailable",
-        ) from exc
+        raise UnavailableError("Session store unavailable") from exc
     return bool(stored)
 
 
@@ -83,7 +78,7 @@ def parse_attribute_map(raw: dict | SsoAttributeMap | None) -> dict:
     try:
         return SsoAttributeMap.model_validate(raw or {}).model_dump(mode="json")
     except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid attribute_map") from exc
+        raise BadRequestError("Invalid attribute_map") from exc
 
 
 def map_idp_groups(attribute_map: dict | None, groups: list[str]) -> tuple[str, list[str], bool]:
@@ -134,7 +129,7 @@ def public_sso_target(db: Session, slug: str) -> tuple[Organization, Organizatio
 
 def require_sso_entitlement(organization: Organization) -> None:
     if not plan_limits(organization.plan).sso:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_NOT_IN_PLAN)
+        raise ForbiddenError(SSO_NOT_IN_PLAN)
 
 
 def _pending_invite(db: Session, organization_id: UUID, email: str) -> OrganizationInvite | None:
@@ -178,7 +173,7 @@ def complete_sso_login(
         else:
             invite = _pending_invite(db, organization.id, normalized)
             if invite is None:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_INVITE_REQUIRED)
+                raise ForbiddenError(SSO_INVITE_REQUIRED)
             if user is None:
                 user = User(email=normalized, hashed_password=None)
                 db.add(user)
@@ -192,5 +187,5 @@ def complete_sso_login(
         membership.departments = departments
 
     if user is None or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive")
+        raise UnauthorizedError("Account is inactive")
     return principal_from_parts(user, membership, organization)

@@ -2,33 +2,33 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import time
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.errors import NotFoundError
+from app.core.time import utcnow_naive
 from app.core.sentry import capture_pipeline_error
 from app.core.principal import Principal
-from app.models.chat import ChatMessage, ChatMessageRole, ChatSession, RagAuditLog
+from app.models.chat import ChatMessage, ChatMessageRole, ChatSession
 from app.models.user import User
-from app.schemas.chat import (
-    ChatMessageOut,
-    ChatSessionDetail,
-    ChatSessionListResponse,
-    ChatSessionSummary,
-    Citation,
-)
+from app.schemas.chat import Citation
 from app.services.audit import record_retrieval_audit
+from app.services.chat_sessions import (
+    get_owned_session,
+    get_session_detail,
+    list_sessions,
+    set_message_feedback,
+)
 from app.services.llm import (
     LLMUsage,
     OpenAINotConfiguredError,
@@ -36,33 +36,58 @@ from app.services.llm import (
     openai_is_configured,
     stream_openai,
 )
-from app.services.quotas import QUOTA_EXCEEDED, has_chat_token_quota
-from app.services.retrieval import NO_CONTEXT_ANSWER, RetrievedChunk, allowed_roles_for, retrieve
+from app.services.llm_cache import (
+    CACHE_VERSION,
+    cache_key,
+    canonical_allowed_roles,
+    question_hash,
+    redis_get,
+    redis_set,
+)
+from app.services.quotas import QUOTA_EXCEEDED, has_chat_token_quota, lock_organization
+from app.services.retrieval import (
+    NO_CONTEXT_ANSWER,
+    RetrievedChunk,
+    allowed_roles_for,
+    embed_query,
+    finish_retrieval,
+    hybrid_search,
+    retrieve as default_retrieve,
+)
 from app.services.tenancy import resolve_principal
-from app.utils.redis_lock import get_redis_client
 
 logger = logging.getLogger(__name__)
 
-CACHE_VERSION = "v1"
-LLM_CACHE_TTL_SECONDS = 86400
+retrieve = default_retrieve
+
 HISTORY_MAX_MESSAGES = 8
 TITLE_MAX_LEN = 80
 GENERIC_CHAT_ERROR = "Chat failed. Try again."
-NOT_FOUND_DETAIL = "Chat session not found"
-MESSAGE_NOT_FOUND_DETAIL = "Chat message not found"
+PERSIST_FAILED = "Chat was not saved. Try again."
 
 SYSTEM_PROMPT = (
     "You are a corporate AI assistant. Answer strictly using the provided document excerpts. "
     "If the excerpts do not contain the answer, reply exactly: "
     f"«{NO_CONTEXT_ANSWER}» "
     "Do not invent facts, numbers, or policies. "
+    "Format lists and tables in Markdown. "
     "Every factual statement must cite the document title and page "
-    "in the form [Title.pdf, p. N]. Reply in the same language as the user's question."
+    "in the form [Title.pdf, стр. N]. Reply in the same language as the user's question."
 )
 
 
 class ChatError(Exception):
     """Raised when chat orchestration fails."""
+
+
+class ChatPersistError(ChatError):
+    """Answer was produced but chat_sessions / messages were not written."""
+
+
+@dataclass(frozen=True)
+class HistoryTurn:
+    role: str
+    content: str
 
 
 @dataclass
@@ -77,21 +102,6 @@ class ChatResult:
     message_id: UUID | None = None
 
 
-def canonical_allowed_roles(roles: Sequence[str]) -> tuple[str, ...]:
-    """Stable, sorted unique roles for cache keys and ACL. Never from the request body."""
-    return tuple(sorted({str(role).strip() for role in roles if str(role).strip()}))
-
-
-def question_hash(question: str) -> str:
-    return hashlib.sha256(f"{CACHE_VERSION}\n{question.strip()}".encode("utf-8")).hexdigest()
-
-
-def cache_key(question: str, allowed_roles: Sequence[str], *, organization_id: UUID) -> str:
-    roles = canonical_allowed_roles(allowed_roles)
-    roles_hash = hashlib.sha256(",".join(roles).encode("utf-8")).hexdigest()[:16]
-    return f"llm_cache:{CACHE_VERSION}:{organization_id}:{roles_hash}:{question_hash(question)}"
-
-
 def citations_from_chunks(chunks: Sequence[RetrievedChunk]) -> list[Citation]:
     return [Citation.model_validate(chunk.to_citation()) for chunk in chunks]
 
@@ -99,7 +109,7 @@ def citations_from_chunks(chunks: Sequence[RetrievedChunk]) -> list[Citation]:
 def build_messages(
     question: str,
     chunks: Sequence[RetrievedChunk],
-    history: Sequence[ChatMessage] = (),
+    history: Sequence[HistoryTurn | ChatMessage] = (),
 ) -> list[dict[str, str]]:
     """LLM messages. Context is only the current ACL-filtered Top-4; history is dialogue, not retrieval."""
     parts: list[str] = []
@@ -112,105 +122,12 @@ def build_messages(
         {"role": "system", "content": f"Document excerpts:\n{context}"},
     ]
     for row in history:
-        if row.role not in {ChatMessageRole.user.value, ChatMessageRole.assistant.value}:
+        role = row.role
+        if role not in {ChatMessageRole.user.value, ChatMessageRole.assistant.value}:
             continue
-        messages.append({"role": row.role, "content": row.content})
+        messages.append({"role": role, "content": row.content})
     messages.append({"role": "user", "content": question})
     return messages
-
-
-def get_owned_session(db: Session, user: Principal, session_id: UUID) -> ChatSession:
-    session = (
-        db.query(ChatSession)
-        .filter(
-            ChatSession.id == session_id,
-            ChatSession.user_id == user.id,
-            ChatSession.organization_id == user.organization_id,
-        )
-        .first()
-    )
-    if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_DETAIL)
-    return session
-
-
-def list_sessions(
-    db: Session,
-    user: Principal,
-    *,
-    limit: int = 20,
-    offset: int = 0,
-) -> ChatSessionListResponse:
-    query = db.query(ChatSession).filter(
-        ChatSession.user_id == user.id,
-        ChatSession.organization_id == user.organization_id,
-    )
-    total = query.count()
-    rows = (
-        query.order_by(ChatSession.updated_at.desc(), ChatSession.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-    return ChatSessionListResponse(
-        items=[ChatSessionSummary.model_validate(row) for row in rows],
-        total=total,
-        limit=limit,
-        offset=offset,
-    )
-
-
-def get_session_detail(db: Session, user: Principal, session_id: UUID) -> ChatSessionDetail:
-    session = get_owned_session(db, user, session_id)
-    messages = (
-        db.query(ChatMessage)
-        .filter(ChatMessage.session_id == session.id)
-        .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
-        .all()
-    )
-    return ChatSessionDetail(
-        id=session.id,
-        title=session.title,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
-        messages=[_message_out(row) for row in messages],
-    )
-
-
-def set_message_feedback(db: Session, user: Principal, message_id: UUID, rating: int) -> None:
-    message = (
-        db.query(ChatMessage)
-        .join(ChatSession, ChatSession.id == ChatMessage.session_id)
-        .filter(
-            ChatMessage.id == message_id,
-            ChatSession.user_id == user.id,
-            ChatSession.organization_id == user.organization_id,
-        )
-        .first()
-    )
-    if message is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MESSAGE_NOT_FOUND_DETAIL)
-    if message.role != ChatMessageRole.assistant.value:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MESSAGE_NOT_FOUND_DETAIL)
-
-    log = (
-        db.query(RagAuditLog)
-        .filter(RagAuditLog.message_id == message.id, RagAuditLog.user_id == user.id)
-        .order_by(RagAuditLog.created_at.desc())
-        .first()
-    )
-    if log is None:
-        log = RagAuditLog(
-            organization_id=user.organization_id,
-            user_id=user.id,
-            session_id=message.session_id,
-            message_id=message.id,
-            query="",
-            retrieved_chunk_ids=[],
-        )
-        db.add(log)
-    log.feedback = rating
-    db.commit()
 
 
 def iter_sse_events(
@@ -223,45 +140,62 @@ def iter_sse_events(
     streamer=None,
 ) -> Iterator[str]:
     started = time.perf_counter()
-    db = SessionLocal()
+    search = retriever if retriever is not None else retrieve
+    generate = streamer or stream_openai
+    use_split = retriever is None and search is default_retrieve
+
     try:
-        user_row = db.get(User, user_id)
-        if user_row is None or not user_row.is_active:
-            yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
-            yield _sse_done()
-            return
-        user = resolve_principal(db, user_row, organization_id)
-        if user is None:
-            yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
-            yield _sse_done()
-            return
+        with SessionLocal() as db:
+            user = _principal_or_none(db, user_id, organization_id)
+            if user is None:
+                yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
+                yield _sse_done()
+                return
+            if not has_chat_token_quota(db, user.organization):
+                yield _sse({"type": "error", "content": QUOTA_EXCEEDED})
+                yield _sse_done()
+                return
 
-        if not has_chat_token_quota(db, user.organization):
-            yield _sse({"type": "error", "content": QUOTA_EXCEEDED})
-            yield _sse_done()
-            return
-
-        session = get_owned_session(db, user, session_id) if session_id is not None else None
-        allowed = canonical_allowed_roles(allowed_roles_for(user))
-        history = _load_history(db, session.id) if session is not None else []
-
-        cached = load_cached_answer(query, allowed, organization_id=user.organization_id)
-        if cached is not None:
-            persist = _persist_turn(
-                db,
-                user=user,
-                session=session,
-                query=query,
-                result=cached,
-                latency_ms=_elapsed_ms(started),
+            session = get_owned_session(db, user, session_id) if session_id is not None else None
+            allowed = canonical_allowed_roles(allowed_roles_for(user))
+            history = _snapshot_history(db, session.id) if session is not None else []
+            index_generation = int(user.organization.llm_index_generation or 0)
+            cached = load_cached_answer(
+                query,
+                allowed,
+                organization_id=user.organization_id,
+                index_generation=index_generation,
             )
-            cached.session_id = persist.session_id
-            cached.message_id = persist.message_id
-            yield from _sse_from_result(cached)
+            if cached is not None:
+                persist_ok = True
+                try:
+                    persist = _persist_turn(
+                        db,
+                        user=user,
+                        session=session,
+                        query=query,
+                        result=cached,
+                        latency_ms=_elapsed_ms(started),
+                    )
+                    cached.session_id = persist.session_id
+                    cached.message_id = persist.message_id
+                except ChatPersistError:
+                    persist_ok = False
+                yield from _sse_from_result(cached, persist_ok=persist_ok)
+                return
+
+        retrieval = _run_retrieval(
+            search,
+            user_id,
+            organization_id,
+            query,
+            use_split=use_split,
+        )
+        if retrieval is None:
+            yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
+            yield _sse_done()
             return
 
-        search = retriever or retrieve
-        retrieval = search(db, user, query)
         chunks = list(retrieval.chunks)
         citations = citations_from_chunks(chunks)
         if chunks and not openai_is_configured() and streamer is None:
@@ -276,24 +210,26 @@ def iter_sse_events(
 
         if not chunks:
             result = ChatResult(answer=NO_CONTEXT_ANSWER, citations=[], cached=False, chunk_ids=[])
-            persist = _persist_turn(
-                db,
-                user=user,
-                session=session,
-                query=query,
-                result=result,
-                latency_ms=_elapsed_ms(started),
+            result, persist_ok = _persist_closed(
+                user_id,
+                organization_id,
+                session_id,
+                query,
+                result,
+                _elapsed_ms(started),
             )
-            result.session_id = persist.session_id
-            result.message_id = persist.message_id
-            save_cached_answer(query, allowed, result, organization_id=user.organization_id)
+            save_cached_answer(
+                query,
+                allowed,
+                result,
+                organization_id=organization_id,
+                index_generation=index_generation,
+            )
             yield _sse({"type": "token", "content": result.answer})
-            yield _sse(_meta_payload(result))
-            yield _sse_done()
+            yield from _sse_finish(result, persist_ok=persist_ok)
             return
 
         messages = build_messages(query, chunks, history)
-        generate = streamer or stream_openai
         parts: list[str] = []
         usage = LLMUsage()
         for item in generate(messages):
@@ -311,30 +247,34 @@ def iter_sse_events(
             cost_usd=usage.cost_usd,
             chunk_ids=[str(chunk.id) for chunk in chunks],
         )
-        persist = _persist_turn(
-            db,
-            user=user,
-            session=session,
-            query=query,
-            result=result,
-            latency_ms=_elapsed_ms(started),
+        result, persist_ok = _persist_closed(
+            user_id,
+            organization_id,
+            session_id,
+            query,
+            result,
+            _elapsed_ms(started),
         )
-        result.session_id = persist.session_id
-        result.message_id = persist.message_id
-        save_cached_answer(query, allowed, result, organization_id=user.organization_id)
-        yield _sse(_meta_payload(result))
+        save_cached_answer(
+            query,
+            allowed,
+            result,
+            organization_id=organization_id,
+            index_generation=index_generation,
+        )
+        yield from _sse_finish(result, persist_ok=persist_ok)
+    except ChatPersistError:
+        yield _sse({"type": "error", "content": PERSIST_FAILED})
         yield _sse_done()
     except (OpenAINotConfiguredError, OpenAIRequestError, ChatError):
         raise
-    except HTTPException:
+    except NotFoundError:
         raise
     except Exception as exc:
         capture_pipeline_error("chat", exc)
         logger.exception("Chat stream failed")
         yield _sse({"type": "error", "content": GENERIC_CHAT_ERROR})
         yield _sse_done()
-    finally:
-        db.close()
 
 
 def load_cached_answer(
@@ -342,8 +282,16 @@ def load_cached_answer(
     allowed_roles: Sequence[str],
     *,
     organization_id: UUID,
+    index_generation: int = 0,
 ) -> ChatResult | None:
-    payload = _redis_get(cache_key(question, allowed_roles, organization_id=organization_id))
+    payload = redis_get(
+        cache_key(
+            question,
+            allowed_roles,
+            organization_id=organization_id,
+            index_generation=index_generation,
+        )
+    )
     if payload is None:
         return None
     return _result_from_cache_payload(payload)
@@ -355,8 +303,77 @@ def save_cached_answer(
     result: ChatResult,
     *,
     organization_id: UUID,
+    index_generation: int = 0,
 ) -> None:
-    _redis_set(cache_key(question, allowed_roles, organization_id=organization_id), _cache_payload(result))
+    redis_set(
+        cache_key(
+            question,
+            allowed_roles,
+            organization_id=organization_id,
+            index_generation=index_generation,
+        ),
+        _cache_payload(result),
+    )
+
+
+def _principal_or_none(db: Session, user_id: UUID, organization_id: UUID) -> Principal | None:
+    user_row = db.get(User, user_id)
+    if user_row is None or not user_row.is_active:
+        return None
+    return resolve_principal(db, user_row, organization_id)
+
+
+def _run_retrieval(search, user_id: UUID, organization_id: UUID, query: str, *, use_split: bool):
+    if use_split:
+        vector = embed_query(query)
+        with SessionLocal() as db:
+            user = _principal_or_none(db, user_id, organization_id)
+            if user is None:
+                return None
+            pool = hybrid_search(db, user, query, vector)
+        return finish_retrieval(query, pool)
+
+    with SessionLocal() as db:
+        user = _principal_or_none(db, user_id, organization_id)
+        if user is None:
+            return None
+        return search(db, user, query)
+
+
+def _persist_closed(
+    user_id: UUID,
+    organization_id: UUID,
+    session_id: UUID | None,
+    query: str,
+    result: ChatResult,
+    latency_ms: int,
+) -> tuple[ChatResult, bool]:
+    try:
+        with SessionLocal() as db:
+            user = _principal_or_none(db, user_id, organization_id)
+            if user is None:
+                return result, False
+            session = get_owned_session(db, user, session_id) if session_id is not None else None
+            return (
+                _persist_turn(
+                    db,
+                    user=user,
+                    session=session,
+                    query=query,
+                    result=result,
+                    latency_ms=latency_ms,
+                ),
+                True,
+            )
+    except ChatPersistError:
+        return result, False
+
+
+def _snapshot_history(db: Session, session_id: UUID) -> list[HistoryTurn]:
+    return [
+        HistoryTurn(role=row.role, content=row.content)
+        for row in _load_history(db, session_id)
+    ]
 
 
 def _load_history(db: Session, session_id: UUID) -> list[ChatMessage]:
@@ -388,6 +405,9 @@ def _persist_turn(
     latency_ms: int,
 ) -> ChatResult:
     try:
+        org = lock_organization(db, user.organization_id)
+        if org is not None and result.tokens_used is not None and not has_chat_token_quota(db, org):
+            result.tokens_used = None
         if session is None:
             session = ChatSession(
                 organization_id=user.organization_id,
@@ -398,8 +418,8 @@ def _persist_turn(
             db.flush()
         elif not session.title:
             session.title = _title_from_query(query)
-        session.updated_at = datetime.now()
-        now = datetime.now()
+        session.updated_at = utcnow_naive()
+        now = utcnow_naive()
         db.add(
             ChatMessage(
                 session_id=session.id,
@@ -435,31 +455,15 @@ def _persist_turn(
         db.refresh(assistant)
         result.session_id = session.id
         result.message_id = assistant.id
-    except Exception:
+    except Exception as exc:
         db.rollback()
         logger.exception("Failed to persist chat turn")
+        capture_pipeline_error("chat_persist", exc)
+        raise ChatPersistError(PERSIST_FAILED) from exc
     return result
 
 
-def _message_out(row: ChatMessage) -> ChatMessageOut:
-    citations: list[Citation] = []
-    for item in row.sources or []:
-        if not isinstance(item, dict):
-            continue
-        try:
-            citations.append(Citation.model_validate(item))
-        except Exception:
-            continue
-    return ChatMessageOut(
-        id=row.id,
-        role=row.role,
-        content=row.content,
-        sources=citations,
-        created_at=row.created_at,
-    )
-
-
-def _sse_from_result(result: ChatResult) -> Iterator[str]:
+def _sse_from_result(result: ChatResult, *, persist_ok: bool = True) -> Iterator[str]:
     yield _sse(
         {
             "type": "citations",
@@ -468,7 +472,13 @@ def _sse_from_result(result: ChatResult) -> Iterator[str]:
     )
     if result.answer:
         yield _sse({"type": "token", "content": result.answer})
+    yield from _sse_finish(result, persist_ok=persist_ok)
+
+
+def _sse_finish(result: ChatResult, *, persist_ok: bool) -> Iterator[str]:
     yield _sse(_meta_payload(result))
+    if not persist_ok:
+        yield _sse({"type": "error", "content": PERSIST_FAILED})
     yield _sse_done()
 
 
@@ -502,15 +512,11 @@ def _cache_payload(result: ChatResult) -> dict[str, Any]:
     return {
         "answer": result.answer,
         "citations": [citation.model_dump(mode="json") for citation in result.citations],
-        "tokens_used": result.tokens_used,
-        "cost_usd": str(result.cost_usd) if result.cost_usd is not None else None,
         "chunk_ids": list(result.chunk_ids),
     }
 
 
 def _result_from_cache_payload(payload: dict[str, Any]) -> ChatResult:
-    cost_raw = payload.get("cost_usd")
-    cost = Decimal(str(cost_raw)) if cost_raw is not None else None
     citations: list[Citation] = []
     for item in payload.get("citations") or []:
         if not isinstance(item, dict):
@@ -524,29 +530,31 @@ def _result_from_cache_payload(payload: dict[str, Any]) -> ChatResult:
         answer=str(payload.get("answer") or ""),
         citations=citations,
         cached=True,
-        tokens_used=payload.get("tokens_used"),
-        cost_usd=cost,
+        tokens_used=None,
+        cost_usd=None,
         chunk_ids=chunk_ids,
     )
 
 
-def _redis_get(key: str) -> dict | None:
-    try:
-        value = get_redis_client().get(key)
-    except Exception as exc:
-        logger.warning("Redis cache get failed: %s", exc)
-        return None
-    if not value:
-        return None
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError:
-        return None
-    return parsed if isinstance(parsed, dict) else None
-
-
-def _redis_set(key: str, payload: dict) -> None:
-    try:
-        get_redis_client().set(key, json.dumps(payload, ensure_ascii=False), ex=LLM_CACHE_TTL_SECONDS)
-    except Exception as exc:
-        logger.warning("Redis cache set failed: %s", exc)
+__all__ = [
+    "CACHE_VERSION",
+    "PERSIST_FAILED",
+    "SYSTEM_PROMPT",
+    "ChatError",
+    "ChatPersistError",
+    "ChatResult",
+    "HistoryTurn",
+    "build_messages",
+    "cache_key",
+    "canonical_allowed_roles",
+    "citations_from_chunks",
+    "get_owned_session",
+    "get_session_detail",
+    "iter_sse_events",
+    "list_sessions",
+    "load_cached_answer",
+    "question_hash",
+    "retrieve",
+    "save_cached_answer",
+    "set_message_feedback",
+]

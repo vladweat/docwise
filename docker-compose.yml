@@ -95,7 +95,7 @@ services:
   celery-worker:
     image: docwise-backend:latest
     pull_policy: never
-    command: python -m celery -A app.celery_config worker -l info
+    command: python -m celery -A worker.celery_app worker -l info
     env_file:
       - .env
     environment:

@@ -47,11 +47,11 @@ Docwise закрывает это связкой: **изоляция орган�
 | --- | --- |
 | Backend | Python 3.12, FastAPI, Uvicorn, Pydantic v2, SQLAlchemy 2 **sync Session** |
 | Очереди | Redis 7, Celery 5 |
-| Данные | PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`), dense 384d cosine + FTS/BM25 на кандидатах |
+| Данные | PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`), dense 384d cosine + FTS (`tsvector` + GIN) независимо от dense |
 | Парсинг | PyMuPDF (`fitz`), pdfplumber (таблицы → Markdown) |
 | ML | fastembed `BAAI/bge-small-en-v1.5`, `BAAI/bge-reranker-base`; LLM `gpt-4o-mini` / Anthropic через `httpx` |
 | Frontend | Next.js 15 App Router, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
-| Инфра | Docker Compose, MinIO, GitHub Actions (ruff + pytest) |
+| Инфра | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend tsc + vitest + lint + build) |
 
 Происхождение каркаса: соседний [ChainWise](../../chainwise/README.md). Не подменять стек (LangChain как ядро, другой векторный движок) без явной просьбы.
 
@@ -77,7 +77,7 @@ Docwise закрывает это связкой: **изоляция орган�
 ### FR-3. Retrieval + chat
 
 - Фильтр SQL `access_roles && allowed_roles` на **каждый** dense и sparse/FTS запрос.
-- Hybrid: dense Top-25 + sparse/BM25 Top-25 → RRF `k=60` → Top-15 → cross-encoder → порог 0.25 → Top-4.
+- Hybrid: dense Top-25 + FTS Top-25 (независимо) → RRF `k=60` → Top-15 → cross-encoder → порог 0.25 → Top-4.
 - Генерация строго по Top-4. Пустой список после порога → фиксированный отказ без вызова «творчества».
 - SSE: сначала цитаты, затем токены, затем метрики. Протокол — JSON-конверты ChainWise (см. [api.md](api.md)).
 

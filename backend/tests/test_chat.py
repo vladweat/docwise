@@ -13,11 +13,14 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.main import app
-from app.models.chat import ChatMessage, ChatSession, RagAuditLog
+from app.models.audit import RagAuditLog
+from app.models.chat import ChatMessage, ChatSession
 from app.models.user import UserRole
 from app.services.chat import (
     CACHE_VERSION,
+    PERSIST_FAILED,
     SYSTEM_PROMPT,
+    ChatPersistError,
     cache_key,
     canonical_allowed_roles,
 )
@@ -126,9 +129,11 @@ def test_cache_key_includes_org_and_canonical_allowed_roles():
     admin = cache_key("travel cap", ["admin", "all"], organization_id=org_a)
     shuffled = cache_key("travel cap", ["all", "employee"], organization_id=org_a)
     other_org = cache_key("travel cap", ["employee", "all"], organization_id=org_b)
+    bumped = cache_key("travel cap", ["employee", "all"], organization_id=org_a, index_generation=1)
     assert employee != admin
     assert employee == shuffled
     assert employee != other_org
+    assert employee != bumped
     assert employee.startswith(f"llm_cache:{CACHE_VERSION}:{org_a}:")
     assert canonical_allowed_roles(["hr", "all", "hr", "employee"]) == ("all", "employee", "hr")
 
@@ -141,6 +146,7 @@ def test_stream_requires_auth():
 def test_sessions_require_auth():
     assert client.get("/api/v1/chat/sessions").status_code == 401
     assert client.get(f"/api/v1/chat/sessions/{uuid4()}").status_code == 401
+    assert client.delete(f"/api/v1/chat/sessions/{uuid4()}").status_code == 401
     assert client.post(
         "/api/v1/chat/feedback",
         json={"message_id": str(uuid4()), "rating": 1},
@@ -399,8 +405,14 @@ def test_same_roles_share_cache(monkeypatch):
     assert b.status_code == 200
     meta = _meta(_parse_sse(b.text))
     assert meta["cached"] is True
+    assert meta["tokens_used"] is None
     assert calls["stream"] == 1
     assert calls["retrieve"] == 1
+    db = SessionLocal()
+    logs = db.query(RagAuditLog).order_by(RagAuditLog.created_at.asc()).all()
+    assert logs[-1].tokens_used is None
+    assert any(log.tokens_used == 9 for log in logs)
+    db.close()
     get_settings.cache_clear()
 
 
@@ -424,6 +436,11 @@ def test_sessions_are_private(monkeypatch):
         json={"query": "follow up", "session_id": session_id},
     )
     assert stolen.status_code == 404
+    assert other.delete(f"/api/v1/chat/sessions/{session_id}").status_code == 404
+    removed = owner.delete(f"/api/v1/chat/sessions/{session_id}")
+    assert removed.status_code == 204
+    assert owner.get(f"/api/v1/chat/sessions/{session_id}").status_code == 404
+    assert owner.get("/api/v1/chat/sessions").json()["total"] == 0
     get_settings.cache_clear()
 
 
@@ -506,3 +523,187 @@ def test_client_roles_in_body_are_ignored(monkeypatch):
     assert response.status_code == 200
     assert seen == [("employee", ("all", "employee"))]
     get_settings.cache_clear()
+
+
+def test_cache_miss_after_index_generation_bump(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    question = f"canteen hours {uuid4().hex}"
+    public = _chunk(title="Office.pdf", page=1, content="Canteen is open 12-15.", roles=("all",))
+    calls = {"stream": 0}
+
+    def fake_retrieve(_db, user, _query, **_kwargs):
+        return _result([public], user)
+
+    def fake_stream(_messages, **_kwargs):
+        calls["stream"] += 1
+        yield "Canteen is open 12-15 [Office.pdf, p. 1]."
+        yield LLMUsage(tokens_used=9, cost_usd=Decimal("0.000001"))
+
+    monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+
+    from app.services.llm_cache import invalidate_llm_cache
+
+    admin = _register()
+    first = _invite_into(admin, role=UserRole.employee.value)
+    second = _invite_into(admin, role=UserRole.employee.value)
+    org_id = UUID(first.get("/api/v1/auth/me").json()["organization_id"])
+    a = first.post("/api/v1/chat/stream", json={"query": question})
+    assert a.status_code == 200
+    assert _meta(_parse_sse(a.text))["cached"] is False
+
+    db = SessionLocal()
+    invalidate_llm_cache(db, org_id)
+    db.commit()
+    db.close()
+
+    b = second.post("/api/v1/chat/stream", json={"query": question})
+    assert b.status_code == 200
+    assert _meta(_parse_sse(b.text))["cached"] is False
+    assert calls["stream"] == 2
+    get_settings.cache_clear()
+
+
+def test_stream_releases_db_before_llm_tokens(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    public = _chunk(title="Travel.pdf", page=4, content=PUBLIC_TEXT, roles=("all",))
+    from app.core.database import SessionLocal as RealSessionLocal
+
+    class Counter:
+        open_count = 0
+
+    def factory():
+        session = RealSessionLocal()
+        Counter.open_count += 1
+        original_close = session.close
+
+        def close():
+            Counter.open_count -= 1
+            return original_close()
+
+        session.close = close
+        return session
+
+    monkeypatch.setattr("app.services.chat.SessionLocal", factory)
+    monkeypatch.setattr(
+        "app.services.chat.retrieve",
+        lambda db, user, query, **k: _result([public], user),
+    )
+
+    held = {"during_stream": None}
+
+    def fake_stream(_messages, **_kwargs):
+        held["during_stream"] = Counter.open_count
+        yield "ok"
+        yield LLMUsage(tokens_used=1, cost_usd=Decimal("0.000001"))
+
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+    http = _register(role=UserRole.employee.value)
+    response = http.post("/api/v1/chat/stream", json={"query": f"travel {uuid4().hex}"})
+    assert response.status_code == 200
+    assert held["during_stream"] == 0
+    get_settings.cache_clear()
+
+
+def test_split_path_releases_db_during_embed_and_rerank(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    from app.core.database import SessionLocal as RealSessionLocal
+    from app.services.retrieval import HybridPool, RetrievalResult
+
+    class Counter:
+        open_count = 0
+
+    def factory():
+        session = RealSessionLocal()
+        Counter.open_count += 1
+        original_close = session.close
+
+        def close():
+            Counter.open_count -= 1
+            return original_close()
+
+        session.close = close
+        return session
+
+    public = _chunk(title="Travel.pdf", page=4, content=PUBLIC_TEXT, roles=("all",))
+    held = {"embed": None, "hybrid": None, "rerank": None, "stream": None}
+
+    def fake_embed(query, *, embedder=None):
+        held["embed"] = Counter.open_count
+        return [0.0] * 384
+
+    def fake_hybrid(_db, _user, _query, _vector):
+        held["hybrid"] = Counter.open_count
+        return HybridPool(allowed_roles=("all", "employee"))
+
+    def fake_finish(_query, _pool, *, reranker=None):
+        held["rerank"] = Counter.open_count
+        return RetrievalResult(chunks=[public], allowed_roles=("all", "employee"))
+
+    def fake_stream(_messages, **_kwargs):
+        held["stream"] = Counter.open_count
+        yield "ok"
+        yield LLMUsage(tokens_used=2, cost_usd=Decimal("0.000001"))
+
+    monkeypatch.setattr("app.services.chat.SessionLocal", factory)
+    monkeypatch.setattr("app.services.chat.embed_query", fake_embed)
+    monkeypatch.setattr("app.services.chat.hybrid_search", fake_hybrid)
+    monkeypatch.setattr("app.services.chat.finish_retrieval", fake_finish)
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+
+    http = _register(role=UserRole.employee.value)
+    response = http.post("/api/v1/chat/stream", json={"query": f"split {uuid4().hex}"})
+    assert response.status_code == 200
+    assert held["embed"] == 0
+    assert held["hybrid"] == 1
+    assert held["rerank"] == 0
+    assert held["stream"] == 0
+    get_settings.cache_clear()
+
+
+def test_persist_failure_emits_error_after_tokens(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    public = _chunk(title="Travel.pdf", page=4, content=PUBLIC_TEXT, roles=("all",))
+
+    def fake_retrieve(_db, user, query, **_kwargs):
+        return _result([public], user)
+
+    def fake_stream(_messages, **_kwargs):
+        yield "The cap is 150 USD."
+        yield LLMUsage(tokens_used=4, cost_usd=Decimal("0.000001"))
+
+    def boom(*_args, **_kwargs):
+        raise ChatPersistError(PERSIST_FAILED)
+
+    monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+    monkeypatch.setattr("app.services.chat._persist_turn", boom)
+
+    http = _register(role=UserRole.employee.value)
+    response = http.post("/api/v1/chat/stream", json={"query": f"travel {uuid4().hex}"})
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    types = _event_types(events)
+    assert types[0] == "citations"
+    assert "token" in types
+    tokens = "".join(
+        item["content"] for item in events if isinstance(item, dict) and item.get("type") == "token"
+    )
+    assert "150 USD" in tokens
+    meta = _meta(events)
+    assert meta["session_id"] is None
+    assert meta["message_id"] is None
+    errors = [item for item in events if isinstance(item, dict) and item.get("type") == "error"]
+    assert errors
+    assert errors[0]["content"] == PERSIST_FAILED
+    db = SessionLocal()
+    assert db.query(ChatSession).count() == 0
+    db.close()
+    listed = http.get("/api/v1/chat/sessions")
+    assert listed.json()["total"] == 0
+    get_settings.cache_clear()
+

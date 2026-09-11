@@ -43,10 +43,10 @@ POST /api/v1/documents/upload
 Content-Type: multipart/form-data
 ```
 
-Поля: `file` (PDF), `access_roles` (повторяющееся поле или JSON-список). Только `admin` текущей org (`require_admin`).  
-Ответ `201`: метаданные документа, `status: pending`. Дубликат SHA-256 `file_hash` **в этой org** → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL и не подтверждался чужой тенант). Unique `(organization_id, file_hash)`. Парсинг PDF в хендлере запрещён: байты в MinIO (префикс org), строка `pending` с `organization_id` сессии, Celery `ingestion.process_document`.
+Поля: `file` (PDF), `access_roles` (повторяющееся поле или JSON-список). `admin` или `manager` текущей org (`require_kb_admin`).  
+Ответ `201`: метаданные документа, `status: pending`, `total_pages` по `page_count` файла (без извлечения текста). Дубликат SHA-256 `file_hash` **в этой org** → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL и не подтверждался чужой тенант). Unique `(organization_id, file_hash)`. Текст PDF в хендлере не извлекается: байты в MinIO (префикс org), строка `pending` с `organization_id` сессии, Celery `ingestion.process_document`.
 
-Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Не-PDF → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`. Квота страниц плана (M6): текущая сумма `total_pages` ≥ капа → `402` `{ "detail": "Organization quota exceeded" }` без Celery. Не использовать `404` на свою квоту.
+Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Не-PDF → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`. Квота страниц плана (M6): уже занятые (включая `pending`/`processing`) плюс страницы входящего PDF > капа → `402` `{ "detail": "Organization quota exceeded" }` без Celery. Не использовать `404` на свою квоту.
 
 ```http
 GET /api/v1/documents
@@ -65,13 +65,13 @@ PATCH /api/v1/documents/{id}
 Content-Type: application/json
 ```
 
-Тело: `{ "access_roles": ["hr", "admin"] }`. Только `require_admin`. В одной транзакции обновляет `documents.access_roles` и все `document_chunks.access_roles` этого файла (без re-embed). Пустой список → `422`. Документ без строки → `404` с тем же `detail`. Manager не может. Retrieval после смены ACL сразу видит новые роли чанков.
+Тело: `{ "access_roles": ["hr", "admin"] }`. `require_kb_admin` (admin или manager). В одной транзакции обновляет `documents.access_roles` и все `document_chunks.access_roles` этого файла (без re-embed). Пустой список → `422`. Документ без строки → `404` с тем же `detail`. Employee не может. Retrieval после смены ACL сразу видит новые роли чанков.
 
 ```http
 DELETE /api/v1/documents/{id}
 ```
 
-Каскад: Postgres (документ + чанки) + объект MinIO. Только `require_admin` (manager в v1 не может). `204`. Документ без строки → `404` с тем же `detail`, что и у чтения; удаление не требует пересечения ACL (управление KB).
+Каскад: сначала строка Postgres (документ + чанки), затем объект MinIO. `require_kb_admin` (admin или manager). `204`. Документ без строки → `404` с тем же `detail`, что и у чтения; удаление не требует пересечения ACL (управление KB). Если MinIO недоступен после commit, список уже согласован; объект может остаться сиротой.
 
 ```http
 GET /api/v1/documents/{id}/raw
@@ -120,6 +120,12 @@ GET /api/v1/chat/sessions/{id}
 ```
 
 Сообщения сессии (`id`, `role`, `content`, `sources`, `created_at`). Нет прав / нет записи / другая org → `404` с тем же `detail`, без подтверждения чужой сессии.
+
+```http
+DELETE /api/v1/chat/sessions/{id}
+```
+
+Удаляет сессию текущего пользователя **в текущей org** вместе с сообщениями (Postgres `ON DELETE CASCADE`). Аудит (`rag_audit_logs.session_id`) обнуляется (`SET NULL`). Успех `204`. Чужая сессия / другая org / нет записи → тот же `404`, что у GET.
 
 ```http
 POST /api/v1/chat/feedback

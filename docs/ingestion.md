@@ -1,6 +1,6 @@
 # Пайплайн обработки документов (Ingestion)
 
-Задача Celery: `process_document(doc_id)` (как `load_contract_task` в ChainWise). Redis-лок `indexing_lock:{document_id}`, TTL как в `redis_lock.py`.
+Задача Celery: `process_document(doc_id)` (как `load_contract_task` в ChainWise). Redis-лок `indexing_lock:{document_id}`, TTL как в `redis_lock.py`. Воркер: `acks_late`, prefetch 1, лимит 20/25 мин, ретраи идемпотентного ingest.
 
 Идемпотентность: повторный запуск для того же `doc_id` удаляет старые строки `document_chunks` и перезаписывает чанки. Статусы: `pending → processing → ready | failed`. Во время `processing` поле `ingestion_stage` проходит `parse → chunk → embed` (коммитится между шагами для `GET /documents/{id}/status`).
 
@@ -51,7 +51,7 @@ DOCX (если поддерживается в вехе): конвертация
 3. Insert: vectors + payload (`document_id`, `organization_id` с документа, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` с документа, `content`, `token_count`).
 4. `documents.status = ready`. Любое исключение: `failed` + `last_error`, без «частично готового» индекса (либо явный rollback delete).
 
-Sparse BM25/FTS — в M2 (пока dense-кандидаты, затем in-memory BM25, см. [decisions.md](decisions.md) ADR-005).
+Sparse BM25/FTS — Postgres `search_vector` + GIN, Top-25 независимо от dense ([ADR-005](decisions.md)).
 
 Смена ACL без re-ingest: `PATCH /documents/{id}` копирует `access_roles` на документ и все его чанки.
 

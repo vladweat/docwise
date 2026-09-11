@@ -13,6 +13,10 @@ export const ACCESS_ROLE_OPTIONS = [
 const ROLE_LABELS = new Map<string, string>(ACCESS_ROLE_OPTIONS.map((item) => [item.value, item.label]));
 
 export function canManageKnowledgeBase(user: UserResponse | null): boolean {
+  return user?.role === "admin" || user?.role === "manager";
+}
+
+export function canManageOrganization(user: UserResponse | null): boolean {
   return user?.role === "admin";
 }
 

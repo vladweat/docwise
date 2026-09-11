@@ -7,7 +7,8 @@ alwaysApply: false
 # Frontend (Next.js 15)
 
 - App Router, React 19, TypeScript 5 (strict), Tailwind 4, shadcn/ui (Radix).
-- Server data: TanStack Query. Ephemeral UI state: Zustand. No Redux.
+- `app/**/page.tsx` are RSC (metadata). Interactive screens live in `features/{chat,documents,settings,auth}`. Shared shell: `components/` + `components/ui`.
+- Server data: TanStack Query. Ephemeral UI state: Zustand (chat stores colocated under `features/chat/stores`). No Redux.
 - Talk only to `/api/v1/*`. Types should match backend Pydantic models; do not silently rename fields.
 - On logout/login, clear React Query and the chat Zustand store. Do not restore `/chat/:sessionId` from `?next=` (session ids are per user).
 
@@ -26,4 +27,4 @@ alwaysApply: false
 - Poll `GET /documents/{id}/status` until `ready` or `failed`; show `stage` (`parse` → `chunk` → `embed`).
 - PDF bytes come from `GET /documents/{id}/raw` (auth + org + ACL). Never use a public bucket URL.
 
-Accessibility: keyboard-focusable citations, readable contrast on highlights. Prefer existing shadcn primitives over custom CSS.
+Accessibility: keyboard-focusable citations, readable contrast on highlights. Prefer existing shadcn primitives (dialog, table, select, checkbox, tabs, progress, alert, skeleton) over custom CSS.

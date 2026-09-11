@@ -5,9 +5,10 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.orm import Session
 
-from app.celery_config import process_document_task
+from worker.celery_app import process_document_task
 from app.core.database import SessionLocal
 from app.models.document import EMBEDDING_DIM, Document, DocumentChunk, DocumentStatus, make_chunk_id
+from app.models.organization import Organization
 from app.services.embeddings import EmbeddingError
 from app.services.ingestion import (
     IndexResult,
@@ -155,9 +156,9 @@ def test_process_document_task_delegates_to_run_ingestion(monkeypatch):
         def rollback(self):
             pass
 
-    monkeypatch.setattr("app.celery_config.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr("worker.celery_app.SessionLocal", lambda: FakeSession())
     monkeypatch.setattr(
-        "app.celery_config.run_ingestion",
+        "worker.celery_app.run_ingestion",
         lambda db, document_id: {"status": "ready", "document_id": document_id},
     )
     result = process_document_task.apply(args=["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]).get()
@@ -180,27 +181,29 @@ def test_process_document_task_persists_failure_on_exception(monkeypatch):
     def boom(db, document_id):
         raise RuntimeError("worker boom")
 
-    monkeypatch.setattr("app.celery_config.SessionLocal", lambda: FakeSession())
-    monkeypatch.setattr("app.celery_config.run_ingestion", boom)
+    monkeypatch.setattr("worker.celery_app.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr("worker.celery_app.run_ingestion", boom)
     monkeypatch.setattr(
-        "app.celery_config.persist_ingestion_failure",
+        "worker.celery_app.persist_ingestion_failure",
         lambda db, document_id, exc: persisted.append(str(document_id)),
     )
     monkeypatch.setattr(
-        "app.celery_config.release_indexing_lock",
+        "worker.celery_app.release_indexing_lock",
         lambda document_id: released.append(str(document_id)),
     )
     monkeypatch.setattr(
-        "app.celery_config.capture_pipeline_error",
+        "worker.celery_app.capture_pipeline_error",
         lambda component, exc: captured.append(component),
     )
 
     with pytest.raises(RuntimeError, match="worker boom"):
         process_document_task.apply(args=["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]).get()
 
-    assert persisted == ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]
-    assert released == ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]
-    assert captured == ["ingestion"]
+    attempts = process_document_task.max_retries + 1
+    doc_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    assert persisted == [doc_id] * attempts
+    assert released == [doc_id] * attempts
+    assert captured == ["ingestion"] * attempts
 
 
 def test_downloads_from_minio_and_marks_ready(db: Session, storage: FakeStorage, locks: set[str]):
@@ -226,6 +229,9 @@ def test_downloads_from_minio_and_marks_ready(db: Session, storage: FakeStorage,
     assert str(document.id) not in locks
     assert stored.chunks[0].content == "hello"
     assert stored.chunks[0].access_roles == ["hr", "admin"]
+    org = db.get(Organization, stored.organization_id)
+    assert org is not None
+    assert org.llm_index_generation >= 1
 
 
 def test_skips_when_indexing_lock_held(db: Session, storage: FakeStorage, locks: set[str]):

@@ -119,7 +119,7 @@ def test_bearer_header_is_ignored():
     email = _unique_email()
     registered = client.post("/api/v1/auth/register", json=register_payload(email))
     org_id = registered.json()["organization_id"]
-    token = create_access_token(email, role="admin", org_id=org_id)
+    token = create_access_token(email, org_id=org_id)
     client.cookies.clear()
     me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 401
@@ -150,7 +150,7 @@ def test_google_auth_success(monkeypatch):
 
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
     get_settings.cache_clear()
-    monkeypatch.setattr("app.api.auth.verify_google_id_token", fake_verify)
+    monkeypatch.setattr("app.api.v1.auth.verify_google_id_token", fake_verify)
 
     missing = client.post("/api/v1/auth/google", json={"id_token": "valid-token"})
     assert missing.status_code == 400
@@ -179,7 +179,7 @@ def test_google_rejects_unverified_email(monkeypatch):
 
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
     get_settings.cache_clear()
-    monkeypatch.setattr("app.api.auth.verify_google_id_token", fake_verify)
+    monkeypatch.setattr("app.api.v1.auth.verify_google_id_token", fake_verify)
 
     response = client.post(
         "/api/v1/auth/google",
@@ -193,7 +193,7 @@ def test_admin_role_via_cookie():
     email = _unique_email()
     registered = client.post("/api/v1/auth/register", json=register_payload(email, organization_name="Acme"))
     org_id = registered.json()["organization_id"]
-    token = create_access_token(email, role="admin", org_id=org_id)
+    token = create_access_token(email, org_id=org_id)
     client.cookies.clear()
     client.cookies.set(ACCESS_COOKIE, token)
     me = client.get("/api/v1/auth/me")

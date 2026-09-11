@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models.chat import RagAuditLog
+from app.core.errors import NotFoundError, PaymentRequiredError
+from app.core.time import utcnow_naive
+from app.models.audit import RagAuditLog
 from app.models.document import Document, DocumentStatus
 from app.models.organization import Organization, OrganizationMembership, OrganizationPlan
 
@@ -32,10 +33,6 @@ class PlanLimits:
     chat_tokens: int
     sso: bool
     custom_domain: bool
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def plan_limits(plan: str | None) -> PlanLimits:
@@ -67,12 +64,21 @@ def plan_limits(plan: str | None) -> PlanLimits:
 
 
 def raise_quota_exceeded() -> None:
-    raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=QUOTA_EXCEEDED)
+    raise PaymentRequiredError(QUOTA_EXCEEDED)
+
+
+def lock_organization(db: Session, organization_id: UUID) -> Organization | None:
+    return (
+        db.query(Organization)
+        .filter(Organization.id == organization_id)
+        .with_for_update()
+        .first()
+    )
 
 
 def ensure_billing_period(org: Organization) -> Organization:
     """Keep a current token window on the org row. Does not change plan or ACL."""
-    now = _utcnow()
+    now = utcnow_naive()
     days = max(int(get_settings().plan_period_days), 1)
     start = org.current_period_start
     end = org.current_period_end
@@ -97,10 +103,11 @@ def indexed_page_count(
     *,
     exclude_document_id: UUID | None = None,
 ) -> int:
-    query = db.query(func.coalesce(func.sum(Document.total_pages), 0)).filter(
+    """Pages reserved by non-failed documents. Pending without total_pages counts as 1."""
+    page_expr = func.coalesce(Document.total_pages, 1)
+    query = db.query(func.coalesce(func.sum(page_expr), 0)).filter(
         Document.organization_id == organization_id,
         Document.status != DocumentStatus.failed.value,
-        Document.total_pages.isnot(None),
     )
     if exclude_document_id is not None:
         query = query.filter(Document.id != exclude_document_id)
@@ -137,13 +144,19 @@ def usage_snapshot(db: Session, org: Organization) -> dict:
     }
 
 
-def enforce_page_quota_for_upload(db: Session, organization_id: UUID) -> None:
-    org = db.get(Organization, organization_id)
+def enforce_page_quota_for_upload(
+    db: Session,
+    organization_id: UUID,
+    incoming_pages: int,
+) -> Organization:
+    org = lock_organization(db, organization_id)
     if org is None:
-        raise_quota_exceeded()
+        raise NotFoundError("Organization not found")
     limits = plan_limits(org.plan)
-    if indexed_page_count(db, organization_id) >= limits.pages:
+    used = indexed_page_count(db, organization_id)
+    if used + max(int(incoming_pages), 0) > limits.pages:
         raise_quota_exceeded()
+    return org
 
 
 def assert_ingest_pages_allowed(
@@ -153,7 +166,7 @@ def assert_ingest_pages_allowed(
     *,
     exclude_document_id: UUID,
 ) -> None:
-    org = db.get(Organization, organization_id)
+    org = lock_organization(db, organization_id)
     if org is None:
         raise IngestionQuotaError()
     limits = plan_limits(org.plan)
@@ -163,7 +176,7 @@ def assert_ingest_pages_allowed(
 
 
 def enforce_seat_quota(db: Session, organization_id: UUID) -> None:
-    org = db.get(Organization, organization_id)
+    org = lock_organization(db, organization_id)
     if org is None:
         raise_quota_exceeded()
     limits = plan_limits(org.plan)

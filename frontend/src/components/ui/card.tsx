@@ -1,7 +1,9 @@
-import { motion } from "framer-motion";
+"use client";
+
 import * as React from "react";
 import type { ReactNode } from "react";
 
+import { FadeIn } from "@/components/ui/fade-in";
 import { cn } from "@/lib/utils";
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
@@ -72,12 +74,7 @@ interface PanelProps {
 
 function Panel({ title, subtitle, children, className = "" }: PanelProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className={className}
-    >
+    <FadeIn className={className}>
       <Card>
         <CardHeader>
           <CardTitle>{title}</CardTitle>
@@ -85,7 +82,7 @@ function Panel({ title, subtitle, children, className = "" }: PanelProps) {
         </CardHeader>
         <CardContent>{children}</CardContent>
       </Card>
-    </motion.div>
+    </FadeIn>
   );
 }
 

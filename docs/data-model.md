@@ -18,6 +18,7 @@
 | `billing_status` | `active` \| `past_due` \| `canceled` | M6; `past_due`/`canceled` → `status = suspended` |
 | `current_period_start` / `current_period_end` | DateTime nullable | Окно квоты токенов |
 | `sso_enforced` | Boolean | M6; default false |
+| `llm_index_generation` | Integer | Поколение корпуса для LLM-кэша; bump при PATCH ACL / DELETE / ready ingest |
 | `stripe_customer_id` / `stripe_subscription_id` | String nullable | Только адаптер Stripe; не JWT |
 | `created_at` | DateTime | |
 
@@ -116,14 +117,14 @@ Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Сущес�
 | `file_path` | String | Ключ в MinIO (`orgs/{org_id}/…`) |
 | `file_hash` | String | SHA-256; unique **вместе с** `organization_id` |
 | `file_size_bytes` | Integer | |
-| `total_pages` | Integer | Заполняется после парсинга |
+| `total_pages` | Integer | Резерв квоты на upload (`page_count`); ingest может уточнить |
 | `access_roles` | `ARRAY(String)` | Например `['admin', 'hr']` — внутри org, не id компании |
 | `status` | Enum `pending` \| `processing` \| `ready` \| `failed` | В ChainWise аналог — `indexing`; при порте переименовать |
 | `last_error` | Text nullable | Как `contracts.last_error` в ChainWise |
 | `ingestion_stage` | String nullable | `parse` \| `chunk` \| `embed`; для поллинга `GET .../status` |
 | `created_at`, `updated_at` | DateTime | |
 
-Индексы: unique `(organization_id, file_hash)`, `status`, `(organization_id)`, GIN по `access_roles`.
+Индексы: unique `(organization_id, file_hash)`, unique `(id, organization_id)` (цель составного FK чанков), `status`, `(organization_id)`, GIN по `access_roles`.
 
 ### `chat_sessions`
 
@@ -167,25 +168,26 @@ Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Сущес�
 
 Расширение `vector`. Dense: `embedding vector(384)`, cosine (`BAAI/bge-small-en-v1.5`). Индекс HNSW. ACL, `document_id` и (M5) `organization_id` — обычные колонки + GIN по `access_roles` + btree/hash по `organization_id`.
 
-Sparse/BM25: колонка `tsvector` / FTS или in-memory BM25 только по dense-кандидатам (см. [retrieval.md](retrieval.md)). Каждый поиск: `organization_id = :current_org` **и** GIN ACL.
+Sparse: колонка `search_vector` (`tsvector`, `to_tsvector('simple', content)`, GIN). Каждый поиск: `organization_id = :current_org` **и** GIN ACL. Dense Top-25 и FTS Top-25 независимы, затем RRF.
 
 | Поле | Тип | Заметки |
 | --- | --- | --- |
 | `id` | UUID PK | стабильный ключ чанка в API |
-| `document_id` | UUID FK | как `contract_id` в ChainWise, но UUID |
-| `organization_id` | UUID | M5; копия с документа (не JOIN вместо фильтра) |
+| `document_id` | UUID | как `contract_id` в ChainWise, но UUID; FK только в составе пары с `organization_id` |
+| `organization_id` | UUID | M5; копия с документа. Единственный FK на документ: `(document_id, organization_id) → documents(id, organization_id)` |
 | `chunk_id` | String unique | стабильный ключ для re-upsert (`{document_id}:{page}:{n}`) |
 | `page_number` | Integer | |
 | `section_title` | String nullable | |
 | `is_table` | Boolean | |
 | `access_roles` | `ARRAY(String)` | копия с документа |
 | `content` | Text | фрагмент **без** мета-заголовка `[Document: …]` (он только в `embed_text` перед FastEmbed) |
+| `search_vector` | `tsvector` generated | `to_tsvector('simple', content)`, GIN; не писать из приложения |
 | `token_count` | Integer | |
 | `embedding` | `vector(384)` | cosine |
 | `doc_title` | String nullable | для цитат |
 | `bbox` / `highlight_rects` | JSONB nullable | подсветка во вьюере |
 
-При переиндексации удалять строки по `document_id`, затем вставлять заново. `organization_id` чанка всегда равен документу.
+При переиндексации удалять строки по `document_id`, затем вставлять заново. `organization_id` чанка всегда равен документу (составной FK, не только приложение).
 
 ## MinIO
 

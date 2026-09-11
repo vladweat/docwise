@@ -2,7 +2,7 @@ import io
 import json
 import logging
 
-from app.utils.logging import RedactingJsonFormatter, setup_logging
+from app.core.logging import RedactingJsonFormatter, setup_logging
 
 
 def _format(record: logging.LogRecord) -> dict:

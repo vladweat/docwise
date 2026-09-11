@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 
+import { Alert } from "@/components/ui/alert";
 import { useToastStore } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
 
@@ -14,14 +15,10 @@ export function ToastHost() {
   return (
     <div className="pointer-events-none fixed right-3 top-16 z-50 flex w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2 sm:right-4">
       {toasts.map((toast) => (
-        <div
+        <Alert
           key={toast.id}
-          className={cn(
-            "pointer-events-auto flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm shadow-lg",
-            toast.variant === "error"
-              ? "border-red-500/40 bg-red-950/90 text-red-100"
-              : "border-slate-700 bg-slate-900/95 text-slate-100",
-          )}
+          variant={toast.variant === "error" ? "destructive" : "default"}
+          className={cn("pointer-events-auto flex items-start gap-2 py-2.5 shadow-lg")}
           role="status"
         >
           <p className="min-w-0 flex-1">{toast.message}</p>
@@ -33,7 +30,7 @@ export function ToastHost() {
           >
             <X className="size-4" />
           </button>
-        </div>
+        </Alert>
       ))}
     </div>
   );

@@ -10,7 +10,10 @@ from app.core.database import SessionLocal
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
 from helpers import make_org, wipe_app_tables
 
-MAIN_PY = Path(__file__).resolve().parents[1] / "app" / "main.py"
+APP_DIR = Path(__file__).resolve().parents[1] / "app"
+MAIN_PY = APP_DIR / "main.py"
+LIFESPAN_PY = APP_DIR / "core" / "lifespan.py"
+MIGRATIONS_PY = APP_DIR / "core" / "migrations.py"
 
 
 @pytest.fixture
@@ -37,9 +40,13 @@ def _document(org, **overrides) -> Document:
 
 
 def test_startup_uses_alembic_not_create_all():
-    source = MAIN_PY.read_text()
-    assert "create_all" not in source
-    assert "command.upgrade" in source
+    main_src = MAIN_PY.read_text()
+    lifespan_src = LIFESPAN_PY.read_text()
+    migrations_src = MIGRATIONS_PY.read_text()
+    for source in (main_src, lifespan_src, migrations_src):
+        assert "create_all" not in source
+    assert "run_migrations" in lifespan_src
+    assert "command.upgrade" in migrations_src
 
 
 def test_document_and_chunk_roundtrip(db: Session):
@@ -73,6 +80,11 @@ def test_document_and_chunk_roundtrip(db: Session):
     assert stored.last_error is None
     assert len(stored.chunks) == 1
     saved = stored.chunks[0]
+    fts = db.execute(
+        text("SELECT search_vector IS NOT NULL FROM document_chunks WHERE id = :id"),
+        {"id": saved.id},
+    ).scalar()
+    assert fts is True
     assert saved.page_number == 1
     assert saved.is_table is True
     assert saved.access_roles == stored.access_roles
@@ -151,3 +163,42 @@ def test_required_indexes_exist(db: Session):
     assert "hnsw" in embedding_def
     assert "vector_cosine_ops" in embedding_def
     assert "ix_document_chunks_chunk_id" in by_name
+    assert "ix_document_chunks_search_vector" in by_name
+    assert "gin" in by_name["ix_document_chunks_search_vector"]
+    assert "search_vector" in by_name["ix_document_chunks_search_vector"]
+    unique_names = db.execute(
+        text(
+            "SELECT conname FROM pg_constraint "
+            "WHERE contype = 'u' AND conrelid = 'documents'::regclass"
+        )
+    ).scalars().all()
+    assert "uq_documents_id_organization_id" in unique_names
+    fks = db.execute(
+        text(
+            "SELECT conname FROM pg_constraint "
+            "WHERE contype = 'f' AND conrelid = 'document_chunks'::regclass"
+        )
+    ).scalars().all()
+    assert "fk_document_chunks_document_organization" in fks
+    assert "document_chunks_document_id_fkey" not in fks
+
+
+def test_chunk_organization_must_match_document(db: Session):
+    org = make_org(db)
+    other = make_org(db)
+    doc = _document(org)
+    db.add(doc)
+    db.flush()
+    db.add(
+        DocumentChunk(
+            document_id=doc.id,
+            organization_id=other.id,
+            chunk_id=make_chunk_id(doc.id, 1, 0),
+            page_number=1,
+            access_roles=["all"],
+            content="drift",
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()

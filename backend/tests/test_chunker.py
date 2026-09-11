@@ -8,9 +8,9 @@ from app.services.chunker import (
     chunk_parsed_document,
     count_tokens,
     format_embed_text,
-    tokenize,
 )
 from app.services.pdf_parser import PageBlock, ParsedDocument, ParsedPage, table_to_gfm
+from app.services.text import ingest_tokens
 
 
 def _block(
@@ -55,7 +55,7 @@ def test_chunks_do_not_cross_page_boundary():
     chunks = chunk_parsed_document(ParsedDocument(total_pages=2, pages=(page1, page2)))
     assert {chunk.page_number for chunk in chunks} == {1, 2}
     for chunk in chunks:
-        tokens = tokenize(chunk.content)
+        tokens = ingest_tokens(chunk.content)
         if chunk.page_number == 1:
             assert all(token.startswith("p1") for token in tokens)
         else:
@@ -85,8 +85,8 @@ def test_overlap_does_not_cross_sections():
     chunks = chunk_parsed_document(ParsedDocument(total_pages=1, pages=(page,)))
     by_section = {chunk.section_title: chunk for chunk in chunks}
     assert set(by_section) == {"SecA", "SecB"}
-    assert all(token.startswith("aaa") or token == "SecA" for token in tokenize(by_section["SecA"].content))
-    assert all(token.startswith("bbb") or token == "SecB" for token in tokenize(by_section["SecB"].content))
+    assert all(token.startswith("aaa") or token == "SecA" for token in ingest_tokens(by_section["SecA"].content))
+    assert all(token.startswith("bbb") or token == "SecB" for token in ingest_tokens(by_section["SecB"].content))
 
 
 def test_long_section_uses_max_window_and_overlap():
@@ -95,8 +95,8 @@ def test_long_section_uses_max_window_and_overlap():
     assert len(chunks) >= 2
     assert chunks[0].token_count <= CHUNK_MAX_TOKENS
     assert chunks[0].token_count >= CHUNK_MAX_TOKENS - 20
-    first_tokens = tokenize(chunks[0].content)
-    second_tokens = tokenize(chunks[1].content)
+    first_tokens = ingest_tokens(chunks[0].content)
+    second_tokens = ingest_tokens(chunks[1].content)
     assert first_tokens[-CHUNK_OVERLAP_TOKENS:] == second_tokens[:CHUNK_OVERLAP_TOKENS]
     assert all(chunk.page_number == 1 for chunk in chunks)
     assert all(chunk.section_title == "Appendix" for chunk in chunks)

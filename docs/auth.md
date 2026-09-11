@@ -9,10 +9,12 @@
 v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [decisions.md](decisions.md) ADR-007).
 
 - Login / register / Google отдают пользователя в JSON и ставят куки; `access_token` в теле нет. SSO ACS ставит те же куки, без токена в JSON.
+- Access JWT живёт **15 минут** (`ACCESS_TOKEN_EXPIRE_MINUTES`); refresh — 7 дней. Клиент при `401` один раз зовёт `POST /auth/refresh` и повторяет запрос.
+- В access/refresh JWT: `sub`, `org_id` текущего членства, `exp`, `typ`; refresh ещё `jti`. **`role` в токене нет** — источник истины `organization_memberships`, `GET /auth/me` читает членство из БД.
 - В access-токене есть `org_id` текущего членства; `GET /auth/me` отдаёт org + роль membership. Смена org — `POST /auth/switch-organization` (только своё membership), новые куки. На hostname, привязанном к org, смена на другую org запрещена ([ADR-015](decisions.md)).
 - `GET /health` и `GET /ready` без auth. Остальной `/api/v1/*` — `get_current_user` (только cookie).
 - CSRF: при cross-site cookies (`SameSite=None`) мутации требуют allowlisted `Origin` или `X-Requested-With: Docwise`. Origin allowlist после M6 — канонический фронт **и** verified hostname текущей org.
-- Manage KB (upload, delete, смена `access_roles`, инвайты, биллинг, SSO, домен): только `require_admin` **текущей org**. Manager не загружает, не удаляет и не меняет ACL. Retrieval / list / status / raw **всё равно** фильтруются `org_id` + ACL документа, без admin-override и без чтения чужой org.
+- Manage KB (upload, delete, смена `access_roles`): `require_kb_admin` — `admin` или `manager` **текущей org**. Инвайты, биллинг, SSO, домен, inspect — только `require_admin`. Retrieval / list / status / raw **всё равно** фильтруются `org_id` + ACL документа, без admin-override и без чтения чужой org.
 
 Не принимать `access_roles`, `user_id`, `document_ids`, `org_id` / `organization_id` из тела как источник прав.
 
@@ -23,8 +25,8 @@ v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [dec
 | Роль членства | Смысл |
 | --- | --- |
 | `admin` | Управление KB, инвайтами, биллингом, SSO и доменом **этой** org; `POST /search/inspect` при `ENABLE_SEARCH_INSPECT` (retrieval всё равно по `org_id` + ACL документа, без override) |
-| `manager` | Типичный доступ к политикам отдела. Inspect — `403` |
-| `employee` | Базовый сотрудник. Inspect — `403` |
+| `manager` | KB этой org: upload, delete, смена ACL. Инвайты / биллинг / SSO / домен / inspect — `403` |
+| `employee` | Базовый сотрудник. KB write и inspect — `403` |
 
 Плюс `departments: string[]` (`engineering`, `hr`, `finance`, …) на том же членстве.
 
@@ -71,8 +73,8 @@ WHERE organization_id = :current_org
 | `GET /documents/{id}/raw` | то же; иначе 404 (не 403 с названием файла; чужая org неотличима) |
 | chat / search / inspect | `organization_id` **и** `&&` на `document_chunks`; не полагаться на промпт |
 | `POST /search/inspect` | cookie; флаг выкл → `404`; не org-admin → `403`; затем тот же фильтр, что у чата |
-| KB: `PATCH /documents/{id}` | `require_admin` текущей org; пишет `access_roles` документа **и** всех чанков; `org_id` не меняется |
+| KB: `PATCH /documents/{id}` | `require_kb_admin` (admin или manager текущей org); пишет `access_roles` документа **и** всех чанков; `org_id` не меняется |
 | Billing / SSO / domain | `require_admin` текущей org; чужая org неотличима (`404` на simulate и чужой slug) |
-| LLM cache | ключ включает `org_id` и канонический набор `allowed_roles` |
+| LLM cache | ключ включает `org_id`, поколение индекса и канонический набор `allowed_roles` |
 
 Смена ACL файла: обновить `documents` **и** все строки `document_chunks` этого файла (или полный re-upsert). Иначе индекс врёт.

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.models.organization import SsoProtocol
+from app.models.sso import SsoProtocol
 from app.models.user import UserRole
 
 

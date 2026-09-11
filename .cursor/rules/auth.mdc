@@ -1,6 +1,6 @@
 ---
 description: Cookie auth, role assembly, and ACL identity — never trust the client body
-globs: backend/**/{auth,deps,security,auth_cookies}*.py,backend/app/core/**/*.py,backend/app/api/auth*.py
+globs: backend/**/{auth,deps,security,auth_cookies}*.py,backend/app/core/**/*.py,backend/app/api/**/auth*.py
 alwaysApply: false
 ---
 
@@ -19,8 +19,8 @@ def allowed_roles(membership) -> list[str]:
     return list({membership.role, *membership.departments, "all"})
 ```
 
-- Do not put `role` / `departments` / `org_id` / `organization_id` in the request body as authorization input.
-- KB write (upload, delete, ACL patch, invites, billing, SSO, domain): `require_admin` of the current org only (manager cannot). Retrieval still uses `org_id` + document ACL; no admin override; no cross-org read.
+- Do not put `role` / `departments` / `org_id` / `organization_id` in the request body as authorization input. Access JWT carries `sub` + `org_id` only; membership `role` is loaded from the DB.
+- KB write (upload, delete, ACL patch): `require_kb_admin` (`admin` or `manager` of the current org). Invites, billing, SSO, domain, inspect: `require_admin` only. Retrieval still uses `org_id` + document ACL; no admin override; no cross-org read.
 - Raw PDF bytes only after the same intersection check as `GET /documents`. Prefer `404` over confirming a hidden title or another tenant’s file.
 - LLM Redis cache key must include `org_id` and the caller’s `allowed_roles`.
 - SSO ACS uses `{slug}` → connector org, not IdP attributes. `sso_enforced` blocks password/Google/`switch-organization` into that org without a fresh SSO session. Cookies stay `dw_*` (ADR-007). Host-only cookies after M6 (ADR-015).

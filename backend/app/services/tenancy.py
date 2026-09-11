@@ -5,17 +5,26 @@ from __future__ import annotations
 import hashlib
 import re
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.errors import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    GoneError,
+    NotFoundError,
+    UnavailableError,
+    UnprocessableError,
+)
 from app.core.principal import Principal
+from app.core.time import utcnow_naive
+from app.models.billing import BillingStatus
 from app.models.organization import (
-    BillingStatus,
     Organization,
     OrganizationInvite,
     OrganizationMembership,
@@ -46,15 +55,12 @@ def slugify_org_name(name: str) -> str:
 def normalize_org_name(name: str) -> str:
     cleaned = " ".join((name or "").split())
     if len(cleaned) < ORG_NAME_MIN or len(cleaned) > ORG_NAME_MAX:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Invalid organization_name",
-        )
+        raise UnprocessableError("Invalid organization_name")
     return cleaned
 
 
 def _new_org_period() -> tuple[datetime, datetime]:
-    now = datetime.now(UTC).replace(tzinfo=None)
+    now = utcnow_naive()
     days = max(int(get_settings().plan_period_days), 1)
     return now, now + timedelta(days=days)
 
@@ -82,10 +88,7 @@ def create_organization(db: Session, name: str) -> Organization:
             return org
         except IntegrityError:
             continue
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Could not allocate organization slug",
-    )
+    raise UnavailableError("Could not allocate organization slug")
 
 
 def add_membership(
@@ -238,7 +241,7 @@ def create_invite(
     invited_by: User,
 ) -> tuple[OrganizationInvite, str]:
     if role not in {item.value for item in UserRole}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid role")
+        raise BadRequestError("Invalid role")
     normalized_email = email.strip().lower()
     pending = (
         db.query(OrganizationInvite)
@@ -250,10 +253,7 @@ def create_invite(
         .first()
     )
     if pending is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An invite for this email is already pending",
-        )
+        raise ConflictError("An invite for this email is already pending")
     enforce_seat_quota(db, organization.id)
     token = secrets.token_urlsafe(32)
     invite = OrganizationInvite(
@@ -263,7 +263,7 @@ def create_invite(
         departments=list(departments),
         token_hash=hash_invite_token(token),
         invited_by_user_id=invited_by.id,
-        expires_at=datetime.now(UTC).replace(tzinfo=None) + INVITE_TTL,
+        expires_at=utcnow_naive() + INVITE_TTL,
     )
     db.add(invite)
     db.flush()
@@ -280,24 +280,24 @@ def get_pending_invite(db: Session, token: str) -> OrganizationInvite:
         .first()
     )
     if invite is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
-    now = datetime.now(UTC).replace(tzinfo=None)
+        raise NotFoundError("Invite not found")
+    now = utcnow_naive()
     if invite.expires_at < now:
-        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite expired")
+        raise GoneError("Invite expired")
     return invite
 
 
 def accept_invite(db: Session, invite: OrganizationInvite, user: User) -> OrganizationMembership:
     if user.email.strip().lower() != invite.email.strip().lower():
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite email mismatch")
+        raise ForbiddenError("Invite email mismatch")
     existing = get_membership(db, user.id, invite.organization_id)
     if existing is not None:
-        invite.accepted_at = datetime.now(UTC).replace(tzinfo=None)
+        invite.accepted_at = utcnow_naive()
         db.flush()
         return existing
     organization = db.get(Organization, invite.organization_id)
     if organization is None or organization.status != OrganizationStatus.active.value:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND_ORG)
+        raise NotFoundError(NOT_FOUND_ORG)
     membership = add_membership(
         db,
         organization=organization,
@@ -305,7 +305,7 @@ def accept_invite(db: Session, invite: OrganizationInvite, user: User) -> Organi
         role=invite.role,
         departments=list(invite.departments or []),
     )
-    invite.accepted_at = datetime.now(UTC).replace(tzinfo=None)
+    invite.accepted_at = utcnow_naive()
     db.flush()
     return membership
 

@@ -1,89 +1,25 @@
-import logging
-from contextlib import asynccontextmanager
-from pathlib import Path
-
-import httpx
-from alembic import command
-from alembic.config import Config
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from fastapi import FastAPI
 
 from app.core.proxy import apply_internal_no_proxy
 
 apply_internal_no_proxy()
 
-from app.api.auth import router as auth_router
-from app.api.billing import router as billing_router
-from app.api.chat import router as chat_router
-from app.api.documents import router as documents_router
-from app.api.organizations import router as organizations_router
-from app.api.search import router as search_router
-from app.core.config import DEFAULT_SECRET_KEY, get_settings
-from app.core.csrf import enforce_csrf
-from app.core.database import check_pgvector, check_postgres
+from app.api.health import router as health_router
+from app.api.v1 import api_router
+from app.core.config import get_settings
+from app.core.errors import register_error_handlers
+from app.core.lifespan import lifespan
+from app.core.logging import setup_logging
+from app.core.middleware import CsrfMiddleware, TenantCORSMiddleware
 from app.core.sentry import init_sentry
-from app.services.billing import billing_readiness
-from app.services.domains import origin_allowed
-from app.services.storage import ensure_documents_bucket, get_object_storage
-from app.utils.logging import setup_logging
-from app.utils.redis_lock import get_redis_client
 
 settings = get_settings()
 setup_logging(settings.log_level)
 init_sentry()
-logger = logging.getLogger(__name__)
 
 _DOCS_ENABLED = settings.environment != "production"
 
-
-def _run_migrations() -> None:
-    backend_dir = Path(__file__).resolve().parent.parent
-    alembic_cfg = Config(str(backend_dir / "alembic.ini"))
-    command.upgrade(alembic_cfg, "head")
-
-
-def _assert_secret_key() -> None:
-    if settings.secret_key != DEFAULT_SECRET_KEY:
-        return
-    if settings.environment == "production":
-        raise RuntimeError("SECRET_KEY must be set in production")
-    logger.warning("SECRET_KEY is the default; do not use this in production")
-
-
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    _assert_secret_key()
-    try:
-        _run_migrations()
-        logger.info("Database migrations applied")
-    except Exception as exc:
-        logger.error("Migration failed: %s", exc)
-        raise
-    ensure_documents_bucket()
-    yield
-
-
-class TenantCORSMiddleware(CORSMiddleware):
-    """Allow configured SPA origins plus verified/platform hostnames (not the request body)."""
-
-    def is_allowed_origin(self, origin: str) -> bool:
-        if super().is_allowed_origin(origin):
-            return True
-        return origin_allowed(origin)
-
-
-class CsrfMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        try:
-            enforce_csrf(request)
-        except HTTPException as exc:
-            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
-        return await call_next(request)
-
-
+# App semver is independent of the URL prefix `/api/v1` (see `app.api.API_V1`).
 app = FastAPI(
     title="Docwise API",
     version="0.1.0",
@@ -93,13 +29,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(organizations_router, prefix="/api/v1")
-app.include_router(billing_router, prefix="/api/v1")
-app.include_router(documents_router, prefix="/api/v1")
-app.include_router(chat_router, prefix="/api/v1")
-app.include_router(search_router, prefix="/api/v1")
-
+register_error_handlers(app)
+app.include_router(health_router)
+app.include_router(api_router)
 app.add_middleware(CsrfMiddleware)
 app.add_middleware(
     TenantCORSMiddleware,
@@ -108,86 +40,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-class LivenessResponse(BaseModel):
-    status: str
-
-
-class ReadyResponse(BaseModel):
-    status: str
-    environment: str
-    postgres: str
-    redis: str
-    pgvector: str
-    minio: str
-    billing: str
-
-
-def _check_redis() -> bool:
-    return bool(get_redis_client().ping())
-
-
-def _check_minio() -> bool:
-    response = httpx.get(
-        f"{settings.s3_endpoint.rstrip('/')}/minio/health/live",
-        timeout=5.0,
-        trust_env=False,
-    )
-    if response.status_code != 200:
-        return False
-    return get_object_storage().bucket_is_ready()
-
-
-@app.get("/")
-def root() -> dict:
-    return {"service": "docwise-backend", "docs": "/docs" if _DOCS_ENABLED else None}
-
-
-@app.get("/health", response_model=LivenessResponse)
-def health() -> LivenessResponse:
-    return LivenessResponse(status="ok")
-
-
-@app.get("/ready", response_model=None)
-def ready() -> ReadyResponse | JSONResponse:
-    runtime = get_settings()
-    checks = {"postgres": "error", "redis": "error", "pgvector": "error", "minio": "error"}
-
-    try:
-        check_postgres()
-        checks["postgres"] = "ok"
-    except Exception as exc:
-        logger.warning("Postgres check failed: %s", exc)
-
-    try:
-        if _check_redis():
-            checks["redis"] = "ok"
-    except Exception as exc:
-        logger.warning("Redis check failed: %s", exc)
-
-    try:
-        if check_pgvector():
-            checks["pgvector"] = "ok"
-    except Exception as exc:
-        logger.warning("pgvector check failed: %s", exc)
-
-    try:
-        if _check_minio():
-            checks["minio"] = "ok"
-    except Exception as exc:
-        logger.warning("MinIO check failed: %s", exc)
-
-    billing = billing_readiness()
-    required_ok = all(value == "ok" for value in checks.values())
-    billing_ok = billing in {"ok", "dev"}
-    all_ok = required_ok and billing_ok
-    payload = ReadyResponse(
-        status="ok" if all_ok else "degraded",
-        environment=runtime.environment,
-        billing=billing,
-        **checks,
-    )
-    if not all_ok:
-        return JSONResponse(status_code=503, content=payload.model_dump())
-    return payload

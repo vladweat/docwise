@@ -8,13 +8,16 @@ if ! command -v npm &>/dev/null; then
   exit 1
 fi
 
-# optionalDependencies Next (SWC) пропускаются; бинарники SWC стоят прямыми deps
-# в package.json и должны совпадать с версией next (иначе disablePageConfig / mismatch).
+# optionalDependencies (Next SWC, Tailwind lightningcss/oxide, Rollup, esbuild) пропускаются.
+# Нативные gnu+musl бинарники — прямые deps: хост glibc, образ node:20-alpine (musl).
+# Версии SWC = next; lightningcss/oxide = tailwindcss; rollup/esbuild = vitest/vite.
 echo "Installing frontend dependencies..."
 npm install --omit=optional --no-audit --no-fund
 
 mkdir -p public
-if [[ -f node_modules/pdfjs-dist/build/pdf.worker.min.js ]]; then
+if [[ -f node_modules/pdfjs-dist/build/pdf.worker.min.mjs ]]; then
+  cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs
+elif [[ -f node_modules/pdfjs-dist/build/pdf.worker.min.js ]]; then
   cp node_modules/pdfjs-dist/build/pdf.worker.min.js public/pdf.worker.min.js
 fi
 

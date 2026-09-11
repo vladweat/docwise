@@ -1,4 +1,7 @@
-"""Initial schema: users with UUID PK, Docwise roles and departments.
+"""Initial schema: users with UUID PK (Docwise roles and departments).
+
+An earlier local draft used integer PKs. Revision 003 converts leftover
+integer `users.id` if present; this file is the UUID baseline for fresh installs.
 
 Revision ID: 001
 Revises:

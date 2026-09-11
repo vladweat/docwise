@@ -11,6 +11,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
+class BillingStatus(str, enum.Enum):
+    active = "active"
+    past_due = "past_due"
+    canceled = "canceled"
+
+
 class BillingProvider(str, enum.Enum):
     dev = "dev"
     stripe = "stripe"

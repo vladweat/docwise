@@ -27,7 +27,7 @@ Apply both conjuncts to **dense and sparse/FTS**. Do not fuse, rerank, or send t
 - Client-supplied `access_roles` / `document_ids` / `org_id` / `organization_id` that bypass the token
 - Using department tags (`hr`, `all`) as tenant ids
 - Treating `plan`, Stripe ids, or SAML attributes as `organization_id`
-- LLM cache keyed only by roles (must include `org_id`)
+- LLM cache keyed only by roles (must include `org_id` and index generation)
 - Logging full chunk text of restricted docs in audit trails visible to the same user
 - Admin-only debug payloads on production chat endpoints
 - Platform operator reading customer corpora (not in product)

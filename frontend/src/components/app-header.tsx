@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 
 import { LogOut } from "lucide-react";
 
-import { useAuth } from "@/components/auth-provider";
+import { useAuth } from "@/features/auth/auth-provider";
 import { Button } from "@/components/ui/button";
-import { canManageKnowledgeBase } from "@/lib/access-roles";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { canManageOrganization } from "@/lib/access-roles";
 import { ApiRequestError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/stores/toast-store";
@@ -22,8 +23,8 @@ export function AppHeader() {
   const { isAuthenticated, user, logout, switchOrganization } = useAuth();
   const pathname = usePathname();
   const orgs = user?.organizations ?? [];
-  const canManage = canManageKnowledgeBase(user);
-  const navItems = NAV.filter((item) => !item.adminOnly || canManage);
+  const canManageOrg = canManageOrganization(user);
+  const navItems = NAV.filter((item) => !item.adminOnly || canManageOrg);
   const pushToast = useToastStore((state) => state.push);
 
   return (
@@ -58,26 +59,30 @@ export function AppHeader() {
           {isAuthenticated && user ? (
             <>
               {orgs.length > 1 ? (
-                <label className="hidden min-w-0 md:block">
+                <div className="hidden min-w-0 md:block">
                   <span className="sr-only">Организация</span>
-                  <select
-                    className="max-w-[160px] truncate rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+                  <Select
                     value={user.organization_id}
-                    onChange={(event) => {
-                      void switchOrganization(event.target.value).catch((err: unknown) => {
+                    onValueChange={(organizationId) => {
+                      void switchOrganization(organizationId).catch((err: unknown) => {
                         const message =
                           err instanceof ApiRequestError ? err.message : "Не удалось сменить организацию";
                         pushToast(message, "error");
                       });
                     }}
                   >
-                    {orgs.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <SelectTrigger size="sm" className="max-w-[160px] bg-slate-900" aria-label="Организация">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orgs.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               ) : (
                 <span className="hidden max-w-[140px] truncate text-slate-300 md:inline">
                   {user.organization_name}

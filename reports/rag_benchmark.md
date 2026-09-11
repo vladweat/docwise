@@ -1,11 +1,9 @@
 # RAG benchmark
 
-**Conclusion (2026-09-10):** not naive RAG. SQL ACL holds (0 leaks of HR/Finance). Answers stay inside Top-4 (Faithfulness 1.000). Two positive misses after rerank 0.25 (`hb-security-email`, `eng-python`) are retrieval quality, not an RBAC hole.
-
-Generated: `2026-09-10T06:23:08+00:00`
+Generated: `2026-09-10T13:24:04+00:00`
 Eval user: `eval-employee@docwise.example.com` (role `employee`, departments `[]`)
 Cases: 35 (28 positive, 7 ACL-negative)
-Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` (retrieval + generation + Ragas judges)
+Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` (retrieval-only (Ragas judges skipped))
 
 Metrics follow Ragas definitions (Faithfulness, Context Precision, Answer Relevance) using the same OpenAI-compatible client as chat. LangChain is not used.
 
@@ -13,11 +11,11 @@ Metrics follow Ragas definitions (Faithfulness, Context Precision, Answer Releva
 
 | Metric | Score | n |
 | --- | ---: | ---: |
-| Faithfulness | 1.000 | 28 |
-| Context Precision | 0.976 | 28 |
-| Answer Relevance | 0.789 | 28 |
+| Faithfulness | n/a | 28 |
+| Context Precision | n/a | 28 |
+| Answer Relevance | n/a | 28 |
 
-Release gates: Faithfulness ≥ 0.8 (met); zero ACL leaks (met). Answer Relevance is a diagnostic, not a release gate.
+Release gate (preliminary): Faithfulness ≥ 0.8 on the golden set.
 
 ## Retrieval
 
@@ -40,38 +38,38 @@ Every golden item also lists HR/Finance ids in `must_not_doc_ids`. A leak is any
 
 | id | kind | target doc | page | ACL leak | faith | ctx p | ans rel | question |
 | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |
-| hb-hours | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.949 | What are the core working hours at Docwise? |
-| hb-lunch | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.912 | When is the unpaid lunch break? |
-| hb-hybrid-office | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.840 | Which weekdays must employees come to the office under the hybrid policy? |
-| hb-desk-booking | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.864 | By when must a desk be booked in the Places portal? |
-| hb-personal-devices | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.446 | May employees store client personal data on personal devices? |
-| hb-security-email | positive | employee-handbook | miss | 0 | 1.000 | 1.000 | 0.000 | Where should a security incident be reported, and how quickly? |
-| hb-vendor-gifts | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.875 | What is the rule for gifts from vendors over 50 USD? |
-| hb-warranty | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.913 | How long is the standard laptop warranty? |
-| hb-badge-fee | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.898 | What is the replacement fee after the first lost badge? |
-| lv-vacation-days | positive | leave-policy | hit | 0 | 1.000 | 0.833 | 0.852 | How many paid vacation days do employees get per calendar year? |
-| lv-sick-days | positive | leave-policy | hit | 0 | 1.000 | 1.000 | 0.838 | How many paid sick days are employees entitled to? |
-| lv-notice | positive | leave-policy | hit | 0 | 1.000 | 1.000 | 0.933 | How far in advance must vacation requests be submitted? |
-| lv-parental | positive | leave-policy | hit | 0 | 1.000 | 1.000 | 0.900 | How long is parental leave? |
-| lv-carryover | positive | leave-policy | hit | 0 | 1.000 | 1.000 | 0.881 | How many unused vacation days may be carried into the next year? |
-| lv-bereavement | positive | leave-policy | hit | 0 | 1.000 | 1.000 | 0.861 | How many paid bereavement leave days are provided? |
-| lv-unpaid | positive | leave-policy | hit | 0 | 1.000 | 1.000 | 0.913 | Who must approve unpaid leave? |
-| ex-taxi | positive | expense-policy | hit | 0 | 1.000 | 1.000 | 0.866 | Do taxi receipts under forty dollars need a manager signature? |
-| ex-meals | positive | expense-policy | hit | 0 | 1.000 | 1.000 | 0.901 | What is the meal cap per person for local client meetings? |
-| ex-deadline | positive | expense-policy | hit | 0 | 1.000 | 1.000 | 0.938 | When are monthly expense reports due? |
-| ex-intl-approval | positive | expense-policy | hit | 0 | 1.000 | 1.000 | 0.831 | How far ahead must international travel be approved by a VP? |
-| ex-per-diem | positive | expense-policy | hit | 0 | 1.000 | 1.000 | 0.799 | What is the international travel per diem? |
-| ex-business-class | positive | expense-policy | hit | 0 | 1.000 | 0.500 | 0.863 | When is a business class flight allowed? |
-| ex-card-limit | positive | expense-policy | hit | 0 | 1.000 | 1.000 | 0.948 | What is the company card limit for individual contributors? |
-| eng-buddy | positive | engineering-onboarding | hit | 0 | 1.000 | 1.000 | 0.802 | How long is a new hire assigned a buddy? |
-| eng-first-pr | positive | engineering-onboarding | hit | 0 | 1.000 | 1.000 | 0.912 | Within how many working days must a new engineer open their first pull request? |
-| eng-python | positive | engineering-onboarding | miss | 0 | 1.000 | 1.000 | 0.000 | What is the default Python version for engineering? |
-| eng-prod-approvers | positive | engineering-onboarding | hit | 0 | 1.000 | 1.000 | 0.508 | How many approvers are required for a production deploy? |
-| eng-oncall | positive | engineering-onboarding | hit | 0 | 1.000 | 1.000 | 0.849 | After how many days does the on-call starter rotation begin? |
-| acl-l3-band | acl_negative | hr-compensation | miss | 0 | 1.000 | 1.000 | n/a | What is the individual contributor L3 salary band in USD? |
-| acl-bonus-pct | acl_negative | hr-compensation | miss | 0 | 1.000 | 1.000 | n/a | What percent of base salary is the annual performance bonus target? |
-| acl-bonus-day | acl_negative | hr-compensation | miss | 0 | 1.000 | 1.000 | n/a | On what date is the performance bonus paid? |
-| acl-ceo-multiplier | acl_negative | hr-compensation | miss | 0 | 1.000 | 1.000 | n/a | What is the CEO cash bonus multiplier for this fiscal year? |
-| acl-q4-revenue | acl_negative | finance-q4 | miss | 0 | 1.000 | 1.000 | n/a | What was Q4 revenue in USD? |
-| acl-headcount-freeze | acl_negative | finance-q4 | miss | 0 | 1.000 | 1.000 | n/a | Until which date is headcount frozen except for backfills? |
-| acl-marketing-budget | acl_negative | finance-q4 | miss | 0 | 1.000 | 1.000 | n/a | What is next quarter's marketing budget? |
+| hb-hours | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | What are the core working hours at Docwise? |
+| hb-lunch | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | When is the unpaid lunch break? |
+| hb-hybrid-office | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | Which weekdays must employees come to the office under the hybrid policy? |
+| hb-desk-booking | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | By when must a desk be booked in the Places portal? |
+| hb-personal-devices | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | May employees store client personal data on personal devices? |
+| hb-security-email | positive | employee-handbook | miss | 0 | n/a | n/a | n/a | Where should a security incident be reported, and how quickly? |
+| hb-vendor-gifts | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | What is the rule for gifts from vendors over 50 USD? |
+| hb-warranty | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | How long is the standard laptop warranty? |
+| hb-badge-fee | positive | employee-handbook | hit | 0 | n/a | n/a | n/a | What is the replacement fee after the first lost badge? |
+| lv-vacation-days | positive | leave-policy | hit | 0 | n/a | n/a | n/a | How many paid vacation days do employees get per calendar year? |
+| lv-sick-days | positive | leave-policy | hit | 0 | n/a | n/a | n/a | How many paid sick days are employees entitled to? |
+| lv-notice | positive | leave-policy | hit | 0 | n/a | n/a | n/a | How far in advance must vacation requests be submitted? |
+| lv-parental | positive | leave-policy | hit | 0 | n/a | n/a | n/a | How long is parental leave? |
+| lv-carryover | positive | leave-policy | hit | 0 | n/a | n/a | n/a | How many unused vacation days may be carried into the next year? |
+| lv-bereavement | positive | leave-policy | hit | 0 | n/a | n/a | n/a | How many paid bereavement leave days are provided? |
+| lv-unpaid | positive | leave-policy | hit | 0 | n/a | n/a | n/a | Who must approve unpaid leave? |
+| ex-taxi | positive | expense-policy | hit | 0 | n/a | n/a | n/a | Do taxi receipts under forty dollars need a manager signature? |
+| ex-meals | positive | expense-policy | hit | 0 | n/a | n/a | n/a | What is the meal cap per person for local client meetings? |
+| ex-deadline | positive | expense-policy | hit | 0 | n/a | n/a | n/a | When are monthly expense reports due? |
+| ex-intl-approval | positive | expense-policy | hit | 0 | n/a | n/a | n/a | How far ahead must international travel be approved by a VP? |
+| ex-per-diem | positive | expense-policy | hit | 0 | n/a | n/a | n/a | What is the international travel per diem? |
+| ex-business-class | positive | expense-policy | hit | 0 | n/a | n/a | n/a | When is a business class flight allowed? |
+| ex-card-limit | positive | expense-policy | hit | 0 | n/a | n/a | n/a | What is the company card limit for individual contributors? |
+| eng-buddy | positive | engineering-onboarding | hit | 0 | n/a | n/a | n/a | How long is a new hire assigned a buddy? |
+| eng-first-pr | positive | engineering-onboarding | hit | 0 | n/a | n/a | n/a | Within how many working days must a new engineer open their first pull request? |
+| eng-python | positive | engineering-onboarding | miss | 0 | n/a | n/a | n/a | What is the default Python version for engineering? |
+| eng-prod-approvers | positive | engineering-onboarding | hit | 0 | n/a | n/a | n/a | How many approvers are required for a production deploy? |
+| eng-oncall | positive | engineering-onboarding | hit | 0 | n/a | n/a | n/a | After how many days does the on-call starter rotation begin? |
+| acl-l3-band | acl_negative | hr-compensation | miss | 0 | n/a | n/a | n/a | What is the individual contributor L3 salary band in USD? |
+| acl-bonus-pct | acl_negative | hr-compensation | miss | 0 | n/a | n/a | n/a | What percent of base salary is the annual performance bonus target? |
+| acl-bonus-day | acl_negative | hr-compensation | miss | 0 | n/a | n/a | n/a | On what date is the performance bonus paid? |
+| acl-ceo-multiplier | acl_negative | hr-compensation | miss | 0 | n/a | n/a | n/a | What is the CEO cash bonus multiplier for this fiscal year? |
+| acl-q4-revenue | acl_negative | finance-q4 | miss | 0 | n/a | n/a | n/a | What was Q4 revenue in USD? |
+| acl-headcount-freeze | acl_negative | finance-q4 | miss | 0 | n/a | n/a | n/a | Until which date is headcount frozen except for backfills? |
+| acl-marketing-budget | acl_negative | finance-q4 | miss | 0 | n/a | n/a | n/a | What is next quarter's marketing budget? |

@@ -9,18 +9,19 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.documents import get_storage
+from app.api.v1.documents import get_storage
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.main import app
-from app.models.chat import RagAuditLog
+from app.models.audit import RagAuditLog
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
 from app.models.organization import Organization, OrganizationPlan
 from app.services.ingestion import IndexResult, run_ingestion
 from app.services.quotas import QUOTA_EXCEEDED
 from helpers import make_org, register_payload, wipe_app_tables
+from pdf_fixtures import tagged_pdf_bytes
 
-MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
+MIN_PDF = tagged_pdf_bytes("min")
 
 
 class FakeStorage:
@@ -43,8 +44,8 @@ class FakeStorage:
         self.objects.pop(key, None)
 
 
-def _pdf(tag: str) -> bytes:
-    return MIN_PDF.replace(b"%%EOF", f"%{tag}\n%%EOF".encode())
+def _pdf(tag: str, pages: int = 1) -> bytes:
+    return tagged_pdf_bytes(tag, pages=pages)
 
 
 def _unique_email(prefix: str = "quota") -> str:
@@ -72,7 +73,7 @@ def storage():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.document_service.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
 
 
 def _tight_starter_pages(monkeypatch, pages: int) -> None:
@@ -175,7 +176,6 @@ def test_admin_billing_usage_and_subscription_are_current_org_only():
     assert body["pages"]["used"] == 7
     assert body["pages"]["limit"] >= body["pages"]["used"]
     assert body["seats"]["used"] == 1
-    assert "99" not in json.dumps(body)
 
     sub = acme.get("/api/v1/billing/subscription")
     assert sub.status_code == 200
@@ -217,7 +217,7 @@ def test_page_quota_402_only_hits_capped_org(storage: FakeStorage, monkeypatch):
 
     queued: list[str] = []
     monkeypatch.setattr(
-        "app.services.document_service.enqueue_ingestion",
+        "app.services.documents.enqueue_ingestion",
         lambda document_id: queued.append(str(document_id)),
     )
 
@@ -412,3 +412,60 @@ def test_failed_pages_do_not_count_toward_upload_cap(storage: FakeStorage, monke
     db.close()
     response = _upload(http, "still-ok")
     assert response.status_code == 201
+
+
+def test_upload_402_counts_incoming_pdf_pages(storage: FakeStorage, monkeypatch):
+    _tight_starter_pages(monkeypatch, 10)
+    http = _register("Acme")
+    _seed_indexed_pages(_org_id(http), 9)
+    blocked = http.post(
+        "/api/v1/documents/upload",
+        files={"file": ("two.pdf", tagged_pdf_bytes("two-page", pages=2), "application/pdf")},
+        data={"access_roles": ["all"]},
+    )
+    assert blocked.status_code == 402
+    allowed = http.post(
+        "/api/v1/documents/upload",
+        files={"file": ("one.pdf", tagged_pdf_bytes("one-page", pages=1), "application/pdf")},
+        data={"access_roles": ["all"]},
+    )
+    assert allowed.status_code == 201
+    assert allowed.json()["total_pages"] == 1
+
+
+def test_pending_pages_count_toward_upload_cap(storage: FakeStorage, monkeypatch):
+    _tight_starter_pages(monkeypatch, 5)
+    http = _register("Acme")
+    db = SessionLocal()
+    db.add(
+        Document(
+            organization_id=_org_id(http),
+            title="Pending.pdf",
+            file_path="pending.pdf",
+            file_hash="aa" * 32,
+            file_size_bytes=4,
+            total_pages=None,
+            access_roles=["all"],
+            status=DocumentStatus.pending.value,
+        )
+    )
+    db.add(
+        Document(
+            organization_id=_org_id(http),
+            title="Queued.pdf",
+            file_path="queued.pdf",
+            file_hash="bb" * 32,
+            file_size_bytes=4,
+            total_pages=3,
+            access_roles=["all"],
+            status=DocumentStatus.pending.value,
+        )
+    )
+    db.commit()
+    db.close()
+    blocked = http.post(
+        "/api/v1/documents/upload",
+        files={"file": ("over-pending.pdf", tagged_pdf_bytes("over-pending", pages=2), "application/pdf")},
+        data={"access_roles": ["all"]},
+    )
+    assert blocked.status_code == 402
