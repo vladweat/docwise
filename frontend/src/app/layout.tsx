@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import { AppHeader } from "@/components/app-header";
-import { AuthProvider } from "@/components/auth-provider";
+import { AuthProvider } from "@/features/auth/auth-provider";
 import { QueryProvider } from "@/components/query-provider";
 import { ToastHost } from "@/components/toast-host";
 

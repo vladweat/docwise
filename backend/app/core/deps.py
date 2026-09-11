@@ -87,3 +87,13 @@ def require_admin(current_user: Principal = Depends(get_current_user)) -> Princi
             detail="Admin access required",
         )
     return current_user
+
+
+def require_kb_admin(current_user: Principal = Depends(get_current_user)) -> Principal:
+    """KB write: org admin or manager. Billing, SSO, domain, inspect stay require_admin."""
+    if current_user.role not in {UserRole.admin.value, UserRole.manager.value}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user

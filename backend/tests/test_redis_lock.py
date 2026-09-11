@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.utils.redis_lock import acquire_indexing_lock, is_indexing_locked, lock_key, release_indexing_lock
+from app.core.redis import acquire_indexing_lock, is_indexing_locked, lock_key, release_indexing_lock
 
 
 def test_indexing_lock_roundtrip():

@@ -5,21 +5,21 @@ import uuid
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.api.documents import get_storage
+from app.api.v1.documents import get_storage
 from app.core.config import get_settings
 from app.core.database import SessionLocal
+from app.core.errors import BadRequestError
 from app.main import app
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
+from app.models.organization import Organization
 from app.models.user import UserRole
-from app.services.document_service import parse_access_roles
+from app.services.documents import parse_access_roles
 from app.services.storage import StorageError
 from helpers import register_payload, set_membership, wipe_app_tables
-
-MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
+from pdf_fixtures import tagged_pdf_bytes
 
 
 class FakeStorage:
@@ -38,8 +38,8 @@ class FakeStorage:
         self.objects.pop(key, None)
 
 
-def _pdf(tag: str) -> bytes:
-    return MIN_PDF.replace(b"%%EOF", f"%{tag}\n%%EOF".encode())
+def _pdf(tag: str, pages: int = 1) -> bytes:
+    return tagged_pdf_bytes(tag, pages=pages)
 
 
 def _unique_email() -> str:
@@ -56,7 +56,7 @@ def storage():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.document_service.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
 
 
 @pytest.fixture(autouse=True)
@@ -137,7 +137,7 @@ def test_parse_access_roles_json_and_repeated():
     assert parse_access_roles('["HR", "all"]') == ["hr", "all"]
     assert parse_access_roles(["finance", "finance", "all"]) == ["finance", "all"]
     assert parse_access_roles("hr, finance") == ["hr", "finance"]
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(BadRequestError) as exc:
         parse_access_roles([])
     assert exc.value.status_code == 400
 
@@ -145,7 +145,7 @@ def test_parse_access_roles_json_and_repeated():
 def test_upload_returns_201_pending_and_enqueues(admin_client: TestClient, storage: FakeStorage, monkeypatch):
     enqueued: list[UUID] = []
     monkeypatch.setattr(
-        "app.services.document_service.enqueue_ingestion",
+        "app.services.documents.enqueue_ingestion",
         lambda document_id: enqueued.append(document_id),
     )
     content = _pdf("upload-ok")
@@ -157,7 +157,7 @@ def test_upload_returns_201_pending_and_enqueues(admin_client: TestClient, stora
     assert body["status"] == "pending"
     assert body["access_roles"] == ["all", "hr"]
     assert body["file_size_bytes"] == len(content)
-    assert body["total_pages"] is None
+    assert body["total_pages"] == 1
     assert enqueued == [UUID(body["id"])]
     assert any("/Policy.pdf" in key and key.startswith("orgs/") for key in storage.objects)
     db = SessionLocal()
@@ -185,7 +185,7 @@ def test_duplicate_file_hash_returns_409_without_existing_payload(admin_client: 
 
 
 def test_upload_rejects_non_pdf_and_oversize(admin_client: TestClient, storage: FakeStorage, monkeypatch):
-    txt = _upload(admin_client, filename="notes.txt", content=MIN_PDF, roles=["all"])
+    txt = _upload(admin_client, filename="notes.txt", content=_pdf("txt"), roles=["all"])
     assert txt.status_code == 400
     bad_magic = _upload(admin_client, filename="fake.pdf", content=b"not a pdf", roles=["all"])
     assert bad_magic.status_code == 400
@@ -197,14 +197,16 @@ def test_upload_rejects_non_pdf_and_oversize(admin_client: TestClient, storage: 
     assert storage.objects == {}
 
 
-def test_upload_requires_admin(storage: FakeStorage):
+def test_upload_requires_admin_or_manager(storage: FakeStorage):
     employee = _register_user(UserRole.employee.value)
     response = _upload(employee, filename="Policy.pdf", content=_pdf("emp"), roles=["all"])
     assert response.status_code == 403
 
     manager = _register_user(UserRole.manager.value)
     response = _upload(manager, filename="Policy.pdf", content=_pdf("mgr"), roles=["all"])
-    assert response.status_code == 403
+    assert response.status_code == 201
+    assert response.json()["status"] == "pending"
+    assert response.json()["total_pages"] == 1
 
 
 def test_upload_unauthenticated(storage: FakeStorage):
@@ -379,13 +381,34 @@ def test_delete_cascades_postgres_and_minio(admin_client: TestClient, storage: F
     db.close()
 
 
-def test_delete_requires_admin(admin_client: TestClient, storage: FakeStorage):
+def test_delete_requires_kb_admin(admin_client: TestClient, storage: FakeStorage):
     response = _upload(admin_client, filename="Policy.pdf", content=_pdf("no-del"), roles=["all"])
     doc_id = response.json()["id"]
     employee = _register_user(UserRole.employee.value, admin_client=admin_client)
     assert employee.delete(f"/api/v1/documents/{doc_id}").status_code == 403
     db = SessionLocal()
     assert db.get(Document, UUID(doc_id)) is not None
+    db.close()
+    manager = _register_user(UserRole.manager.value, admin_client=admin_client)
+    assert manager.delete(f"/api/v1/documents/{doc_id}").status_code == 204
+    db = SessionLocal()
+    assert db.get(Document, UUID(doc_id)) is None
+    db.close()
+
+
+def test_delete_keeps_list_consistent_if_minio_fails(admin_client: TestClient, storage: FakeStorage):
+    response = _upload(admin_client, filename="Policy.pdf", content=_pdf("orphan-obj"), roles=["all"])
+    assert response.status_code == 201
+    doc_id = UUID(response.json()["id"])
+
+    def boom(key: str) -> None:
+        raise StorageError("minio down")
+
+    storage.delete_object = boom  # type: ignore[method-assign]
+    deleted = admin_client.delete(f"/api/v1/documents/{doc_id}")
+    assert deleted.status_code == 204
+    db = SessionLocal()
+    assert db.get(Document, doc_id) is None
     db.close()
 
 
@@ -466,6 +489,9 @@ def test_patch_acl_updates_document_and_chunks(admin_client: TestClient, storage
     assert all(chunk.access_roles == ["engineering", "admin"] for chunk in chunks)
     assert {chunk.content for chunk in chunks} == {"secret", "also secret"}
     assert all(chunk.embedding is not None for chunk in chunks)
+    org = db.get(Organization, stored.organization_id)
+    assert org is not None
+    assert org.llm_index_generation >= 1
     db.close()
 
     hr = _register_user(UserRole.employee.value, departments=["hr"], admin_client=admin_client)

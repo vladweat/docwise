@@ -49,6 +49,18 @@ def blank_pdf_bytes() -> bytes:
     return pdf_bytes
 
 
+def tagged_pdf_bytes(tag: str, pages: int = 1) -> bytes:
+    """Valid PDF with `pages` pages. Distinct `tag` → distinct SHA-256."""
+    doc = fitz.open()
+    count = max(int(pages), 1)
+    for index in range(count):
+        page = doc.new_page(width=A4[0], height=A4[1])
+        page.insert_text((72, 72), f"{tag}:{index}", fontsize=11, fontname="helv")
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
 def _draw_table(
     page: fitz.Page,
     *,

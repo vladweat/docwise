@@ -20,7 +20,7 @@ from app.services.embeddings import EmbeddingError, embed_texts
 from app.services.pdf_parser import PdfParserError, parse_pdf
 from app.services.quotas import IngestionQuotaError, assert_ingest_pages_allowed
 from app.services.storage import ObjectStorage, StorageError, get_object_storage
-from app.utils.redis_lock import acquire_indexing_lock, release_indexing_lock
+from app.core.redis import acquire_indexing_lock, release_indexing_lock
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +220,9 @@ def run_ingestion(
         document.status = DocumentStatus.ready.value
         document.last_error = None
         document.ingestion_stage = STAGE_EMBED
+        from app.services.llm_cache import invalidate_llm_cache
+
+        invalidate_llm_cache(db, document.organization_id)
         db.commit()
 
         logger.info(

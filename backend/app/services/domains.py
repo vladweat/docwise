@@ -4,22 +4,25 @@ from __future__ import annotations
 
 import re
 import secrets
-from datetime import UTC, datetime
 from urllib.parse import urlparse
 from uuid import UUID
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
-from app.models.organization import (
-    DomainKind,
-    Organization,
-    OrganizationDomain,
-    OrganizationStatus,
+from app.core.errors import (
+    BadRequestError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    UnauthorizedError,
 )
+from app.core.time import utcnow_naive
+from app.models.domain import DomainKind, OrganizationDomain
+from app.models.organization import Organization, OrganizationStatus
 from app.services.quotas import plan_limits
 
 DOMAIN_NOT_IN_PLAN = "Custom domain is not included in the current plan"
@@ -122,8 +125,8 @@ def compose_alias_hostname(hostname: str) -> str | None:
     return None
 
 
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+def _utcnow():
+    return utcnow_naive()
 
 
 def attach_platform_domains(db: Session, organization: Organization) -> None:
@@ -150,7 +153,7 @@ def attach_platform_domains(db: Session, organization: Organization) -> None:
 
 def require_custom_domain_entitlement(organization: Organization) -> None:
     if not plan_limits(organization.plan).custom_domain:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=DOMAIN_NOT_IN_PLAN)
+        raise ForbiddenError(DOMAIN_NOT_IN_PLAN)
 
 
 def _active_org(db: Session, organization_id: UUID) -> Organization | None:
@@ -195,7 +198,7 @@ def hostname_is_bound(db: Session, hostname: str) -> bool:
 
 
 def origin_allowed(origin: str) -> bool:
-    """CORS/CSRF allowlist: configured frontends, loopback tenant hosts, verified/platform hosts. Never from the body."""
+    """CORS/CSRF allowlist: configured frontends, loopback, verified/platform hosts."""
     cleaned = (origin or "").rstrip("/")
     settings = get_settings()
     static = {item.rstrip("/") for item in settings.cors_origin_list()}
@@ -224,15 +227,12 @@ def enforce_host_pin(
     if pinned is None or pinned.id == organization_id:
         return
     if mode == "switch":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=HOST_SWITCH_DENIED)
+        raise ForbiddenError(HOST_SWITCH_DENIED)
     if mode == "register":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=HOST_REGISTER_DENIED)
+        raise ForbiddenError(HOST_REGISTER_DENIED)
     if mode == "login":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No organization membership",
-        )
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise ForbiddenError("No organization membership")
+    raise UnauthorizedError("Not authenticated")
 
 
 def pinned_organization_id(db: Session, request: Request) -> UUID | None:
@@ -269,7 +269,7 @@ def domain_response(organization: Organization, custom: OrganizationDomain | Non
 def _normalize_custom_hostname(raw: str) -> str:
     hostname = normalize_hostname(raw)
     if not hostname or not _valid_hostname(hostname) or hostname in _GENERIC_HOSTS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=HOSTNAME_INVALID)
+        raise BadRequestError(HOSTNAME_INVALID)
     return hostname
 
 
@@ -284,14 +284,14 @@ def upsert_custom_domain(db: Session, organization: Organization, hostname: str 
     require_custom_domain_entitlement(organization)
     normalized = _normalize_custom_hostname(cleaned)
     if normalized in platform_suffixes():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=HOSTNAME_RESERVED)
+        raise BadRequestError(HOSTNAME_RESERVED)
     if normalized in set(platform_hostnames_for_slug(organization.slug)):
         return existing
     platform_slug = slug_from_platform_hostname(normalized)
     if platform_slug is not None:
         other = db.query(Organization).filter(Organization.slug == platform_slug).first()
         if other is not None and other.id != organization.id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=HOSTNAME_IN_USE)
+            raise ConflictError(HOSTNAME_IN_USE)
         if other is not None:
             return existing
     taken = (
@@ -303,7 +303,7 @@ def upsert_custom_domain(db: Session, organization: Organization, hostname: str 
         .first()
     )
     if taken is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=HOSTNAME_IN_USE)
+        raise ConflictError(HOSTNAME_IN_USE)
     token = secrets.token_urlsafe(24)
     try:
         with db.begin_nested():
@@ -322,7 +322,7 @@ def upsert_custom_domain(db: Session, organization: Organization, hostname: str 
                 existing.verification_token = token
             db.flush()
     except IntegrityError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=HOSTNAME_IN_USE) from exc
+        raise ConflictError(HOSTNAME_IN_USE) from exc
     return existing
 
 
@@ -334,13 +334,13 @@ def verify_custom_domain(
     require_custom_domain_entitlement(organization)
     custom = custom_domain_for_org(db, organization.id)
     if custom is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=DOMAIN_NOT_FOUND)
+        raise NotFoundError(DOMAIN_NOT_FOUND)
     if custom.verified_at is not None:
         return custom
     expected = (custom.verification_token or "").strip()
     provided = (token or "").strip()
     if not expected or provided != expected:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=VERIFY_FAILED)
+        raise BadRequestError(VERIFY_FAILED)
     custom.verified_at = _utcnow()
     db.flush()
     return custom

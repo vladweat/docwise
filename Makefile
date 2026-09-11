@@ -1,4 +1,4 @@
-.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test lint typecheck health migrate eval eval-retrieval demo
+.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test test-frontend lint typecheck health migrate eval eval-retrieval demo
 
 # Шаг 1 (нужен интернет): скачать зависимости backend + frontend
 deps: venv embeddings deps-frontend
@@ -41,10 +41,14 @@ test:
 	docker compose exec backend python -m pytest tests/ -v
 
 lint:
-	docker compose exec backend python -m flake8 app tests scripts
+	cd backend && .venv/bin/ruff check app tests scripts worker
+	cd backend && .venv/bin/mypy app worker
 
 typecheck:
 	cd frontend && npx tsc --noEmit
+
+test-frontend:
+	cd frontend && npm test
 
 migrate:
 	docker compose exec backend python -m alembic upgrade head

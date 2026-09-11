@@ -36,11 +36,12 @@
 **ТЗ:** native dense + BM25 в Qdrant.  
 **ChainWise:** dense в Qdrant, BM25 в Python по **всем** чанкам одного контракта.
 
-**Решение:** формулы `bm25_scores` / `reciprocal_rank_fusion` (`k=60`) копировать. Вызов — нет. Индекс — таблица Postgres + pgvector.
+**Решение:** формулу `reciprocal_rank_fusion` (`k=60`) копировать. `bm25_scores` — unit-тесты. Вызов in-memory BM25 по dense-кандидатам — нет. Индекс — таблица Postgres + pgvector + FTS.
 
-1. Цель: pgvector cosine Top-25 + FTS/BM25 Top-25, оба с ACL `access_roles && allowed_roles`, затем RRF.
-2. Пока отдельного sparse-индекса нет: dense Top-50 с ACL, BM25+RRF **только по этим кандидатам**.
-3. Запрещено `SELECT` всех чанков корпуса в RAM.
+1. pgvector cosine Top-25 + FTS (`document_chunks.search_vector`, `simple` + GIN) Top-25, оба с ACL `organization_id` и `access_roles && allowed_roles`, затем RRF.
+2. Запрещено `SELECT` всех чанков корпуса в RAM (в том числе для BM25).
+
+Промежуточный шаг «BM25 только по dense Top-50» снят миграцией `012`.
 
 ## ADR-006. `last_error`, статус `processing`
 
@@ -50,7 +51,7 @@
 ## ADR-007. Cookie-session как в ChainWise
 
 **ТЗ:** JWT в токене.  
-**Решение v1:** только httpOnly cookies `dw_access` / `dw_refresh`. Login/register/google/refresh отдают `UserResponse`, не `access_token` в JSON. `Authorization: Bearer` игнорируется. `role` / `departments` всегда с сервера.
+**Решение v1:** только httpOnly cookies `dw_access` / `dw_refresh`. Login/register/google/refresh отдают `UserResponse`, не `access_token` в JSON. `Authorization: Bearer` игнорируется. `role` / `departments` всегда с сервера (membership), не из JWT. Access JWT ~15 мин, без claim `role`.
 
 При `COOKIE_SAMESITE=none` (SPA на другом origin) мутации `/api/v1` требуют `Origin` из `CORS_ORIGINS` **или** заголовок `X-Requested-With: Docwise`. При `lax`/`strict` проверка не нужна. Refresh в Redis: SET fail-closed (503), GET fail-closed. Первая регистрация в пустой БД получает `admin`, остальные — `employee`. Google ID token без `email_verified=true` отклоняется.
 

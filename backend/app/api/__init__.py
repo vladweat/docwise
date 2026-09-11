@@ -1,3 +1,5 @@
-from app.api import auth, billing, chat, documents, organizations, search
+"""HTTP routers. Resource API lives under `v1`; liveness/readiness stay unversioned."""
 
-__all__ = ["auth", "billing", "chat", "documents", "organizations", "search"]
+API_V1 = "/api/v1"
+
+__all__ = ["API_V1"]

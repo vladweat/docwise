@@ -2,9 +2,11 @@
 
 Стек: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui (Radix), PDF: `@react-pdf-viewer/core` или `pdfjs-dist`. Состояние: TanStack Query + Zustand.
 
+Маршруты в `app/` — RSC (`metadata` + остров). Интерактив и сторы фичи — `src/features/{chat,documents,settings,auth,health}`. Общий HTTP — `lib/api.ts`. Примитивы — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
+
 База UI — ChainWise (`frontend/src/components/ui/*`, `lib/api.ts`, чат, auth). Заменить code-viewer на PDF; цитаты `file.sol:L10-20` → `Doc.pdf (стр. 4)`. SSE-ридер оставить: события `citations | token | meta | error | done`.
 
-## Маршруты (черновик)
+## Маршруты
 
 | Путь | Экран |
 | --- | --- |
@@ -18,7 +20,7 @@
 
 Три колонки на широком экране:
 
-- **Сессии (слева):** фиксированная ширина, можно **полностью скрыть**. Узкая кнопка слева возвращает список. Состояние — `localStorage` (`dw-sessions-pane-open`).
+- **Сессии (слева):** фиксированная ширина, можно **полностью скрыть**. Узкая кнопка слева возвращает список. Состояние — `localStorage` (`dw-sessions-pane-open`). Удаление сессии — с подтверждением; чужие сессии API не отдаёт.
 - **Чат (центр):** лента сообщений и поле ввода. Минимальная ширина ~440px: разделитель не сжимает переписку в узкий столбец; при нехватке места уменьшается PDF, не чат.
 - **PDF (справа, ~55% остатка):** встроенный viewer, `GET /api/v1/documents/{id}/raw`. Можно **полностью скрыть** (кнопка в шапке / двойной щелчок по разделителю). Клик по сноске снова открывает PDF. Состояние — `dw-pdf-pane-open`.
 

@@ -55,7 +55,7 @@ flowchart TB
   Chat --> LLM
 ```
 
-Question path: session roles → SQL ACL → pgvector Top-25 + BM25 on that pool → RRF (`k=60`) → rerank → Top-4 → grounded stream (`citations` → `token` → `meta` → `[DONE]`).
+Question path: session roles → SQL ACL → pgvector Top-25 **and** independent Postgres FTS Top-25 → RRF (`k=60`) → rerank → Top-4 → grounded stream (`citations` → `token` → `meta` → `[DONE]`).
 
 ## SQL RBAC
 
@@ -74,15 +74,15 @@ WHERE organization_id = :current_org
 | --- | --- |
 | Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 **sync Session** |
 | Queue | Redis 7, Celery 5 |
-| Data | PostgreSQL 15 + pgvector (`vector(384)` cosine; BM25 on SQL candidates) |
+| Data | PostgreSQL 15 + pgvector (`vector(384)` cosine; FTS `tsvector` + GIN, independent of dense) |
 | Parse | PyMuPDF, pdfplumber |
 | ML | fastembed `bge-small-en-v1.5` + `bge-reranker-base`; LLM via OpenAI/Anthropic |
 | Frontend | Next.js 15, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
-| Infra | Docker Compose, MinIO, GitHub Actions (ruff + pytest + `tsc --noEmit`) |
+| Infra | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend `tsc` + vitest + lint + build) |
 
 ## Eval metrics
 
-Live Ragas run (2026-09-10, 35 cases, employee with no `hr`/`finance` department):
+Last live Ragas run (2026-09-10, 35 cases, employee with no `hr`/`finance` department). Numbers predate independent FTS (migration `012`); ACL gate still applies. Method: [docs/evaluation.md](docs/evaluation.md).
 
 | Metric | Score | Gate |
 | --- | ---: | --- |
@@ -92,7 +92,7 @@ Live Ragas run (2026-09-10, 35 cases, employee with no `hr`/`finance` department
 | Target page hit | 0.929 | diagnostic |
 | ACL `must_not_doc_ids` | **0 leaks** | **0** |
 
-Full table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Method: [docs/evaluation.md](docs/evaluation.md). Default CI does **not** run eval (needs an LLM key and indexed fixtures).
+Full table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Default CI does **not** run eval (needs an LLM key and indexed fixtures).
 
 ## Run the demo
 
@@ -126,16 +126,17 @@ Script: `eval/seed_demo.py` (same fixture PDFs as eval; real `index_pdf`, not Ce
 
 GitHub Actions on every push/PR:
 
-- **ruff** on `backend/app`, `tests`, `scripts`
-- **pytest** (parser, RRF `k=60`, ACL) against pgvector + Redis — no GPU, no live LLM, no eval runner
-- **frontend** `tsc --noEmit`
+- **ruff** + **mypy** on `backend/app` and `worker` (ruff also `tests`, `scripts`)
+- **pytest** (parser, FTS/RRF `k=60`, ACL) against pgvector + Redis — no GPU, no live LLM, no eval runner
+- **frontend** `tsc --noEmit`, Vitest, `next lint`, `next build`
 
 No coverage gates on ChainWise `pragma_parser` / `risk_scorer` (those modules are not in this repo).
 
 ```bash
-make lint          # flake8 (same rules as ruff E/F/W)
-make test          # pytest in the backend container → docwise_test
-npx tsc --noEmit   # from frontend/
+make lint            # ruff + mypy
+make test            # pytest in the backend container → docwise_test
+make typecheck       # frontend tsc --noEmit
+make test-frontend   # vitest
 ```
 
 ## Layout
@@ -158,7 +159,10 @@ reports/          # rag_benchmark.md
 | [docs/architecture.md](docs/architecture.md) | System and flows |
 | [docs/decisions.md](docs/decisions.md) | ADRs vs ChainWise / the draft TZ |
 | [docs/tenancy.md](docs/tenancy.md) | Shared SaaS org isolation |
+| [docs/billing.md](docs/billing.md) | Plans, quotas, billing port |
 | [docs/auth.md](docs/auth.md) | Session, roles, ACL assembly |
-| [docs/retrieval.md](docs/retrieval.md) | Hybrid search, SSE, inspect |
+| [docs/retrieval.md](docs/retrieval.md) | Hybrid search (dense + FTS), SSE, inspect |
+| [docs/api.md](docs/api.md) | HTTP contract |
 | [docs/milestones.md](docs/milestones.md) | v1 roadmap |
+| [docs/tech-debt.md](docs/tech-debt.md) | Structural backlog after M0–M6 |
 | [AGENTS.md](AGENTS.md) | Agent checklist |

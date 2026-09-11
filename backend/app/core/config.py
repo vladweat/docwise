@@ -16,6 +16,8 @@ class Settings(BaseSettings):
         default="postgresql://docwise:change_this_in_prod@localhost:5432/docwise_db",
         alias="DATABASE_URL",
     )
+    db_pool_size: int = Field(default=10, alias="DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, alias="DB_MAX_OVERFLOW")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     embedding_model_path: str = Field(default="", alias="EMBEDDING_MODEL_PATH")
     s3_endpoint: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT")
@@ -26,7 +28,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     secret_key: str = Field(default=DEFAULT_SECRET_KEY, alias="SECRET_KEY")
     algorithm: str = Field(default="HS256", alias="ALGORITHM")
-    access_token_expire_minutes: int = Field(default=1440, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    access_token_expire_minutes: int = Field(default=15, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     google_client_id: str = Field(default="", alias="GOOGLE_CLIENT_ID")
     celery_broker_url: str = Field(default="redis://redis:6379/0", alias="CELERY_BROKER_URL")
     celery_result_backend: str = Field(default="redis://redis:6379/0", alias="CELERY_RESULT_BACKEND")
@@ -67,6 +69,8 @@ class Settings(BaseSettings):
         default="localhost,docwise.app",
         alias="PLATFORM_HOST_SUFFIXES",
     )
+    hnsw_iterative_scan: str = Field(default="relaxed_order", alias="HNSW_ITERATIVE_SCAN")
+    hnsw_max_scan_tuples: int = Field(default=20_000, alias="HNSW_MAX_SCAN_TUPLES")
 
     def cors_origin_list(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]

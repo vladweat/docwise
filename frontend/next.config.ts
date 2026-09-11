@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["*.localhost", "**.localhost", "127.0.0.1"],
+  transpilePackages: ["pdfjs-dist"],
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,

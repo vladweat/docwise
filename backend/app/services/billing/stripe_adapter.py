@@ -12,8 +12,8 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models.billing import BillingProvider
-from app.models.organization import BillingStatus, Organization, OrganizationPlan
+from app.models.billing import BillingProvider, BillingStatus
+from app.models.organization import Organization, OrganizationPlan
 from app.services.billing.port import (
     BillingUnavailable,
     PlanChangeResult,
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 STRIPE_API = "https://api.stripe.com/v1"
 SIGNATURE_TOLERANCE_SECONDS = 300
 HANDLED_TYPES = {
+    "checkout.session.completed",
     "customer.subscription.updated",
     "customer.subscription.deleted",
     "invoice.paid",
@@ -170,6 +171,14 @@ class StripeBillingPort:
         db.add(org)
 
     def _resolve_org(self, db: Session, event_type: str, obj: dict) -> Organization | None:
+        if event_type == "checkout.session.completed":
+            ref = obj.get("client_reference_id")
+            if not isinstance(ref, str) or not ref:
+                return None
+            try:
+                return db.get(Organization, UUID(str(ref)))
+            except (ValueError, TypeError, AttributeError):
+                return None
         customer = obj.get("customer")
         subscription = obj.get("subscription")
         if event_type.startswith("customer.subscription"):
@@ -190,15 +199,7 @@ class StripeBillingPort:
             )
             if found is not None:
                 return found
-        metadata = obj.get("metadata") if isinstance(obj.get("metadata"), dict) else {}
-        raw_org = metadata.get("organization_id")
-        if not raw_org:
-            return None
-        try:
-            org_id = UUID(str(raw_org))
-        except (ValueError, TypeError, AttributeError):
-            return None
-        return db.get(Organization, org_id)
+        return None
 
     def _apply_event(self, org: Organization, event_type: str, obj: dict) -> None:
         customer = obj.get("customer")
@@ -208,6 +209,8 @@ class StripeBillingPort:
         if isinstance(subscription_id, str) and subscription_id:
             org.stripe_subscription_id = subscription_id
 
+        if event_type == "checkout.session.completed":
+            return
         if event_type == "invoice.paid":
             apply_subscription_state(org, billing_status=BillingStatus.active.value)
             return

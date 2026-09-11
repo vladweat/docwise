@@ -12,7 +12,7 @@
 - включить каждый элемент `departments`;
 - включить литерал `all` для общедоступных документов.
 
-Фильтр на **каждый** dense и FTS/BM25 запрос:
+Фильтр на **каждый** dense и FTS запрос:
 
 ```sql
 WHERE organization_id = :current_org
@@ -29,9 +29,8 @@ LIMIT 25
 
 Не копировать ChainWise-путь `scroll_contract_chunks` + BM25 по всем чанкам сущности. Там поиск ограничен одним контрактом; здесь — весь корпус.
 
-1. **Dense:** эмбеддинг вопроса, Top-25, cosine (`embedding <=> query`), фильтр ACL.
-2. **Sparse / BM25:** Top-25 с тем же ACL (Postgres FTS или BM25 **только** по объединению dense-кандидатов).
-   Пока нет колонки `tsvector`, код берёт dense Top-50 с ACL и считает `bm25_scores` только по этим строкам ([ADR-005](decisions.md)).
+Dense: эмбеддинг вопроса, Top-25, cosine (`embedding <=> query`), фильтр ACL. Индекс HNSW глобальный; перед запросом `SET LOCAL hnsw.iterative_scan` (`relaxed_order`) и `hnsw.max_scan_tuples` (`HNSW_MAX_SCAN_TUPLES`, дефолт 20000), чтобы org/ACL-фильтр не обрезал соседей.
+2. **Sparse / FTS:** Top-25 независимо от dense, Postgres `tsvector` (`simple`) + GIN, тот же `organization_id` и `access_roles && allowed_roles`.
 3. **RRF** (`k = 60`) — функция из ChainWise `reciprocal_rank_fusion` без изменений:
 
 \[
@@ -55,7 +54,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 
 > Ты — корпоративный AI-ассистент. Отвечай строго на основе переданного контекста.
 > Если ответа в контексте нет, скажи: «В предоставленных документах нет информации по данному вопросу.» Не выдумывай.
-> Каждый факт сопровожди сноской на документ и страницу.
+> Каждый факт сопровожди сноской на документ и страницу в виде `[Title.pdf, стр. N]`. Списки и таблицы — Markdown.
 
 В контекст передавать только Top-4 чанка: текст, title, page, chunk_id.
 
@@ -70,7 +69,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 | 3 | `meta` | `{tokens_used, cached, session_id, message_id, ...}` затем `[DONE]` |
 | ошибка | `error` | `{content}` без стека и без названий чужих файлов |
 
-Цитаты уходят **до** токенов, чтобы UI сразу открыл PDF. Кеш LLM (`llm_cache:{version}:{org_id}:{roles_hash}:{question_hash}`) обязан включать `org_id` текущей организации и канонический набор `allowed_roles`; кэш, прогретый под admin или под другую org, не отдаётся.
+Цитаты уходят **до** токенов, чтобы UI сразу открыл PDF. Кеш LLM (`llm_cache:{version}:{org_id}:{generation}:{roles_hash}:{question_hash}`) обязан включать `org_id` текущей организации, поколение индекса и канонический набор `allowed_roles`; кэш, прогретый под admin или под другую org, не отдаётся. Cache hit: `tokens_used` в аудите null. PATCH ACL / DELETE / ready ingest бампают `organizations.llm_index_generation` и сбрасывают ключи org.
 
 После ответа: строка в `chat_messages` + `rag_audit_logs` (см. ниже).
 
@@ -85,7 +84,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 | `organization_id` | текущая org (M5) | текущая org (M5) |
 | `retrieved_chunk_ids` | UUID PK Top-4 после реранкера | то же |
 | `latency_ms` | да | да |
-| `tokens_used` | из LLM / кэша | null |
+| `tokens_used` | из LLM; на cache hit — null | null |
 | `session_id` / `message_id` | ход чата | null |
 | `feedback` | `POST /chat/feedback` `+1`/`-1` | null |
 

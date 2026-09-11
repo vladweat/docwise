@@ -16,7 +16,7 @@ COPY .venv/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages
 COPY alembic.ini .
 COPY alembic ./alembic
 COPY app ./app
-COPY tests ./tests
+COPY worker ./worker
 COPY .models /opt/models
 COPY .libs/ /usr/local/lib/
 

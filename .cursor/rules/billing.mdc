@@ -1,6 +1,6 @@
 ---
 description: Plans, org quotas, and billing port — Postgres is source of truth, Stripe is optional
-globs: backend/**/{billing,quota,entitlements,sso,domain}*.py,backend/app/services/billing/**/*.py,backend/app/api/billing*.py
+globs: backend/**/{billing,quota,entitlements,sso,domain}*.py,backend/app/services/billing/**/*.py,backend/app/api/**/billing*.py
 alwaysApply: false
 ---
 

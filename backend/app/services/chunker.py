@@ -11,17 +11,16 @@ Rule for embed vs UI text (locked):
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 
 from app.services.pdf_parser import BBox, PageBlock, ParsedDocument, ParsedPage
+from app.services.text import INGEST_TOKEN_RE, count_ingest_tokens as count_tokens
 
 CHUNK_MIN_TOKENS = 400
 CHUNK_MAX_TOKENS = 600
 CHUNK_OVERLAP_TOKENS = 50
 UNTITLED_SECTION = "Untitled"
 
-_TOKEN_RE = re.compile(r"\S+", re.UNICODE)
 _META_HEADER = "[Document: {document} | Section: {section} | Page: {page}]"
 
 
@@ -44,15 +43,6 @@ class PreparedChunk:
             page_number=self.page_number,
             content=self.content,
         )
-
-
-def tokenize(text: str) -> list[str]:
-    """Ingest budget tokenizer (whitespace-delimited). Independent of FastEmbed."""
-    return _TOKEN_RE.findall(text)
-
-
-def count_tokens(text: str) -> int:
-    return len(tokenize(text))
 
 
 def format_embed_text(
@@ -188,7 +178,7 @@ def _blocks_for_span(
 
 
 def _token_windows(text: str, max_tokens: int, overlap: int) -> list[str]:
-    spans = [(match.start(), match.end()) for match in _TOKEN_RE.finditer(text)]
+    spans = [(match.start(), match.end()) for match in INGEST_TOKEN_RE.finditer(text)]
     if not spans:
         stripped = text.strip()
         return [stripped] if stripped else []

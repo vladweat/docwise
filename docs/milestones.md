@@ -12,7 +12,7 @@
 | [M3 Split-screen UI](#milestone-3--split-screen-ui) | готово | 2–3 дня |
 | [M4 Eval, CI, портфолио](#milestone-4--eval-ci-портфолио) | готово | 1–2 дня |
 | [M5 Shared tenancy](#milestone-5--shared-tenancy-b2b-saas) | готово | после v1 |
-| [M6 Commercial SaaS](#milestone-6--commercial-saas) | не начато | после M5 |
+| [M6 Commercial SaaS](#milestone-6--commercial-saas) | готово | после M5 |
 
 ```mermaid
 flowchart LR
@@ -131,7 +131,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 - [x] Вырезать Solidity-эвристики, overview-аудит, interface stubs, findings-in-context
 - [x] Dense Top-25: `embedding <=> query`, SQL `access_roles && allowed_roles`
-- [x] Sparse/FTS Top-25 с тем же ACL (или BM25 только по dense-кандидатам, пока нет отдельного sparse-индекса — [ADR-005](decisions.md))
+- [x] Sparse/FTS Top-25 с тем же ACL (Postgres `tsvector` + GIN, независимо от dense — [ADR-005](decisions.md))
 - [x] Порт `bm25_scores` + `reciprocal_rank_fusion` (`k=60`) → Top-15
 - [x] Cross-encoder `BAAI/bge-reranker-base`: порог 0.25 → Top-4
 - [x] Пустой список после порога → отказ, без вызова «творчества» LLM
@@ -145,6 +145,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 - [x] Каждый факт в ответе цитируем; иначе отказ фиксированной фразой
 - [x] `session_id` пустой → создать `chat_sessions`; история не обходит ACL
 - [x] `GET /api/v1/chat/sessions` (+ детали сессии)
+- [x] `DELETE /api/v1/chat/sessions/{id}` — свои сессии текущей org; чужие / другая org → `404`
 - [x] `POST /api/v1/chat/feedback` — `+1/-1` только на свои сообщения
 - [x] LLM cache key включает канонический набор `allowed_roles` (или кэш не шарить)
 
@@ -157,7 +158,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### Тесты M2
 
-- [x] Порт `test_rag_engine.py`: BM25 и RRF `k=60` без GPU / без живого LLM
+- [x] `test_retrieval.py`: BM25 и RRF `k=60` без GPU / без живого LLM
 - [x] Пользователь, чей `allowed_roles` не пересекается с чанком, отсутствует в fused / reranked / промпте
 - [x] Inspect и chat не подтверждают существование чужого файла
 - [x] Кэш, прогретый под admin, не отдаёт HR-чанки employee
@@ -223,7 +224,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ### CI и качество репо
 
-- [x] GitHub Actions: ruff или flake8 + pytest (парсер, RRF, ACL)
+- [x] GitHub Actions: ruff + pytest (парсер, RRF, ACL)
 - [x] Frontend `tsc --noEmit` в CI
 - [x] Нет coverage-хуков на `pragma_parser` / `risk_scorer`
 - [x] CI зелёный на `main` / PR
@@ -276,7 +277,7 @@ Shared SaaS — не часть приёмки v1; критерии M5. Комм
 - [x] `org_id` / `organization_id` в теле chat/search/upload игнорируются как источник прав
 - [x] `require_admin` — admin текущей org; нет platform-admin с чтением чужих корпусов
 - [x] MinIO-ключи с префиксом `orgs/{organization_id}/`
-- [x] LLM cache: `llm_cache:{version}:{org_id}:{roles_hash}:{question_hash}`
+- [x] LLM cache: `llm_cache:{version}:{org_id}:{generation}:{roles_hash}:{question_hash}`
 
 ### Retrieval
 

@@ -8,7 +8,7 @@ from jose import JWTError, jwt
 from redis import RedisError
 
 from app.core.config import get_settings
-from app.utils.redis_lock import get_redis_client
+from app.core.redis import get_redis_client
 
 ACCESS_COOKIE = "dw_access"
 REFRESH_COOKIE = "dw_refresh"
@@ -35,14 +35,13 @@ def cookie_params() -> dict:
 def create_refresh_token(
     subject: str,
     *,
-    role: str,
     org_id: str | None = None,
     sso: bool = False,
 ) -> str:
     settings = get_settings()
     jti = uuid4().hex
     expire = datetime.now(UTC) + timedelta(minutes=settings.refresh_token_expire_minutes)
-    payload = {"sub": subject, "role": role, "exp": expire, "typ": "refresh", "jti": jti}
+    payload = {"sub": subject, "exp": expire, "typ": "refresh", "jti": jti}
     if org_id:
         payload["org_id"] = org_id
     if sso:

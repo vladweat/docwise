@@ -5,13 +5,27 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PG_UUID
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.billing import BillingStatus as _BillingStatus
 
 if TYPE_CHECKING:
+    from app.models.domain import OrganizationDomain
+    from app.models.sso import OrganizationSsoConnection
     from app.models.user import User
 
 
@@ -24,12 +38,6 @@ class OrganizationPlan(str, enum.Enum):
     starter = "starter"
     team = "team"
     enterprise = "enterprise"
-
-
-class BillingStatus(str, enum.Enum):
-    active = "active"
-    past_due = "past_due"
-    canceled = "canceled"
 
 
 class Organization(Base):
@@ -64,8 +72,8 @@ class Organization(Base):
     billing_status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        default=BillingStatus.active.value,
-        server_default=BillingStatus.active.value,
+        default=_BillingStatus.active.value,
+        server_default=_BillingStatus.active.value,
     )
     current_period_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -76,6 +84,12 @@ class Organization(Base):
         nullable=False,
         default=False,
         server_default="false",
+    )
+    llm_index_generation: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -174,66 +188,5 @@ class OrganizationInvite(Base):
     organization: Mapped[Organization] = relationship()
 
 
-class SsoProtocol(str, enum.Enum):
-    saml = "saml"
-    oidc = "oidc"
-
-
-class OrganizationSsoConnection(Base):
-    __tablename__ = "organization_sso_connections"
-    __table_args__ = (
-        UniqueConstraint("organization_id", name="uq_organization_sso_connections_org"),
-        CheckConstraint("protocol IN ('saml', 'oidc')", name="ck_organization_sso_connections_protocol"),
-    )
-
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    organization_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    protocol: Mapped[str] = mapped_column(String(20), nullable=False, default=SsoProtocol.saml.value)
-    idp_entity_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    idp_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
-    attribute_map: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
-    jit_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
-    )
-
-    organization: Mapped[Organization] = relationship(back_populates="sso_connection")
-
-
-class DomainKind(str, enum.Enum):
-    platform = "platform"
-    custom = "custom"
-
-
-class OrganizationDomain(Base):
-    __tablename__ = "organization_domains"
-    __table_args__ = (
-        UniqueConstraint("hostname", name="uq_organization_domains_hostname"),
-        CheckConstraint("kind IN ('platform', 'custom')", name="ck_organization_domains_kind"),
-        Index("ix_organization_domains_organization_id", "organization_id"),
-        Index(
-            "uq_organization_domains_one_custom",
-            "organization_id",
-            unique=True,
-            postgresql_where=text("kind = 'custom'"),
-        ),
-    )
-
-    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
-    organization_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    hostname: Mapped[str] = mapped_column(String(253), nullable=False)
-    kind: Mapped[str] = mapped_column(String(20), nullable=False)
-    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    verification_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-    organization: Mapped[Organization] = relationship(back_populates="domains")
+from app.models.domain import OrganizationDomain as _OrganizationDomain  # noqa: E402, F401
+from app.models.sso import OrganizationSsoConnection as _OrganizationSsoConnection  # noqa: E402, F401

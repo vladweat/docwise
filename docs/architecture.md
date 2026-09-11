@@ -35,7 +35,7 @@ flowchart TB
   subgraph async [Celery worker]
     Parse[PyMuPDF / pdfplumber]
     Chunk[Structure-aware chunking]
-    Embed[FastEmbed dense + BM25]
+    Embed[FastEmbed 384-d + FTS tsvector]
   end
 
   PG[(PostgreSQL + pgvector)]
@@ -70,13 +70,13 @@ flowchart TB
 1. Org-admin текущей организации загружает PDF и выбирает `access_roles[]` (внутренние теги, не id компании).
 2. API считает SHA-256, проверяет unique `(org_id, file_hash)`, сохраняет объект в MinIO с префиксом org, строку в `documents` (`pending`, `org_id` сессии).
 3. Ставится задача `process_document(doc_id)`.
-4. Воркер: извлечение по страницам → чанки секции/страницы → dense (+ BM25/FTS) → upsert в `document_chunks` (копия `org_id` и ACL документа) → `status = ready` либо `failed`.
+4. Воркер: извлечение по страницам → чанки секции/страницы → dense-эмбеддинг; FTS (`search_vector`) считается в Postgres → upsert в `document_chunks` (копия `org_id` и ACL документа) → `status = ready` либо `failed`.
 
 ## 4. Поток B — вопрос в чат
 
 1. Клиент шлёт `POST /api/v1/chat/stream` (cookie-сессия).
 2. Из сессии берутся `org_id`, роль и отделы членства. SQL: `org_id = :current_org AND access_roles && allowed_roles`.
-3. Dense Top-25 + BM25 Top-25 → RRF → Top-15 → cross-encoder → порог 0.25 → Top-4.
+3. Dense Top-25 + FTS Top-25 (независимо, тот же org + ACL) → RRF → Top-15 → cross-encoder → порог 0.25 → Top-4.
 4. Первым SSE-событием уходят цитаты, затем токены ответа, затем метрики.
 5. UI открывает PDF на странице сноски и подсвечивает фрагмент.
 

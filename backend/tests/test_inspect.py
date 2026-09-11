@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.database import SessionLocal
 from app.main import app
-from app.models.chat import RagAuditLog
+from app.models.audit import RagAuditLog
 from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDING_DIM, make_chunk_id
 from app.models.user import UserRole
 from app.services.audit import chunk_ids_for_audit
@@ -253,7 +253,7 @@ def test_inspect_returns_pipeline_stages(monkeypatch):
             allowed_roles=tuple(user.allowed_roles()),
         )
 
-    monkeypatch.setattr("app.services.inspect.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.search.retrieve", fake_retrieve)
     http = _register(role=UserRole.admin.value)
     response = http.post("/api/v1/search/inspect", json={"query": "canteen menu", "limit": 15})
     assert response.status_code == 200
@@ -298,7 +298,7 @@ def test_inspect_respects_limit(monkeypatch):
             allowed_roles=tuple(user.allowed_roles()),
         )
 
-    monkeypatch.setattr("app.services.inspect.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.search.retrieve", fake_retrieve)
     http = _register()
     response = http.post("/api/v1/search/inspect", json={"query": "limit me", "limit": 3})
     assert response.status_code == 200
@@ -400,7 +400,7 @@ def test_inspect_retrieval_error_does_not_leak_titles(monkeypatch):
     def boom(*_args, **_kwargs):
         raise RetrievalError(f"embedding failed for {HR_TITLE}")
 
-    monkeypatch.setattr("app.services.inspect.retrieve", boom)
+    monkeypatch.setattr("app.services.search.retrieve", boom)
     http = _register()
     response = http.post("/api/v1/search/inspect", json={"query": "severance"})
     assert response.status_code == 503

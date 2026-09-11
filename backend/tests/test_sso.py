@@ -168,7 +168,7 @@ def test_acs_sets_cookies_on_redirect_and_ignores_bearer():
     _enterprise(globex)
     slug = _put_sso(globex)["slug"]
     globex_org = str(_org_id(globex))
-    bearer = create_access_token("stranger@example.com", role="admin", org_id=globex_org)
+    bearer = create_access_token("stranger@example.com", org_id=globex_org)
     guest = TestClient(app)
     response = guest.post(
         f"/api/v1/auth/sso/{slug}/acs",
@@ -293,7 +293,7 @@ def test_sso_enforced_blocks_password_google_and_switch(monkeypatch):
 
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
     get_settings.cache_clear()
-    monkeypatch.setattr("app.api.auth.verify_google_id_token", fake_verify)
+    monkeypatch.setattr("app.api.v1.auth.verify_google_id_token", fake_verify)
     google_client = TestClient(app)
     google = google_client.post("/api/v1/auth/google", json={"id_token": "valid-token"})
     assert google.status_code == 200
@@ -306,7 +306,7 @@ def test_sso_enforced_rejects_password_cookie_without_sso_claim():
     _enterprise(globex)
     org_id = str(_org_id(globex))
     _put_sso(globex, sso_enforced=True)
-    token = create_access_token(email, role="admin", org_id=org_id)
+    token = create_access_token(email, org_id=org_id)
     guest = TestClient(app)
     guest.cookies.set(ACCESS_COOKIE, token)
     me = guest.get("/api/v1/auth/me")

@@ -19,13 +19,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(
     subject: str,
     *,
-    role: str,
     org_id: str | None = None,
     sso: bool = False,
 ) -> str:
+    """Access JWT: identity + current org. Role comes from membership, not the token."""
     settings = get_settings()
     expire = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
-    payload = {"sub": subject, "role": role, "exp": expire, "typ": "access"}
+    payload = {"sub": subject, "exp": expire, "typ": "access"}
     if org_id:
         payload["org_id"] = org_id
     if sso:

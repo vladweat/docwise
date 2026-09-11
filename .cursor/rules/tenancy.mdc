@@ -21,7 +21,7 @@ WHERE organization_id = :current_org
 ## Do not
 
 - Use `access_roles = ['acme']` as a fake tenant
-- Share LLM cache across orgs (key must include `org_id` + `allowed_roles`)
+- Share LLM cache across orgs (key must include `org_id` + `allowed_roles` + index generation)
 - Keep a global unique `file_hash` — unique `(organization_id, file_hash)`
 - Copy `org_id` onto chunks from the Celery argument; load it from the `documents` row
 - Let org-admin bypass inner ACL or read another org

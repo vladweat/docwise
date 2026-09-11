@@ -27,6 +27,7 @@ node_modules/
 out/
 *.tsbuildinfo
 frontend/public/pdf.worker.min.js
+frontend/public/pdf.worker.min.mjs
 
 # IDE
 .idea/

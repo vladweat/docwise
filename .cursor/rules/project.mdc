@@ -14,13 +14,13 @@ Canonical product spec: `docs/srs.md`. Implementation deviations: `docs/decision
 - Backend: Python 3.12, FastAPI, Uvicorn, Pydantic v2, SQLAlchemy 2 **sync Session** (ChainWise style; not asyncpg in v1)
 - Queue/cache: Redis 7, Celery 5
 - DB: PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`, same image as ChainWise)
-- Vectors: pgvector in PostgreSQL (`vector(384)` cosine; FTS/BM25 on retrieved candidates)
-- Origin: adapt `../chainwise` per `docs/reuse-from-chainwise.md`
+- Vectors: pgvector in PostgreSQL (`vector(384)` cosine; FTS `tsvector` + GIN independent of dense)
+- Origin: adapt `../chainwise` per `docs/reuse-from-chainwise.md` (port map, not backlog)
 - Parse: PyMuPDF (`fitz`) + pdfplumber for tables
 - Embeddings/rerank: fastembed `BAAI/bge-small-en-v1.5` and `BAAI/bge-reranker-base`
 - LLM: OpenAI/Anthropic via async `httpx` (default `gpt-4o-mini`)
 - Frontend: Next.js 15 App Router, React 19, TypeScript 5, Tailwind 4, shadcn/ui
-- Infra: Docker Compose, MinIO, GitHub Actions (ruff + pytest)
+- Infra: Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend tsc + vitest + lint + build)
 
 ## Invariants
 

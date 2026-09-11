@@ -6,7 +6,6 @@ Must run before any test module imports `app.core.database` / `app.main`.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 import pytest
@@ -66,15 +65,11 @@ def _ensure_test_database() -> None:
 
 
 def _run_migrations() -> None:
-    from alembic import command
-    from alembic.config import Config
-
     from app.core.config import get_settings
+    from app.core.migrations import run_migrations
 
     get_settings.cache_clear()
-    backend_dir = Path(__file__).resolve().parents[1]
-    alembic_cfg = Config(str(backend_dir / "alembic.ini"))
-    command.upgrade(alembic_cfg, "head")
+    run_migrations()
 
 
 _ensure_test_database()

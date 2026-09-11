@@ -1,6 +1,6 @@
 # Документация Docwise
 
-Предварительная спецификация. Источник истины по продукту — [srs.md](srs.md); по отклонениям от черновика ТЗ — [decisions.md](decisions.md). Пока нет OpenAPI из кода, контракты API живут в [api.md](api.md).
+Источник истины по продукту — [srs.md](srs.md); по отклонениям от черновика ТЗ — [decisions.md](decisions.md). Канон HTTP — [api.md](api.md). FastAPI отдаёт `/docs` и `/openapi.json` вне `production` (в production выключены); OpenAPI не заменяет `api.md`.
 
 ## С чего начать
 
@@ -10,7 +10,8 @@
 4. [Ingestion](ingestion.md) и [Retrieval](retrieval.md) — индекс, ответы, inspect, аудит.
 5. [API](api.md) и [Frontend](frontend.md) — контракт и UX.
 6. [NFR](nfr.md), [Оценка](evaluation.md), [Roadmap](milestones.md) (чекбоксы вех).
-7. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
+7. [Техдолг](tech-debt.md) — structural backlog после M0–M6 (не инварианты продукта).
+8. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
 
 ## Инварианты продукта
 

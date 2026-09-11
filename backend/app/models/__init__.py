@@ -1,18 +1,16 @@
-from app.models.billing import BillingEvent, BillingProvider
-from app.models.chat import ChatMessage, ChatMessageRole, ChatSession, RagAuditLog
+from app.models.audit import RagAuditLog
+from app.models.billing import BillingEvent, BillingProvider, BillingStatus
+from app.models.chat import ChatMessage, ChatMessageRole, ChatSession
 from app.models.document import Document, DocumentChunk, DocumentStatus
+from app.models.domain import DomainKind, OrganizationDomain
 from app.models.organization import (
-    BillingStatus,
-    DomainKind,
     Organization,
-    OrganizationDomain,
     OrganizationInvite,
     OrganizationMembership,
     OrganizationPlan,
-    OrganizationSsoConnection,
     OrganizationStatus,
-    SsoProtocol,
 )
+from app.models.sso import OrganizationSsoConnection, SsoProtocol
 from app.models.user import User, UserRole
 
 __all__ = [

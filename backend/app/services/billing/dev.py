@@ -6,8 +6,8 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.models.billing import BillingProvider
-from app.models.organization import BillingStatus, Organization, OrganizationPlan
+from app.models.billing import BillingProvider, BillingStatus
+from app.models.organization import Organization, OrganizationPlan
 from app.services.billing.port import PlanChangeResult, apply_subscription_state, remember_event
 from app.services.quotas import ensure_billing_period
 

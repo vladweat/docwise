@@ -1,10 +1,10 @@
 from datetime import datetime
 from enum import Enum
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from app.models.organization import BillingStatus, OrganizationPlan
+from app.models.billing import BillingStatus
+from app.models.organization import OrganizationPlan
 
 
 class PlanEntitlements(BaseModel):
@@ -71,17 +71,3 @@ class DevSimulateRequest(BaseModel):
         if self.action == DevSimulateAction.set_plan and self.plan is None:
             raise ValueError("plan is required for set_plan")
         return self
-
-
-def foreign_organization_id(body: BaseModel, current_org: UUID) -> UUID | None:
-    extra = body.model_extra or {}
-    raw = extra.get("organization_id") or extra.get("org_id")
-    if raw is None:
-        return None
-    try:
-        parsed = UUID(str(raw))
-    except (ValueError, TypeError, AttributeError):
-        return UUID("00000000-0000-0000-0000-000000000000")
-    if parsed != current_org:
-        return parsed
-    return None

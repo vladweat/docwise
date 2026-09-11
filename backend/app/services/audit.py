@@ -11,7 +11,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models.chat import RagAuditLog
+from app.models.audit import RagAuditLog
 
 logger = logging.getLogger(__name__)
 

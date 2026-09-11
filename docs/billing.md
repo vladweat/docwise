@@ -63,7 +63,7 @@ Stripe **test keys не заменяют** `dev`: они всё равно тр�
 
 ## Stripe (не критерий M6)
 
-Checkout + Portal. Карты не хранить. `stripe_customer_id` / `stripe_subscription_id` на org, не в JWT и не в теле чата. Вебхуки: `customer.subscription.updated|deleted`, `invoice.paid`, `invoice.payment_failed`. Подпись, идемпотентность по `event.id` в `billing_events`. Маппинг Price → план. Платит только org-admin **текущей** org. Вебхук не читает корпус и не логирует chunk text.
+Checkout + Portal. Карты не хранить. `stripe_customer_id` / `stripe_subscription_id` на org, не в JWT и не в теле чата. Вебхуки: `checkout.session.completed` (привязка по `client_reference_id`), `customer.subscription.updated|deleted`, `invoice.paid`, `invoice.payment_failed`. Org после checkout — только по Stripe id на строке org, не по `metadata.organization_id`. Подпись, идемпотентность по `event.id` в `billing_events`. Маппинг Price → план. Платит только org-admin **текущей** org. Вебхук не читает корпус и не логирует chunk text.
 
 ## Запрещено
 

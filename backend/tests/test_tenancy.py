@@ -14,8 +14,7 @@ from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDI
 from app.models.user import UserRole
 from app.services.chat import cache_key
 from helpers import register_payload, wipe_app_tables
-
-MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
+from pdf_fixtures import tagged_pdf_bytes
 
 
 class FakeStorage:
@@ -37,7 +36,7 @@ class FakeStorage:
 
 
 def _pdf(tag: str) -> bytes:
-    return MIN_PDF.replace(b"%%EOF", f"%{tag}\n%%EOF".encode())
+    return tagged_pdf_bytes(tag)
 
 
 def _vec(seed: int) -> list[float]:
@@ -57,7 +56,7 @@ def clean_tables():
 
 @pytest.fixture
 def storage():
-    from app.api.documents import get_storage
+    from app.api.v1.documents import get_storage
 
     fake = FakeStorage()
     app.dependency_overrides[get_storage] = lambda: fake
@@ -67,7 +66,7 @@ def storage():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.document_service.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
 
 
 def _register(name: str) -> TestClient:

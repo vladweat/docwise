@@ -1,6 +1,6 @@
 ---
 description: Hybrid search, RRF, reranking, grounded generation, and SSE chat protocol
-globs: backend/app/services/{retrieval,reranker}.py,backend/**/{search,chat,rag,retrieval}/**/*.py
+globs: backend/app/services/{retrieval,reranker,chat,llm_cache}.py,backend/**/{search,chat,rag,retrieval}/**/*.py
 alwaysApply: false
 ---
 
@@ -8,15 +8,19 @@ alwaysApply: false
 
 Pipeline order is fixed: **org filter (M5) → RBAC filter → dense+sparse → RRF → rerank → generate**.
 
-1. Dense search: query embedding, cosine (`embedding <=> query`), SQL `organization_id` (M5) and ACL, Top-25 (candidate pool Top-50 until FTS exists).
-2. Sparse/BM25: same org + ACL. Until a `tsvector` index exists, BM25 runs **only** on the dense candidate pool (not the whole corpus).
+1. Dense search: query embedding, cosine (`embedding <=> query`), SQL `organization_id` (M5) and ACL, Top-25. Before the query, `SET LOCAL hnsw.iterative_scan` and `hnsw.max_scan_tuples` so the global HNSW index does not miss in-org neighbors.
+2. Sparse/FTS: Postgres `search_vector` (`simple` + GIN), same org + ACL, Top-25 **independent of dense**.
 3. RRF with `k=60`: `score(d) = Σ 1/(60 + rank_m(d))`. Keep Top-15.
 4. Cross-encoder `BAAI/bge-reranker-base` on `(query, chunk_text)`. Drop score `< 0.25`. Keep **Top-4**.
-5. Generate only from those 4 chunks. System prompt: answer strictly from context; if missing, say so in the product language; cite `[^page]` / document+page for every fact.
+5. Generate only from those 4 chunks. System prompt: answer strictly from context; if missing, say so in the product language; cite `[Title.pdf, стр. N]`; lists/tables in Markdown.
 
 Do not skip rerank to “make it faster” on the default path. Do not send Top-25 raw chunks to the LLM.
 
-Do not port ChainWise `scroll_contract_chunks` / in-memory BM25 over a whole document set. BM25+RRF run only on SQL candidate lists (or FTS), always with the same org + ACL filter. `all` is not SaaS-global.
+Do not port ChainWise `scroll_contract_chunks` / in-memory BM25 over a whole document set. Sparse is SQL FTS (or a SQL candidate list), always with the same org + ACL filter. `all` is not SaaS-global.
+
+Chat SSE must not hold a DB session across FastEmbed or `stream_openai`. Embed the query and rerank with no connection checked out; persist in a new session after the stream.
+
+LLM cache key: `llm_cache:{version}:{org_id}:{generation}:{roles_hash}:{question_hash}`. Bump `organizations.llm_index_generation` and drop org keys on PATCH ACL, DELETE, and ready ingest. Cache hit: `tokens_used` is null (do not burn quota).
 
 ## SSE `POST /api/v1/chat/stream`
 

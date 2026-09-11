@@ -4,18 +4,19 @@ from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request, status
 
+from app.api import API_V1
 from app.core.config import get_settings
 from app.services.domains import origin_allowed
 
 CSRF_HEADER_VALUE = "Docwise"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-CSRF_EXEMPT_PATHS = {"/api/v1/billing/webhooks/stripe"}
+CSRF_EXEMPT_PATHS = {f"{API_V1}/billing/webhooks/stripe"}
 
 
 def _csrf_exempt(path: str) -> bool:
     if path in CSRF_EXEMPT_PATHS:
         return True
-    return path.startswith("/api/v1/auth/sso/") and path.endswith("/acs")
+    return path.startswith(f"{API_V1}/auth/sso/") and path.endswith("/acs")
 
 
 def request_origin(request: Request) -> str | None:
@@ -37,7 +38,7 @@ def enforce_csrf(request: Request) -> None:
         return
     if _csrf_exempt(request.url.path):
         return
-    if not request.url.path.startswith("/api/v1"):
+    if not request.url.path.startswith(API_V1):
         return
 
     settings = get_settings()

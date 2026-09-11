@@ -9,8 +9,8 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.billing import BillingEvent, BillingProvider
-from app.models.organization import BillingStatus, Organization, OrganizationPlan, OrganizationStatus
+from app.models.billing import BillingEvent, BillingProvider, BillingStatus
+from app.models.organization import Organization, OrganizationPlan, OrganizationStatus
 
 NOT_FOUND = "Not Found"
 BILLING_UNAVAILABLE = "Billing provider is unavailable"

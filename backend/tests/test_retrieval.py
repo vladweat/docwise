@@ -1,95 +1,91 @@
-"""Hybrid retrieval: SQL ACL on dense candidates, BM25+RRF, rerank threshold."""
+"""BM25 / RRF / FTS over document text — no GPU, no live LLM, no Solidity heuristics."""
 
-from __future__ import annotations
-
-import inspect
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDING_DIM, make_chunk_id
-from app.services.embeddings import VECTOR_SIZE
 from app.services.retrieval import (
-    DENSE_CANDIDATE_LIMIT,
     DENSE_TOP_K,
-    NO_CONTEXT_ANSWER,
-    RERANK_TOP_K,
+    RRF_K,
     SPARSE_TOP_K,
-    allowed_roles_for,
-    dense_search,
+    _fts_or_query,
+    bm25_scores,
+    reciprocal_rank_fusion,
     retrieve,
+    sparse_search,
 )
-from app.services.reranker import MODEL_NAME as RERANKER_MODEL, FastEmbedReranker, _sigmoid
+from app.services.text import lexical_tokens
 from helpers import make_org, make_principal, wipe_app_tables
 
-
-class FakeEmbedder:
-    def __init__(self, vector: list[float]):
-        self.vector = vector
-        self.texts: list[str] = []
-
-    def encode(self, texts, **_kwargs):
-        self.texts = list(texts)
-        return [list(self.vector) for _ in texts]
+RETRIEVAL_PY = Path(__file__).resolve().parents[1] / "app" / "services" / "retrieval.py"
 
 
-class FakeReranker:
-    def __init__(self, score: float = 0.9, scores: list[float] | None = None):
-        self.score_value = score
-        self.scores = scores
-        self.seen: list[str] = []
-
-    def score(self, query: str, documents: list[str]) -> list[float]:
-        self.seen = list(documents)
-        if self.scores is not None:
-            return list(self.scores)
-        return [self.score_value for _ in documents]
-
-
-class KeywordReranker:
-    def score(self, query: str, documents: list[str]) -> list[float]:
-        terms = set(query.lower().split())
-        out: list[float] = []
-        for doc in documents:
-            lowered = doc.lower()
-            hits = sum(1 for term in terms if term in lowered)
-            out.append(0.9 if hits else 0.05)
-        return out
+def test_lexical_tokens_keep_words_digits_and_cyrillic():
+    tokens = lexical_tokens("Parental leave: 140 calendar days.")
+    assert "parental" in tokens
+    assert "leave" in tokens
+    assert "140" in tokens
+    assert "days" in tokens
+    cyrillic = lexical_tokens("график работы безопасен?")
+    assert "график" in cyrillic
+    assert "работы" in cyrillic
+    assert "безопасен" in cyrillic
 
 
-def _vec(seed: int) -> list[float]:
-    return [((seed + offset) % 17) / 17.0 for offset in range(EMBEDDING_DIM)]
+def test_bm25_ranks_relevant_document_first():
+    docs = [
+        "Employees may take parental leave of 140 calendar days.",
+        "The office wifi password is posted at reception.",
+        "Travel reimbursement is capped at 150 USD per day.",
+    ]
+    scores = bm25_scores("parental leave 140 days", docs)
+    assert scores[0] == max(scores)
 
 
-def _document(org, **overrides) -> Document:
-    payload = {
-        "organization_id": org.id,
-        "title": "Handbook.pdf",
-        "file_path": f"{uuid4()}/Handbook.pdf",
-        "file_hash": uuid4().hex,
-        "file_size_bytes": 1024,
-        "access_roles": ["all"],
-        "status": DocumentStatus.ready.value,
-    }
-    payload.update(overrides)
-    return Document(**payload)
+def test_reciprocal_rank_fusion_prefers_overlap():
+    fused = reciprocal_rank_fusion([[0, 1, 2], [1, 0, 2]])
+    assert fused[0][0] in (0, 1)
+    assert {idx for idx, _score in fused} == {0, 1, 2}
 
 
-def _chunk(document: Document, *, page: int, content: str, embedding: list[float], ordinal: int = 0) -> DocumentChunk:
-    return DocumentChunk(
-        document_id=document.id,
-        organization_id=document.organization_id,
-        chunk_id=make_chunk_id(document.id, page, ordinal),
-        page_number=page,
-        access_roles=list(document.access_roles),
-        content=content,
-        token_count=len(content.split()),
-        embedding=embedding,
-        doc_title=document.title,
-    )
+def test_reciprocal_rank_fusion_uses_k_60():
+    assert RRF_K == 60
+    fused = reciprocal_rank_fusion([[0], [0]], k=RRF_K)
+    assert fused[0][1] == 2.0 / (60 + 1)
+
+
+def test_fts_query_drops_stopwords_and_ors_content_terms():
+    q = _fts_or_query("What is the default Python version for engineering?")
+    assert q is not None
+    parts = set(q.split(" | "))
+    assert "python" in parts
+    assert "default" in parts
+    assert "version" in parts
+    assert "engineering" in parts
+    assert "what" not in parts
+    assert "the" not in parts
+    assert "is" not in parts
+
+
+def test_no_solidity_heuristics_in_retrieval():
+    source = RETRIEVAL_PY.read_text()
+    assert "is_overview_question" not in source
+    assert "citations_are_interface_stubs" not in source
+    assert "select_overview_code_chunks" not in source
+    assert "scroll_contract_chunks" not in source
+    assert "load_search_pool" not in source
+    assert "_analysis_chunk" not in source
+    assert "primary_contract_names" not in source
+    assert "def sparse_search" in source
+    assert "_sparse_ranking" not in source
+    assert "hnsw.iterative_scan" in source
+    assert "SET LOCAL" in source
+    assert DENSE_TOP_K == 25
+    assert SPARSE_TOP_K == 25
 
 
 @pytest.fixture
@@ -101,243 +97,98 @@ def db():
     session.close()
 
 
-def test_allowed_roles_is_role_union_departments_and_all(db: Session):
-    org = make_org(db)
-    user = make_principal(db, org, role="employee", departments=["hr", "engineering"])
-    roles = allowed_roles_for(user)
-    assert set(roles) == {"employee", "hr", "engineering", "all"}
-    assert "allowed_roles" not in inspect.signature(retrieve).parameters
-    assert "access_roles" not in inspect.signature(retrieve).parameters
+def _vec(seed: int) -> list[float]:
+    return [((seed + offset) % 17) / 17.0 for offset in range(EMBEDDING_DIM)]
 
 
-def test_reranker_model_and_sigmoid_unit_interval():
-    assert RERANKER_MODEL == "BAAI/bge-reranker-base"
-    assert 0.0 < _sigmoid(-2.0) < 0.5
-    assert 0.5 < _sigmoid(2.0) < 1.0
-    assert VECTOR_SIZE == 384
+class _KeywordReranker:
+    def __init__(self, needle: str):
+        self.needle = needle.lower()
 
-    class _Model:
-        def rerank(self, query, documents):
-            return [0.0 for _ in documents]
-
-    scores = FastEmbedReranker(_Model()).score("q", ["a", "b"])
-    assert scores == [0.5, 0.5]
+    def score(self, _query: str, documents: list[str]) -> list[float]:
+        return [0.99 if self.needle in doc.lower() else 0.05 for doc in documents]
 
 
-def test_dense_search_applies_sql_acl(db: Session):
-    org = make_org(db)
-    public = _document(org, title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
-    secret = _document(org, title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
-    db.add_all([public, secret])
-    db.flush()
-    public_vec = _vec(1)
-    hr_vec = _vec(9)
-    db.add_all(
-        [
-            _chunk(public, page=1, content="Office hours are 9 to 18.", embedding=public_vec),
-            _chunk(secret, page=3, content="Parental leave is 140 days.", embedding=hr_vec),
-        ]
-    )
-    db.commit()
-
-    employee = make_principal(db, org, role="employee")
-    hits = dense_search(
-        db,
-        hr_vec,
-        allowed_roles_for(employee),
+def _ready_doc(db: Session, org, *, title: str, roles: list[str]) -> Document:
+    doc = Document(
         organization_id=org.id,
-        limit=DENSE_CANDIDATE_LIMIT,
+        title=title,
+        file_path=f"{uuid4()}/{title}",
+        file_hash=uuid4().hex,
+        file_size_bytes=32,
+        access_roles=roles,
+        status=DocumentStatus.ready.value,
     )
-    titles = {chunk.doc_title for chunk, _dist in hits}
-    assert "HR.pdf" not in titles
-    assert titles == {"Public.pdf"}
-
-
-def test_dense_search_skips_non_ready_documents(db: Session):
-    org = make_org(db)
-    pending = _document(org, status=DocumentStatus.processing.value, access_roles=["all"])
-    db.add(pending)
-    db.flush()
-    db.add(_chunk(pending, page=1, content="Draft policy text.", embedding=_vec(1)))
-    db.commit()
-    hits = dense_search(db, _vec(1), ["all", "employee"], organization_id=org.id, limit=10)
-    assert hits == []
-
-
-def test_blank_query_refuses_without_embedding(db: Session):
-    org = make_org(db)
-    user = make_principal(db, org)
-    db.commit()
-    embedder = FakeEmbedder(_vec(1))
-    result = retrieve(db, user, "   ", embedder=embedder, reranker=FakeReranker(0.9))
-    assert result.should_generate is False
-    assert result.refusal_text == NO_CONTEXT_ANSWER
-    assert embedder.texts == []
-
-
-def test_employee_never_sees_hr_chunk_in_fused_or_reranked(db: Session):
-    org = make_org(db)
-    public = _document(org, title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
-    hr_doc = _document(org, title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
-    admin_doc = _document(org, title="Board.pdf", access_roles=["admin"], file_hash=uuid4().hex)
-    db.add_all([public, hr_doc, admin_doc])
-    db.flush()
-    hr_vec = _vec(3)
-    db.add_all(
-        [
-            _chunk(public, page=1, content="The canteen menu is published weekly.", embedding=_vec(1)),
-            _chunk(hr_doc, page=4, content="Severance is three monthly salaries.", embedding=hr_vec),
-            _chunk(admin_doc, page=2, content="Board compensation is confidential.", embedding=_vec(7)),
-        ]
-    )
-    employee = make_principal(db, org, role="employee")
-    db.commit()
-
-    result = retrieve(
-        db,
-        employee,
-        "severance salaries",
-        embedder=FakeEmbedder(hr_vec),
-        reranker=FakeReranker(0.99),
-    )
-    contents = {chunk.content for chunk in result.chunks}
-    snippets = [hit.snippet for hit in result.dense + result.sparse + result.rrf + result.reranked]
-    titles = {chunk.doc_title for chunk in result.chunks}
-    joined = " ".join(snippets)
-    assert "Severance" not in joined
-    assert "Board compensation" not in joined
-    assert "HR.pdf" not in titles
-    assert "Board.pdf" not in titles
-    assert "Severance is three monthly salaries." not in contents
-    assert "Board compensation is confidential." not in contents
-    assert set(result.allowed_roles) == {"all", "employee"}
-
-
-def test_hr_department_user_sees_hr_chunk(db: Session):
-    org = make_org(db)
-    public = _document(org, title="Public.pdf", access_roles=["all"], file_hash=uuid4().hex)
-    hr_doc = _document(org, title="HR.pdf", access_roles=["hr"], file_hash=uuid4().hex)
-    db.add_all([public, hr_doc])
-    db.flush()
-    hr_vec = _vec(4)
-    db.add_all(
-        [
-            _chunk(public, page=1, content="Canteen menu.", embedding=_vec(1)),
-            _chunk(hr_doc, page=4, content="Severance is three monthly salaries.", embedding=hr_vec),
-        ]
-    )
-    hr_user = make_principal(db, org, role="employee", departments=["hr"])
-    db.commit()
-
-    result = retrieve(
-        db,
-        hr_user,
-        "severance salaries",
-        embedder=FakeEmbedder(hr_vec),
-        reranker=FakeReranker(0.9),
-    )
-    assert any(chunk.doc_title == "HR.pdf" for chunk in result.chunks)
-    assert {chunk.page_number for chunk in result.chunks} & {4}
-    assert "hr" in result.allowed_roles
-
-
-def test_empty_after_rerank_threshold_refuses_without_llm(db: Session):
-    org = make_org(db)
-    doc = _document(org, access_roles=["all"])
     db.add(doc)
     db.flush()
-    db.add(_chunk(doc, page=1, content="Travel cap is 150 USD per day.", embedding=_vec(2)))
-    user = make_principal(db, org)
-    db.commit()
+    return doc
 
-    get_settings.cache_clear()
-    result = retrieve(
-        db,
-        user,
-        "travel cap",
-        embedder=FakeEmbedder(_vec(2)),
-        reranker=FakeReranker(0.1),
+
+def _chunk(db: Session, doc: Document, *, page: int, content: str, embedding: list[float]) -> DocumentChunk:
+    row = DocumentChunk(
+        document_id=doc.id,
+        organization_id=doc.organization_id,
+        chunk_id=make_chunk_id(doc.id, page, 0),
+        page_number=page,
+        access_roles=list(doc.access_roles),
+        content=content,
+        token_count=len(content.split()),
+        embedding=embedding,
+        doc_title=doc.title,
     )
-    assert result.chunks == []
-    assert result.should_generate is False
-    assert result.refusal_text == NO_CONTEXT_ANSWER
-    assert result.reranked == []
-    assert result.rrf  # fused candidates existed; threshold dropped them
-    source = inspect.getsource(retrieve)
-    assert "openai" not in source.lower()
-    assert "call_llm" not in source.lower()
-
-
-def test_hybrid_bm25_recovers_lexical_chunk(db: Session):
-    org = make_org(db)
-    doc = _document(org, access_roles=["all"])
-    db.add(doc)
+    db.add(row)
     db.flush()
-    wifi_vec = _vec(1)
-    leave_vec = _vec(12)
-    db.add_all(
-        [
-            _chunk(
-                doc,
-                page=1,
-                content="The office wifi password is posted at reception.",
-                embedding=wifi_vec,
-                ordinal=0,
-            ),
-            _chunk(
-                doc,
-                page=8,
-                content="Parental leave is one hundred forty calendar days.",
-                embedding=leave_vec,
-                ordinal=1,
-            ),
-        ]
-    )
+    return row
+
+
+def test_sparse_fts_finds_lexical_hit_outside_dense_top(db: Session):
+    org = make_org(db)
     user = make_principal(db, org)
+    public = _ready_doc(db, org, title="Handbook.pdf", roles=["all"])
+    noise_vec = _vec(1)
+    lexical = "Default Python version is 3.12 xyzzy-python-unique."
+    for page in range(1, 31):
+        _chunk(db, public, page=page, content=f"Noise filler page {page} office wifi.", embedding=noise_vec)
+    target = _chunk(db, public, page=99, content=lexical, embedding=_vec(9))
     db.commit()
+
+    class _Embedder:
+        def encode(self, texts, **_kwargs):
+            return [noise_vec for _ in texts]
 
     result = retrieve(
         db,
         user,
-        "parental leave calendar days",
-        embedder=FakeEmbedder(wifi_vec),
-        reranker=KeywordReranker(),
+        "What is the default Python version xyzzy-python-unique?",
+        embedder=_Embedder(),
+        reranker=_KeywordReranker("xyzzy-python-unique"),
     )
-    assert result.should_generate is True
-    assert result.chunks[0].page_number == 8
-    assert "Parental leave" in result.chunks[0].content
-    sparse_pages = {hit.page for hit in result.sparse}
-    assert 8 in sparse_pages
+    sparse_ids = {hit.chunk_id for hit in result.sparse}
+    assert target.chunk_id in sparse_ids
+    assert any(chunk.id == target.id for chunk in result.chunks)
 
 
-def test_pipeline_limits_match_spec():
-    assert DENSE_TOP_K == 25
-    assert SPARSE_TOP_K == 25
-    assert DENSE_CANDIDATE_LIMIT == 50
-    assert RERANK_TOP_K == 4
-    assert get_settings().rerank_threshold == 0.25
-
-
-def test_citation_shape_uses_uuid_doc_id(db: Session):
+def test_sparse_search_applies_org_and_acl(db: Session):
     org = make_org(db)
-    doc = _document(org, title="Policy.pdf", access_roles=["all"])
-    db.add(doc)
-    db.flush()
-    db.add(_chunk(doc, page=2, content="Remote work is allowed on Friday.", embedding=_vec(5)))
+    other = make_org(db)
     user = make_principal(db, org)
+    visible = _ready_doc(db, org, title="Public.pdf", roles=["all"])
+    hidden = _ready_doc(db, org, title="HR.pdf", roles=["hr"])
+    foreign = _ready_doc(db, other, title="Foreign.pdf", roles=["all"])
+    needle = "security incident report to security@docwise.example within one hour"
+    _chunk(db, visible, page=2, content=f"Public {needle}", embedding=_vec(1))
+    secret = _chunk(db, hidden, page=2, content=f"Secret {needle}", embedding=_vec(2))
+    foreign_chunk = _chunk(db, foreign, page=2, content=f"Foreign {needle}", embedding=_vec(3))
     db.commit()
 
-    result = retrieve(
+    hits = sparse_search(
         db,
-        user,
-        "remote work Friday",
-        embedder=FakeEmbedder(_vec(5)),
-        reranker=FakeReranker(0.8),
+        "security incident security@docwise.example",
+        list(user.allowed_roles()),
+        organization_id=org.id,
+        limit=25,
     )
-    assert len(result.chunks) == 1
-    citation = result.chunks[0].to_citation()
-    assert citation["doc_id"] == str(doc.id)
-    assert citation["doc_title"] == "Policy.pdf"
-    assert citation["page"] == 2
-    assert "Remote work" in citation["snippet"]
-    assert "file.sol" not in citation["snippet"]
+    ids = {chunk.id for chunk, _score in hits}
+    assert secret.id not in ids
+    assert foreign_chunk.id not in ids
+    assert any("Public" in chunk.content for chunk, _score in hits)

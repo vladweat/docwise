@@ -52,7 +52,7 @@ WHERE org_id = :current_org
 
 ## Сессия
 
-- Cookie `dw_access` / `dw_refresh` как в [ADR-007](decisions.md). В access-токене — `sub` (email/id) **и** `org_id` текущего членства.
+- Cookie `dw_access` / `dw_refresh` как в [ADR-007](decisions.md). В access-токене — `sub` (email/id) **и** `org_id` текущего членства; `role` в JWT нет.
 - `GET /auth/me` отдаёт текущую org и роль членства, не «глобальную» роль.
 - Смена org: только `POST /api/v1/auth/switch-organization` при существующем membership; новые куки. На hostname, привязанном к другой org, смена запрещена. Поле `organization_id` / `org_id` в chat/search/upload **игнорируется** как источник прав (как `access_roles` сегодня).
 - Нет членства в org из токена → `401` / `403`, без списка чужих организаций в `detail`.
@@ -76,7 +76,7 @@ Self-serve:
 | chat / search / inspect | то же на `document_chunks` (`org_id` **и** ACL); чанки копируют `org_id` документа |
 | KB write (upload, delete, PATCH ACL, инвайты) | membership `admin` **текущей** org; строка всё равно с `org_id` сессии; seats/pages квота M6 |
 | чат-сессии, аудит | `org_id`; история Acme не подмешивается в Globex; токены периода — квота этой org |
-| LLM cache | ключ включает `org_id` **и** канонический `allowed_roles` |
+| LLM cache | ключ включает `org_id`, поколение индекса **и** канонический `allowed_roles` |
 | `file_hash` | unique `(org_id, file_hash)`, не глобально |
 | MinIO | ключ с префиксом org, без публичного URL |
 | биллинг / usage | только текущая org; `dev/simulate` чужой org → `404` |
