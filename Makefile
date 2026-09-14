@@ -63,6 +63,6 @@ eval:
 eval-retrieval:
 	docker compose exec -e PYTHONPATH=/app backend python /eval/run_eval.py --seed --retrieval-only
 
-# Local demo: employee vs HR + handbook (all) / HR compensation (hr)
+# Local demo: employee vs HR + six PDFs (all / hr / finance)
 demo:
 	docker compose exec -e PYTHONPATH=/app backend python /eval/seed_demo.py

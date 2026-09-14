@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed local demo users (employee vs HR) and two PDFs with different ACLs.
+"""Seed local demo users and the twelve-PDF catalog with mixed ACLs.
 
 Not invoked by default CI: needs a running stack and FastEmbed cache.
 """
@@ -42,19 +42,36 @@ Users (local only — do not use these passwords outside Compose):
   {DEMO_HR_EMAIL}         {DEMO_HR_PASSWORD}         role=employee  departments=['hr']
   {DEMO_ADMIN_EMAIL}      {DEMO_ADMIN_PASSWORD}      role=admin     (KB upload)
 
-Documents:
-  Employee-Handbook.pdf    access_roles=['all']   visible to everyone in this org
-  HR-Compensation.pdf      access_roles=['hr']    HR department only
+Documents (same org):
+  Employee-Handbook.pdf         access_roles=['all']       everyone in this org
+  Leave-Policy.pdf              access_roles=['all']
+  Expense-Policy.pdf            access_roles=['all']
+  Engineering-Onboarding.pdf    access_roles=['all']
+  HR-Compensation.pdf           access_roles=['hr']        HR department only
+  Finance-Q4-Memo.pdf           access_roles=['finance']   finance department only
+  Security-Runbook.pdf          access_roles=['all']       longer all-access runbook
+  Recruiting-FAQ.pdf            access_roles=['hr']        short HR-only FAQ
+  Travel-Policy.pdf             access_roles=['all']       travel cap + receipts
+  IT-Access-Checklist.pdf       access_roles=['all']       onboarding checklist
+  Operations-Handbook.pdf       access_roles=['all']       long operations manual
+  People-Compendium.pdf         access_roles=['hr']        long HR-only compendium
 
 Walkthrough:
-  1. Open {UI} and log in as {DEMO_EMPLOYEE_EMAIL}
+  1. Open {UI} → «Войти как сотрудник» ({DEMO_EMPLOYEE_EMAIL})
   2. Ask: What are the core working hours at Docwise?
-     → answer from the handbook (page 1) with a citation
+     → handbook page 1 + PDF highlight on the citation
   3. Ask: What is the individual contributor L3 salary band in USD?
      → refuse; SQL ACL drops the HR chunk before the LLM
-  4. Log out, log in as {DEMO_HR_EMAIL}
+  4. Log out → «Войти как HR» ({DEMO_HR_EMAIL})
   5. Ask the salary question again
      → 72000 to 88000 USD from HR-Compensation.pdf
+  6. Neither account sees Finance-Q4-Memo.pdf in the list or in chat
+  7. Employee can still open Security-Runbook.pdf and Travel-Policy.pdf
+  8. Employee can open IT-Access-Checklist.pdf, but not Recruiting-FAQ.pdf
+  9. Employee can open Operations-Handbook.pdf, but not People-Compendium.pdf
+  10. HR sees both long docs; the People-Compendium stays hidden from employee
+
+The three demo emails keep membership only in org Demo (password login would otherwise pick an older org).
 """
 
 

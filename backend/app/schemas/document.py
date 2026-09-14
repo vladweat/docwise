@@ -12,6 +12,7 @@ class DocumentResponse(BaseModel):
     access_roles: list[str] = Field(default_factory=list)
     status: str
     last_error: str | None = None
+    preview_snippet: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

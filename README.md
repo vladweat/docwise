@@ -96,31 +96,62 @@ Full table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Default CI doe
 
 ## Run the demo
 
-Dependencies are installed on the host (`make deps`); images build **offline** (`network: none`).
+Three commands after a one-time `make deps`. Images build **offline** (`network: none`).
 
 ```bash
 cp .env.example .env          # set OPENAI_API_KEY (or KodikRouter) for chat
 make deps                     # backend/.venv + FastEmbed ONNX + frontend/node_modules
 make up                       # postgres, redis, minio, backend, worker, frontend
 make health                   # GET http://localhost:8001/health
-make demo                     # employee vs HR users + two PDFs with different ACLs
+make demo                     # Demo org: 3 users + 12 PDFs (all / hr / finance)
 ```
 
-UI: http://localhost:3001 (cookies `dw_*`, host-only). Tenant host `{slug}.localhost:3001` talks to `{slug}.localhost:8001` so the cookie stays on that host. `{slug}.localhost` is loopback (RFC 6761). Custom CNAME in Compose is `/etc/hosts`, or `{cname}.localhost` (e.g. `http://bootorg.docwise.app.localhost:3001`) — not Let's Encrypt:
+Open http://localhost:3001 — on localhost the login screen has **Войти как сотрудник / HR / admin**. Cookies `dw_*` are host-only. Tenant host `{slug}.localhost:3001` talks to `{slug}.localhost:8001`. `{slug}.localhost` is loopback (RFC 6761). Custom CNAME in Compose is `/etc/hosts` (not Let's Encrypt).
 
-```
-127.0.0.1 kb.acme.example
-```
-
-| User | Password | Sees |
+| User | Password | Sees in the KB |
 | --- | --- | --- |
-| `employee@docwise.example.com` | `demo-employee-pass` | `Employee-Handbook.pdf` (`all`) only |
-| `hr@docwise.example.com` | `demo-hr-pass` | handbook **and** `HR-Compensation.pdf` (`hr`) |
-| `admin@docwise.example.com` | `demo-admin-pass` | KB upload; retrieval still respects document ACL |
+| `employee@docwise.example.com` | `demo-employee-pass` | eight `all` PDFs (handbook, leave, expense, engineering, security runbook, travel policy, IT checklist, operations handbook) |
+| `hr@docwise.example.com` | `demo-hr-pass` | those eight **plus** `HR-Compensation.pdf`, `Recruiting-FAQ.pdf`, and `People-Compendium.pdf` |
+| `admin@docwise.example.com` | `demo-admin-pass` | same retrieval ACL as their membership (`all` only unless you add `hr`); KB upload + `/inspect` |
 
-Try as **employee**: “What are the core working hours at Docwise?” (handbook, page 1). Then “What is the individual contributor L3 salary band in USD?” — the model must refuse. Log in as **hr** and ask the salary question again.
+`Finance-Q4-Memo.pdf` is `finance` only — neither demo employee nor HR lists it or can open `/raw`.
+
+**ACL walkthrough (same question, two roles):**
+
+1. Employee: “What are the core working hours at Docwise?” → handbook page 1; click the citation → PDF highlight.
+2. Employee: “What is the individual contributor L3 salary band in USD?” → refuse (HR chunk never reaches the LLM).
+3. Log out → HR → same salary question → `72000`–`88000` USD from `HR-Compensation.pdf`.
+4. Org-admin `/inspect`: stages dense / FTS / RRF / reranked. Admin without `hr` still does not see the compensation chunk.
 
 Script: `eval/seed_demo.py` (same fixture PDFs as eval; real `index_pdf`, not Celery). Local passwords only.
+
+## Security scenarios (what CI already guards)
+
+These are SQL + session checks, not prompt instructions. The UI does not explain *why* a file is missing.
+
+| # | Scenario | Expected |
+| --- | --- | --- |
+| 1 | Other org, document tagged `all` | Empty list / chat / inspect; `GET /raw` → `404` (same as missing). `all` is not global SaaS. |
+| 2 | HR-only PDF, caller is employee with `departments=[]` | No row in `GET /documents`, no chunk in chat or inspect, salary question refuses. |
+| 3 | LLM cache after PATCH ACL | Cache key includes `org_id` + allowed roles + index generation; bump on ACL change so a newly restricted file is not served from cache. |
+| 4 | `GET /documents/{id}/raw` without overlapping `access_roles` (or other org) | `404`, no title leak. Viewer shows «Документ недоступен». |
+| 5 | `POST /search/inspect` | Flag off → `404` even for admin. Non-admin → `403`. Body `access_roles` / `org_id` ignored. |
+
+Tests: `backend/tests/test_inspect.py`, tenancy/ACL cases in documents and retrieval tests.
+
+## Out of scope (frozen)
+
+This repo is a portfolio-complete RAG workspace, not a billing company. Intentionally **not** built:
+
+- Live Stripe / real customer IdP (SAML in prod) / SCIM
+- Postgres RLS (SQL `organization_id` + `access_roles` is the product gate)
+- Platform operator console that can read customer corpora
+- Agents with tool-calling beyond the corpus
+- Training custom embeddings; rewrite to asyncpg
+
+Compose billing is `BILLING_PROVIDER=dev`. Inspect is on in Compose (`ENABLE_SEARCH_INSPECT=true`) and off by default when `ENVIRONMENT=production`.
+
+Portfolio freeze: [docs/portfolio.md](docs/portfolio.md).
 
 ## CI
 
@@ -165,4 +196,5 @@ reports/          # rag_benchmark.md
 | [docs/api.md](docs/api.md) | HTTP contract |
 | [docs/milestones.md](docs/milestones.md) | v1 roadmap |
 | [docs/tech-debt.md](docs/tech-debt.md) | Structural backlog after M0–M6 |
+| [docs/portfolio.md](docs/portfolio.md) | Demo / showcase freeze (not product milestones) |
 | [AGENTS.md](AGENTS.md) | Agent checklist |

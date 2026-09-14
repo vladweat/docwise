@@ -68,6 +68,7 @@ services:
       LD_LIBRARY_PATH: /usr/local/lib
       BILLING_PROVIDER: ${BILLING_PROVIDER:-dev}
       SSO_PROVIDER: ${SSO_PROVIDER:-dev}
+      ENABLE_SEARCH_INSPECT: ${ENABLE_SEARCH_INSPECT:-true}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}

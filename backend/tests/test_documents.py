@@ -291,6 +291,36 @@ def test_list_pagination_and_status_filter(admin_client: TestClient, storage: Fa
     assert ready.json()["items"][0]["id"] == ids[0]
 
 
+def test_list_documents_includes_preview_snippet(admin_client: TestClient, storage: FakeStorage):
+    response = _upload(admin_client, filename="Preview.pdf", content=_pdf("preview"), roles=["all"])
+    assert response.status_code == 201
+    doc_id = response.json()["id"]
+    db = SessionLocal()
+    doc = db.get(Document, UUID(doc_id))
+    assert doc is not None
+    db.add(
+        DocumentChunk(
+            document_id=doc_id,
+            organization_id=doc.organization_id,
+            chunk_id=make_chunk_id(doc_id, 1, 0),
+            page_number=1,
+            access_roles=["all"],
+            content="Preview content from the first page of the PDF.",
+        )
+    )
+    doc.status = DocumentStatus.ready.value
+    db.commit()
+    db.close()
+
+    listed = admin_client.get("/api/v1/documents")
+    assert listed.status_code == 200
+    body = listed.json()
+    item = next(row for row in body["items"] if row["id"] == doc_id)
+    assert isinstance(item["preview_snippet"], str)
+    assert item["preview_snippet"]
+    assert len(item["preview_snippet"]) <= 260
+
+
 def test_status_returns_last_error_for_visible_doc(admin_client: TestClient, storage: FakeStorage):
     response = _upload(admin_client, filename="Policy.pdf", content=_pdf("st"), roles=["admin"])
     doc_id = response.json()["id"]

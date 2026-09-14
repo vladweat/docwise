@@ -8,22 +8,23 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useAuth } from "@/features/auth/auth-provider";
 import { AnswerMarkdown } from "@/features/chat/answer-markdown";
 import { CitationTag } from "@/features/chat/citation-tag";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiRequestError, fetchChatSession, streamChat } from "@/lib/api";
-import { NO_CONTEXT_ANSWER, splitAnswerParts, uniqueCitations } from "@/features/chat/lib/chat";
+import {
+  NO_CONTEXT_ANSWER,
+  splitAnswerParts,
+  stripCitationMarkers,
+  uniqueCitations,
+} from "@/features/chat/lib/chat";
+import { chatSuggestionsFor, isDemoOrganization } from "@/features/chat/lib/chat-suggestions";
 import { userFacingApiMessage } from "@/lib/quota";
 import { cn } from "@/lib/utils";
 import { useChatStore, type UiMessage } from "@/features/chat/stores/chat-store";
 import { useToastStore } from "@/stores/toast-store";
 import type { ChatStreamEvent, Citation } from "@/types/chat";
-
-const SUGGESTIONS = [
-  "Какой суточный лимит компенсации командировок?",
-  "Какие документы нужны для отпуска?",
-  "Где описана политика удалённой работы?",
-];
 
 export function ChatPanel({
   sessionId,
@@ -34,7 +35,10 @@ export function ChatPanel({
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const userId = useAuth().user?.id;
+  const user = useAuth().user;
+  const userId = user?.id;
+  const suggestions = chatSuggestionsFor(user);
+  const demoOrg = isDemoOrganization(user);
   const [question, setQuestion] = useState("");
   const [loadingHistory, setLoadingHistory] = useState(Boolean(sessionId));
   const messages = useChatStore((state) => state.messages);
@@ -234,12 +238,19 @@ export function ChatPanel({
               <div>
                 <h2 className="text-lg font-semibold sm:text-xl">Спросите по документам</h2>
                 <p className="mt-2 max-w-md text-sm text-slate-400">
-                  Ответ строится только по файлам, которые вам доступны. Каждая цитата ведёт на
-                  страницу PDF.
+                  Ответ строится только по файлам, которые вам доступны. Каждая цитата открывает
+                  страницу PDF и подсвечивает фрагмент. Если в разрешённом корпусе ответа нет —
+                  отказ, без догадок.
                 </p>
               </div>
+              {demoOrg ? (
+                <Alert className="max-w-md text-left">
+                  Демо: сотрудник не видит HR-Compensation.pdf. Один и тот же вопрос про L3 salary
+                  band — отказ у employee, цитата у HR.
+                </Alert>
+              ) : null}
               <div className="flex w-full flex-col gap-2">
-                {SUGGESTIONS.map((item) => (
+                {suggestions.map((item) => (
                   <Button
                     key={item}
                     type="button"
@@ -313,6 +324,7 @@ function MessageBubble({
   const isUser = message.role === "user";
   const chips = uniqueCitations(message.sources);
   const parts = splitAnswerParts(message.content, message.sources);
+  const plainContent = chips.length > 0 ? stripCitationMarkers(message.content) : message.content;
   const isRefusal = message.content.trim() === NO_CONTEXT_ANSWER;
 
   return (
@@ -342,18 +354,28 @@ function MessageBubble({
         ) : null}
         <div className="break-words">
           {message.content ? (
-            isUser || isRefusal ? (
+            isUser ? (
               <span className="whitespace-pre-wrap">{message.content}</span>
+            ) : isRefusal ? (
+              <Alert variant="warning" className="border-0 bg-transparent px-0 py-0 text-amber-200">
+                {message.content}
+              </Alert>
+            ) : message.error ? (
+              <Alert variant="destructive" className="border-0 bg-transparent px-0 py-0">
+                {message.content}
+              </Alert>
+            ) : chips.length > 0 ? (
+              <AnswerMarkdown text={plainContent} className="block [&_p]:my-0" />
             ) : (
               parts.map((part, index) =>
                 part.type === "text" ? (
-                  <AnswerMarkdown key={index} text={part.value} className="inline-block w-full" />
+                  <AnswerMarkdown key={index} text={part.value} className="block [&_p]:my-0" />
                 ) : (
                   <CitationTag
                     key={`${part.citation.doc_id}:${part.citation.page}:${index}`}
                     citation={part.citation}
                     onSelect={onSelectCitation}
-                    className="mx-0.5 align-middle"
+                    className="ml-1 align-middle"
                   />
                 ),
               )

@@ -107,8 +107,24 @@ def test_demo_accounts_split_employee_and_hr_acl():
     assert "hr" in hr.departments
 
     specs = {item.slug: item for item in corpus.demo_specs()}
+    assert set(specs) == {
+        "employee-handbook",
+        "leave-policy",
+        "expense-policy",
+        "engineering-onboarding",
+        "hr-compensation",
+        "finance-q4",
+        "security-runbook",
+        "recruiting-faq",
+        "travel-policy",
+        "it-access-checklist",
+        "operations-handbook",
+        "people-compendium",
+    }
     assert specs["employee-handbook"].access_roles == ("all",)
     assert specs["hr-compensation"].access_roles == ("hr",)
+    assert specs["finance-q4"].access_roles == ("finance",)
+    assert str(specs["employee-handbook"].id) != str(corpus.HANDBOOK_ID)
 
 
 def test_golden_json_is_valid_utf8():

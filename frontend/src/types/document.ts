@@ -6,6 +6,7 @@ export interface DocumentResponse {
   access_roles: string[];
   status: string;
   last_error: string | null;
+  preview_snippet: string | null;
   created_at: string;
 }
 

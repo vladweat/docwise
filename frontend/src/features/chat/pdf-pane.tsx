@@ -67,7 +67,10 @@ export function PdfPane({
           {target ? (
             <>
               <p className="truncate text-sm font-medium text-slate-100">{target.docTitle}</p>
-              <p className="text-[11px] text-slate-500">стр. {target.page}</p>
+              <p className="text-[11px] text-slate-500">
+                стр. {target.page}
+                {target.snippet ? " · фрагмент подсвечен" : ""}
+              </p>
             </>
           ) : (
             <p className="truncate text-sm text-slate-500">Документ</p>

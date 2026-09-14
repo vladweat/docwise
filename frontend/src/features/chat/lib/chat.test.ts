@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { citationLabel, resolveCitation, splitAnswerParts } from "@/features/chat/lib/chat";
+import {
+  citationLabel,
+  resolveCitation,
+  splitAnswerParts,
+  stripCitationMarkers,
+} from "@/features/chat/lib/chat";
 import type { Citation } from "@/types/chat";
 
 const CITATION: Citation = {
@@ -37,5 +42,12 @@ describe("citationLabel", () => {
 describe("resolveCitation", () => {
   it("matches title and page", () => {
     expect(resolveCitation([CITATION], "policy.pdf", 2)).toEqual(CITATION);
+  });
+});
+
+describe("stripCitationMarkers", () => {
+  it("removes inline markers without leaving broken spacing", () => {
+    expect(stripCitationMarkers("Cap is 150 [Policy.pdf, p. 2].")).toBe("Cap is 150.");
+    expect(stripCitationMarkers("Лимит [Policy.pdf, стр. 2] !")).toBe("Лимит!");
   });
 });

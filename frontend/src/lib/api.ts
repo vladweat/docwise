@@ -16,6 +16,7 @@ import type {
 } from "@/types/billing";
 import type { HealthResponse } from "@/types/health";
 import type { OrganizationDomain } from "@/types/domain";
+import type { SearchInspectResponse } from "@/types/search";
 import type { DevSsoAssertion, SsoConnection, SsoUpsertRequest } from "@/types/sso";
 import { consumeSseBuffer, parseSseBlock } from "@/lib/sse";
 
@@ -379,7 +380,17 @@ export async function deleteDocument(documentId: string): Promise<void> {
 export async function fetchDocumentPdf(documentId: string): Promise<Blob> {
   const response = await authorizedFetch(`/documents/${documentId}/raw`);
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new ApiRequestError("Документ недоступен", 404);
+    }
     throw new ApiRequestError(await parseError(response), response.status);
   }
   return response.blob();
+}
+
+export async function inspectSearch(query: string, limit = 15): Promise<SearchInspectResponse> {
+  return apiFetch<SearchInspectResponse>("/search/inspect", {
+    method: "POST",
+    body: JSON.stringify({ query, limit }),
+  });
 }

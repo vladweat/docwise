@@ -18,7 +18,7 @@ docwise/
   frontend/              # Next.js App Router
     src/
       app/               # RSC-маршруты и metadata; клиентские острова из features/
-      features/          # chat, documents, settings, auth, health — UI + сторы фичи
+      features/          # chat, documents, settings, auth, inspect, health — UI + сторы фичи
       components/        # shell (header, providers) + shadcn `ui/`
       lib/               # общий HTTP-клиент, format, quota, ACL helpers
       stores/            # общее UI-состояние (toast)
