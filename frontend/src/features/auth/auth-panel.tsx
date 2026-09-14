@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { DEMO_ACCOUNTS, showDemoLogins } from "@/features/auth/demo-accounts";
 import { useAuth } from "@/features/auth/auth-provider";
 import { GoogleSignInButton } from "@/features/auth/google-sign-in-button";
 import { Alert } from "@/components/ui/alert";
@@ -10,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AuthMode = "login" | "register";
@@ -26,6 +26,8 @@ export function AuthPanel() {
   const [ssoSlug, setSsoSlug] = useState(searchParams.get("sso") ?? "");
   const [ssoGroups, setSsoGroups] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const demoLogins = showDemoLogins();
+  const openSso = Boolean(searchParams.get("sso"));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -38,6 +40,18 @@ export function AuthPanel() {
         await register(email, password, organizationName, inviteToken.trim() || undefined);
       }
       setPassword("");
+    } catch {
+      // error handled in context
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDemoLogin(nextEmail: string, nextPassword: string) {
+    clearError();
+    setSubmitting(true);
+    try {
+      await login(nextEmail, nextPassword);
     } catch {
       // error handled in context
     } finally {
@@ -73,17 +87,41 @@ export function AuthPanel() {
   }
 
   return (
-    <Panel title="Вход" subtitle="Email и пароль, Google или SSO">
+    <Panel title={mode === "login" ? "Вход" : "Регистрация"} subtitle="Корпоративный поиск по документам">
       <Tabs
         value={mode}
         onValueChange={(value) => switchMode(value as AuthMode)}
-        className="mb-4 gap-0"
+        className="mb-5 gap-0"
       >
         <TabsList>
           <TabsTrigger value="login">Вход</TabsTrigger>
           <TabsTrigger value="register">Регистрация</TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {mode === "login" && demoLogins ? (
+        <div className="mb-5">
+          <p className="mb-2 text-xs text-slate-500">Демо</p>
+          <div className="grid grid-cols-3 gap-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <Button
+                key={account.persona}
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={submitting}
+                className="h-9 px-2"
+                onClick={() => void handleDemoLogin(account.email, account.password)}
+              >
+                {account.shortLabel}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] leading-snug text-slate-500">
+            Сотрудник и HR — один вопрос про зарплату: отказ vs цитата.
+          </p>
+        </div>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -95,6 +133,7 @@ export function AuthPanel() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="user@example.com"
+            autoComplete="username"
           />
         </div>
 
@@ -110,6 +149,7 @@ export function AuthPanel() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
           />
         </div>
 
@@ -128,7 +168,7 @@ export function AuthPanel() {
               />
             </div>
             <div>
-              <Label htmlFor="invite">Токен инвайта (если есть)</Label>
+              <Label htmlFor="invite">Токен инвайта</Label>
               <Input
                 id="invite"
                 type="text"
@@ -147,47 +187,50 @@ export function AuthPanel() {
         </Button>
       </form>
 
-      <div className="my-4 flex items-center gap-3">
-        <Separator className="flex-1" />
-        <span className="text-xs text-slate-500">или</span>
-        <Separator className="flex-1" />
-      </div>
-
-      <GoogleSignInButton organizationName={mode === "register" ? organizationName : undefined} />
-
-      {mode === "login" ? (
-        <form onSubmit={handleSso} className="mt-4 space-y-3 border-t border-slate-800 pt-4">
-          <p className="text-xs text-slate-500">
-            SSO по slug организации. Compose (`SSO_PROVIDER=dev`) принимает фикстуру без Okta.
-          </p>
-          <div>
-            <Label htmlFor="sso-slug">SSO slug</Label>
-            <Input
-              id="sso-slug"
-              value={ssoSlug}
-              onChange={(e) => setSsoSlug(e.target.value)}
-              placeholder="globex-ab12cd"
-            />
-          </div>
-          <div>
-            <Label htmlFor="sso-groups">Группы IdP (через запятую)</Label>
-            <Input
-              id="sso-groups"
-              value={ssoGroups}
-              onChange={(e) => setSsoGroups(e.target.value)}
-              placeholder="admins, hr-team"
-            />
-          </div>
-          <Button
-            type="submit"
-            variant="secondary"
-            disabled={submitting || !ssoSlug.trim() || !email}
-            className="w-full"
-          >
-            Войти через SSO
-          </Button>
-        </form>
-      ) : null}
+      <details className="mt-5 group" open={openSso}>
+        <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300 [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-1">
+            <span className="transition-transform group-open:rotate-90">›</span>
+            Google и SSO
+          </span>
+        </summary>
+        <div className="mt-4 space-y-4">
+          <GoogleSignInButton organizationName={mode === "register" ? organizationName : undefined} />
+          {mode === "login" ? (
+            <form onSubmit={handleSso} className="space-y-3">
+              <p className="text-[11px] text-slate-500">
+                Email выше обязателен. Compose (`SSO_PROVIDER=dev`) — фикстура без Okta.
+              </p>
+              <div>
+                <Label htmlFor="sso-slug">SSO slug</Label>
+                <Input
+                  id="sso-slug"
+                  value={ssoSlug}
+                  onChange={(e) => setSsoSlug(e.target.value)}
+                  placeholder="globex-ab12cd"
+                />
+              </div>
+              <div>
+                <Label htmlFor="sso-groups">Группы IdP</Label>
+                <Input
+                  id="sso-groups"
+                  value={ssoGroups}
+                  onChange={(e) => setSsoGroups(e.target.value)}
+                  placeholder="admins, hr-team"
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={submitting || !ssoSlug.trim() || !email}
+                className="w-full"
+              >
+                Войти через SSO
+              </Button>
+            </form>
+          ) : null}
+        </div>
+      </details>
     </Panel>
   );
 }

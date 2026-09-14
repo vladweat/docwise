@@ -2,7 +2,7 @@
 
 Стек: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui (Radix), PDF: `@react-pdf-viewer/core` или `pdfjs-dist`. Состояние: TanStack Query + Zustand.
 
-Маршруты в `app/` — RSC (`metadata` + остров). Интерактив и сторы фичи — `src/features/{chat,documents,settings,auth,health}`. Общий HTTP — `lib/api.ts`. Примитивы — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
+Маршруты в `app/` — RSC (`metadata` + остров). Интерактив и сторы фичи — `src/features/{chat,documents,settings,auth,inspect,health}`. Общий HTTP — `lib/api.ts`. Примитивы — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
 
 База UI — ChainWise (`frontend/src/components/ui/*`, `lib/api.ts`, чат, auth). Заменить code-viewer на PDF; цитаты `file.sol:L10-20` → `Doc.pdf (стр. 4)`. SSE-ридер оставить: события `citations | token | meta | error | done`.
 
@@ -10,11 +10,12 @@
 
 | Путь | Экран |
 | --- | --- |
-| `/login` | Вход (пароль / Google / SSO по slug) |
+| `/login` | Вход: демо (три кнопки) сверху; Google/SSO свёрнуты |
 | `/` или `/chat` | Split-screen чат |
 | `/chat/[sessionId]` | Конкретная сессия |
 | `/documents` | Knowledge Base admin |
-| `/settings` | Org-admin M6: план, usage, SSO, домен |
+| `/inspect` | Org-admin: dense / FTS / RRF / reranked (`ENABLE_SEARCH_INSPECT`) |
+| `/settings` | Org-admin: план, usage, SSO, домен |
 
 ## Главный экран чата
 
@@ -52,7 +53,8 @@ Logout / login / смена пользователя сбрасывает TanSta
 
 ## Состояния и доступность
 
-- Пустой чат: короткий hint про корпоративные документы и цитаты.
+- Пустой чат: hint про ACL и цитаты; в org `Demo` — подсказка employee vs HR. Подсветка сниппета в PDF при клике по цитате.
+- Квота `402` — тост «квота организации исчерпана». Ingest `failed` — `last_error` в таблице. `/raw` 404 — «Документ недоступен», без названия чужого файла.
 - Нет прав на файл цитаты (не должно случаться при корректном ACL) — сообщение без утечки названия чужого документа, если его не было в ответе.
 - Клавиатура: фокус на сноски, Enter открывает страницу.
 - Контраст подсветки PDF читаемый в светлой теме (тёмная — по возможности).

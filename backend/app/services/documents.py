@@ -59,6 +59,22 @@ def visible_documents_query(db: Session, user: Principal):
     )
 
 
+def preview_snippet_for_document(db: Session, document: Document) -> str | None:
+    row = (
+        db.query(DocumentChunk.content)
+        .filter(
+            DocumentChunk.document_id == document.id,
+            DocumentChunk.organization_id == document.organization_id,
+        )
+        .order_by(DocumentChunk.page_number.asc(), DocumentChunk.chunk_id.asc())
+        .first()
+    )
+    if row is None:
+        return None
+    snippet = " ".join(str(row[0]).split())
+    return snippet[:260] or None
+
+
 def get_visible_document(db: Session, user: Principal, document_id: UUID) -> Document:
     document = visible_documents_query(db, user).filter(Document.id == document_id).first()
     if document is None:
@@ -261,7 +277,22 @@ def list_documents(
         .all()
     )
     return DocumentListResponse(
-        items=[DocumentResponse.model_validate(row) for row in rows],
+        items=[
+            DocumentResponse.model_validate(
+                {
+                    "id": row.id,
+                    "title": row.title,
+                    "file_size_bytes": row.file_size_bytes,
+                    "total_pages": row.total_pages,
+                    "access_roles": list(row.access_roles or []),
+                    "status": row.status,
+                    "last_error": row.last_error,
+                    "preview_snippet": preview_snippet_for_document(db, row),
+                    "created_at": row.created_at,
+                }
+            )
+            for row in rows
+        ],
         total=int(total),
         limit=limit,
         offset=offset,

@@ -16,6 +16,7 @@ import { useToastStore } from "@/stores/toast-store";
 const NAV: { href: string; label: string; match: (path: string) => boolean; adminOnly?: boolean }[] = [
   { href: "/", label: "Чат", match: (path: string) => path === "/" || path.startsWith("/chat") },
   { href: "/documents", label: "Документы", match: (path: string) => path.startsWith("/documents") },
+  { href: "/inspect", label: "Inspect", match: (path: string) => path.startsWith("/inspect"), adminOnly: true },
   { href: "/settings", label: "Настройки", match: (path: string) => path.startsWith("/settings"), adminOnly: true },
 ];
 

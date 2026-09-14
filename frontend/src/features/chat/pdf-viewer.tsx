@@ -114,9 +114,11 @@ export function PdfViewer({ target }: { target: ViewerTarget }) {
       } catch (err) {
         if (cancelled) return;
         const message =
-          err instanceof ApiRequestError
-            ? err.message
-            : "Не удалось открыть документ";
+          err instanceof ApiRequestError && err.status === 404
+            ? "Документ недоступен"
+            : err instanceof ApiRequestError
+              ? err.message
+              : "Не удалось открыть документ";
         setError(message);
       } finally {
         if (!cancelled) setLoading(false);
@@ -146,7 +148,7 @@ export function PdfViewer({ target }: { target: ViewerTarget }) {
             {highlights.map((rect, index) => (
               <div
                 key={index}
-                className="pointer-events-none absolute rounded-sm bg-amber-300/45 ring-1 ring-amber-400/70"
+                className="pointer-events-none absolute rounded-sm bg-amber-300/50 ring-2 ring-amber-400/80"
                 style={{
                   left: rect.left,
                   top: rect.top,

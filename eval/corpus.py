@@ -36,7 +36,33 @@ DEMO_HR_EMAIL = "hr@docwise.example.com"
 DEMO_ADMIN_PASSWORD = "demo-admin-pass"
 DEMO_EMPLOYEE_PASSWORD = "demo-employee-pass"
 DEMO_HR_PASSWORD = "demo-hr-pass"
-DEMO_DOC_SLUGS = ("employee-handbook", "hr-compensation")
+DEMO_HANDBOOK_ID = UUID("cccccccc-3333-4333-8333-000000000001")
+DEMO_LEAVE_ID = UUID("cccccccc-3333-4333-8333-000000000002")
+DEMO_EXPENSE_ID = UUID("cccccccc-3333-4333-8333-000000000003")
+DEMO_ENGINEERING_ID = UUID("cccccccc-3333-4333-8333-000000000004")
+DEMO_HR_COMP_ID = UUID("cccccccc-3333-4333-8333-000000000005")
+DEMO_FINANCE_ID = UUID("cccccccc-3333-4333-8333-000000000006")
+DEMO_SECURITY_ID = UUID("cccccccc-3333-4333-8333-000000000007")
+DEMO_RECRUITING_ID = UUID("cccccccc-3333-4333-8333-000000000008")
+DEMO_TRAVEL_ID = UUID("cccccccc-3333-4333-8333-000000000009")
+DEMO_IT_CHECKLIST_ID = UUID("cccccccc-3333-4333-8333-00000000000a")
+DEMO_OPERATIONS_ID = UUID("cccccccc-3333-4333-8333-00000000000b")
+DEMO_PEOPLE_ID = UUID("cccccccc-3333-4333-8333-00000000000c")
+
+DEMO_DOC_SLUGS = (
+    "employee-handbook",
+    "leave-policy",
+    "expense-policy",
+    "engineering-onboarding",
+    "hr-compensation",
+    "finance-q4",
+    "security-runbook",
+    "recruiting-faq",
+    "travel-policy",
+    "it-access-checklist",
+    "operations-handbook",
+    "people-compendium",
+)
 
 
 @dataclass(frozen=True)
@@ -74,13 +100,28 @@ DEMO_ACCOUNTS: tuple[DemoAccount, ...] = (
 )
 
 
+DEMO_CATALOG: tuple[FixtureSpec, ...] = (
+    FixtureSpec(DEMO_HANDBOOK_ID, "employee-handbook", "Employee-Handbook.pdf", ("all",), "handbook"),
+    FixtureSpec(DEMO_LEAVE_ID, "leave-policy", "Leave-Policy.pdf", ("all",), "leave"),
+    FixtureSpec(DEMO_EXPENSE_ID, "expense-policy", "Expense-Policy.pdf", ("all",), "expense"),
+    FixtureSpec(DEMO_ENGINEERING_ID, "engineering-onboarding", "Engineering-Onboarding.pdf", ("all",), "engineering"),
+    FixtureSpec(DEMO_HR_COMP_ID, "hr-compensation", "HR-Compensation.pdf", ("hr",), "hr_comp"),
+    FixtureSpec(DEMO_FINANCE_ID, "finance-q4", "Finance-Q4-Memo.pdf", ("finance",), "finance"),
+    FixtureSpec(DEMO_SECURITY_ID, "security-runbook", "Security-Runbook.pdf", ("all",), "security"),
+    FixtureSpec(DEMO_RECRUITING_ID, "recruiting-faq", "Recruiting-FAQ.pdf", ("hr",), "recruiting"),
+    FixtureSpec(DEMO_TRAVEL_ID, "travel-policy", "Travel-Policy.pdf", ("all",), "travel"),
+    FixtureSpec(DEMO_IT_CHECKLIST_ID, "it-access-checklist", "IT-Access-Checklist.pdf", ("all",), "it_checklist"),
+    FixtureSpec(DEMO_OPERATIONS_ID, "operations-handbook", "Operations-Handbook.pdf", ("all",), "operations"),
+    FixtureSpec(DEMO_PEOPLE_ID, "people-compendium", "People-Compendium.pdf", ("hr",), "people"),
+)
+
+
 def restricted_doc_ids() -> tuple[str, ...]:
     return RESTRICTED_DOC_IDS
 
 
 def demo_specs() -> tuple[FixtureSpec, ...]:
-    by_slug = {item.slug: item for item in CATALOG}
-    return tuple(by_slug[slug] for slug in DEMO_DOC_SLUGS)
+    return DEMO_CATALOG
 
 
 def build_pdf(spec: FixtureSpec) -> bytes:
@@ -91,6 +132,12 @@ def build_pdf(spec: FixtureSpec) -> bytes:
         "engineering": _engineering_pdf,
         "hr_comp": _hr_comp_pdf,
         "finance": _finance_pdf,
+        "security": _security_pdf,
+        "recruiting": _recruiting_pdf,
+        "travel": _travel_pdf,
+        "it_checklist": _it_access_checklist_pdf,
+        "operations": _operations_handbook_pdf,
+        "people": _people_compendium_pdf,
     }
     return builders[spec.builder]()
 
@@ -207,6 +254,9 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec],
         key = object_key_for_document(spec.id, spec.filename, organization_id=organization.id)
         storage.put_bytes(key, pdf_bytes, content_type="application/pdf")
         document = db.get(Document, spec.id)
+        if document is not None:
+            delete_chunks_for_document(db, document.id)
+            db.flush()
         if document is None:
             document = Document(
                 id=spec.id,
@@ -338,7 +388,7 @@ def _seed_foreign_org(db, storage) -> UUID:
 
 
 def seed_demo() -> dict:
-    """Upsert employee vs HR users and two PDFs with different ACLs for the local demo."""
+    """Upsert demo users and the six-PDF catalog (all / hr / finance ACLs)."""
     from app.core.database import SessionLocal
     from app.services.storage import get_object_storage
 
@@ -358,6 +408,7 @@ def seed_demo() -> dict:
                 organization=organization,
                 reset_password=True,
             )
+            _keep_only_demo_membership(db, user.id, organization.id)
             users.append(
                 {
                     "email": user.email,
@@ -370,6 +421,23 @@ def seed_demo() -> dict:
         return {"organization_id": str(organization.id), "users": users, "documents": indexed}
     finally:
         db.close()
+
+
+def _keep_only_demo_membership(db, user_id, organization_id) -> None:
+    """Reserved demo emails must land in org Demo on password login (first membership)."""
+    from app.models.organization import OrganizationMembership
+
+    extras = (
+        db.query(OrganizationMembership)
+        .filter(
+            OrganizationMembership.user_id == user_id,
+            OrganizationMembership.organization_id != organization_id,
+        )
+        .all()
+    )
+    for row in extras:
+        db.delete(row)
+    db.flush()
 
 
 def _handbook_pdf() -> bytes:
@@ -516,6 +584,223 @@ def _finance_pdf() -> bytes:
             ),
         ]
     )
+
+
+def _security_pdf() -> bytes:
+    return _multi_page(
+        [
+            (
+                "Incident intake",
+                "Security incidents must be reported to security@docwise.example within one hour. "
+                "When an incident is suspected, the on-call engineer freezes deployments and opens a ticket. "
+                "Screenshots and timestamps are required for every report.",
+            ),
+            (
+                "Containment",
+                "If credentials are exposed, rotate them immediately and invalidate active sessions. "
+                "The security lead can request a temporary access freeze for any affected account. "
+                "Do not forward incident details outside the security channel.",
+            ),
+            (
+                "Postmortem",
+                "A postmortem is due within five business days after containment. "
+                "Each postmortem lists the root cause, blast radius, remediation owner, and verification step. "
+                "Track follow-up items in the security backlog until closed.",
+            ),
+            (
+                "Contact matrix",
+                "Primary security contact: security lead. "
+                "Backup contact: platform on-call. "
+                "For vendor issues, route through procurement only after the security lead has acknowledged the incident.",
+            ),
+        ]
+    )
+
+
+def _recruiting_pdf() -> bytes:
+    doc = fitz.open()
+    page1 = _add_page(
+        doc,
+        "Recruiting FAQ (HR only)",
+        "Interview feedback must be entered within twenty four hours. "
+        "Candidate compensation bands are hidden from non-HR staff. "
+        "Interview panels use a three-point score: hire, lean hire, no hire.",
+    )
+    _draw_table(
+        page1,
+        origin=(72, 220),
+        col_widths=[150.0, 120.0, 140.0],
+        row_h=22.0,
+        cells=[
+            ["Stage", "Owner", "Target"],
+            ["Screen", "Recruiter", "2 days"],
+            ["Onsite", "Hiring manager", "5 days"],
+            ["Offer", "HR", "1 day"],
+        ],
+    )
+    _add_page(
+        doc,
+        "Offer process (HR only)",
+        "Offers require approval from HR and the hiring manager. "
+        "Once approved, the recruiter sends the offer letter, closes the requisition, and updates the tracker. "
+        "Rejected candidates are archived after thirty days.",
+    )
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+def _travel_pdf() -> bytes:
+    doc = fitz.open()
+    page1 = _add_page(
+        doc,
+        "Business travel policy",
+        "Travel above 500 USD requires manager approval. "
+        "Airfare should be booked at least seven days before departure. "
+        "Per diem for domestic travel is 45 USD per day and 75 USD for international travel.",
+    )
+    _draw_table(
+        page1,
+        origin=(72, 220),
+        col_widths=[150.0, 110.0, 130.0],
+        row_h=22.0,
+        cells=[
+            ["Item", "Domestic", "International"],
+            ["Hotel cap", "180 USD", "240 USD"],
+            ["Meal cap", "25 USD", "35 USD"],
+            ["Taxi cap", "40 USD", "60 USD"],
+        ],
+    )
+    _add_page(
+        doc,
+        "Receipts and exceptions",
+        "Receipts must be attached within five business days after the trip. "
+        "Alcohol is never reimbursable. "
+        "Extended stays need an explanation if the total hotel cost exceeds the nightly cap. "
+        "The travel team can approve one exception per quarter.",
+    )
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+def _it_access_checklist_pdf() -> bytes:
+    return _multi_page(
+        [
+            (
+                "Before day one",
+                "Create the employee account, assign laptop serial number, and provision MFA. "
+                "The recruiter sends the start date, home address, and phone number to IT only after the offer is signed. "
+                "Badge pickup is coordinated with facilities.",
+            ),
+            (
+                "Day one checklist",
+                "Install password manager, Slack, and VPN. "
+                "Set the default printer, configure GitHub SSO, and verify access to email, calendar, and time tracking. "
+                "If any access is missing, open a helpdesk ticket immediately.",
+            ),
+            (
+                "First week",
+                "Check that the laptop is encrypted, backups run overnight, and the user knows how to reset MFA. "
+                "The checklist closes only after the onboarding buddy confirms the account works in all required systems.",
+            ),
+        ]
+    )
+
+
+def _operations_handbook_pdf() -> bytes:
+    return _multi_page(
+        [
+            (
+                "Operating model",
+                "Operations runs on three support zones: business hours, after-hours, and emergency. "
+                "During business hours, the service desk owns requests; after-hours issues route to the on-call lead. "
+                "Emergency changes require a follow-up note within one business day.",
+            ),
+            (
+                "Release cadence",
+                "Weekly releases land on Thursday after the change freeze lifts. "
+                "Every release note records the owner, rollback steps, and the user-facing impact. "
+                "Hotfixes are allowed only if a production incident is active or a customer-facing blocker is confirmed.",
+            ),
+            (
+                "Change control",
+                "Standard changes need one approver, normal changes need two approvers, and high-risk changes need an incident review first. "
+                "Each change ticket includes scope, rollback plan, testing evidence, and a comms owner.",
+            ),
+            (
+                "Vendor support",
+                "Vendor outages are tracked in the support backlog. "
+                "The vendor owner updates status twice per day until resolved. "
+                "If a vendor misses the SLA twice in a quarter, the account is escalated to procurement.",
+            ),
+            (
+                "Data handling",
+                "Operational logs are retained for thirty days, audit exports for one year, and incident notes for two years. "
+                "Do not paste customer secrets into chat. "
+                "Shared screenshots must blur personal data before upload.",
+            ),
+            (
+                "Weekly checklist",
+                "Review the support queue, verify backups, close stale incidents, and confirm the on-call calendar. "
+                "The checklist is complete only after the ownership board is updated and the release manager signs off.",
+            ),
+        ]
+    )
+
+
+def _people_compendium_pdf() -> bytes:
+    doc = fitz.open()
+    page1 = _add_page(
+        doc,
+        "People compendium (HR only)",
+        "The people team owns promotions, compensation reviews, policy exceptions, and employee relations. "
+        "Salary conversations are confidential and are never shared outside HR. "
+        "Hiring managers receive only the minimum data required for their process.",
+    )
+    _draw_table(
+        page1,
+        origin=(72, 220),
+        col_widths=[140.0, 110.0, 150.0],
+        row_h=22.0,
+        cells=[
+            ["Topic", "Owner", "Cadence"],
+            ["Comp review", "HRBP", "Twice yearly"],
+            ["Promotion", "People partner", "Monthly"],
+            ["Offer approval", "HR", "Daily"],
+        ],
+    )
+    _add_page(
+        doc,
+        "Benefits and leave (HR only)",
+        "Benefit questions are answered with the latest policy memo, not memory. "
+        "The people team publishes a monthly FAQ for exceptions, parental leave, and bereavement leave. "
+        "Only HR can edit benefit policy text.",
+    )
+    _add_page(
+        doc,
+        "Performance and calibration",
+        "Calibration notes are stored in a separate workspace. "
+        "Every review cycle ends with a calibration meeting, a manager follow-up, and a documentation sweep. "
+        "HR keeps a list of approved rating exceptions for audit.",
+    )
+    _add_page(
+        doc,
+        "Offer workflow",
+        "Compensation bands are checked before an offer is drafted. "
+        "The recruiter sends the draft to HR, HR validates it against the band, and the hiring manager confirms the level. "
+        "If the band is outside range, the offer is returned for revision.",
+    )
+    _add_page(
+        doc,
+        "Employee relations",
+        "Sensitive cases are handled by the people partner and legal counsel. "
+        "The case log records date, owner, action, and next step. "
+        "Escalations remain confidential until the case is closed.",
+    )
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
 
 
 def _multi_page(pages: list[tuple[str, str]]) -> bytes:

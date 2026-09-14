@@ -66,6 +66,14 @@ export function splitAnswerParts(content: string, citations: Citation[]): Answer
   return parts;
 }
 
+export function stripCitationMarkers(content: string): string {
+  return content
+    .replace(INLINE_CITE_RE, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function uniqueCitations(citations: Citation[]): Citation[] {
   const seen = new Set<string>();
   const out: Citation[] = [];

@@ -23,6 +23,13 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FadeIn } from "@/components/ui/fade-in";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -38,6 +45,7 @@ import { formatBytes, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/stores/toast-store";
 import type { DocumentResponse } from "@/types/document";
+import { DocumentPdfPreview } from "@/features/documents/document-pdf-preview";
 
 const STATUS_VARIANT: Record<string, "secondary" | "success" | "warning" | "destructive"> = {
   pending: "warning",
@@ -57,6 +65,7 @@ export function DocumentsPage() {
   const canManage = canManageKnowledgeBase(user);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<DocumentResponse | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DocumentResponse | null>(null);
 
   const query = useQuery({
@@ -110,7 +119,10 @@ export function DocumentsPage() {
             </Alert>
           ) : null}
           {query.data && query.data.items.length === 0 ? (
-            <p className="text-sm text-slate-400">Пока нет документов, которые вам видно.</p>
+            <Alert>
+              Пока нет документов, которые вам видно. Чужие теги и чужая организация сюда не
+              попадают. Если это локальный стенд: `make demo`, затем обновите список.
+            </Alert>
           ) : null}
           {query.data && query.data.items.length > 0 ? (
             <div className="rounded-xl border border-slate-800">
@@ -131,6 +143,7 @@ export function DocumentsPage() {
                       key={doc.id}
                       doc={doc}
                       canManage={canManage}
+                      onPreview={setPreviewDocument}
                       onAskDelete={setPendingDelete}
                     />
                   ))}
@@ -142,6 +155,7 @@ export function DocumentsPage() {
       </main>
       <DocumentUploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <DocumentPreviewDialog document={previewDocument} onClose={() => setPreviewDocument(null)} />
       <DeleteConfirmDialog document={pendingDelete} onClose={() => setPendingDelete(null)} />
     </AuthGate>
   );
@@ -150,10 +164,12 @@ export function DocumentsPage() {
 function DocumentRow({
   doc,
   canManage,
+  onPreview,
   onAskDelete,
 }: {
   doc: DocumentResponse;
   canManage: boolean;
+  onPreview: (doc: DocumentResponse) => void;
   onAskDelete: (doc: DocumentResponse) => void;
 }) {
   const { user } = useAuth();
@@ -184,6 +200,14 @@ function DocumentRow({
       <TableCell className="text-slate-100">
         {doc.title}
         <p className="mt-0.5 text-xs text-slate-500">{formatDateTime(doc.created_at)}</p>
+        <Button
+          type="button"
+          variant="link"
+          className="mt-1 h-auto p-0 text-xs text-blue-300 hover:text-blue-200"
+          onClick={() => onPreview(doc)}
+        >
+          Открыть PDF
+        </Button>
       </TableCell>
       <TableCell className="text-slate-400">{formatBytes(doc.file_size_bytes)}</TableCell>
       <TableCell className="text-slate-400">{doc.total_pages ?? "—"}</TableCell>
@@ -205,9 +229,9 @@ function DocumentRow({
           />
         ) : null}
         {status === "failed" && lastError ? (
-          <p className="mt-1 max-w-xs text-xs text-red-400" title={lastError}>
+          <Alert variant="destructive" className="mt-2 max-w-xs px-2 py-1.5 text-xs" title={lastError}>
             {lastError}
-          </p>
+          </Alert>
         ) : null}
       </TableCell>
       {canManage ? (
@@ -224,6 +248,37 @@ function DocumentRow({
         </TableCell>
       ) : null}
     </TableRow>
+  );
+}
+
+function DocumentPreviewDialog({
+  document,
+  onClose,
+}: {
+  document: DocumentResponse | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog
+      open={document !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="flex h-[min(90dvh,52rem)] max-h-[90dvh] w-[min(96vw,72rem)] max-w-[min(96vw,72rem)] min-w-0 flex-col overflow-hidden p-0" showCloseButton>
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+          <DialogHeader className="border-b border-slate-800 px-4 py-3 pr-12">
+            <DialogTitle>{document?.title}</DialogTitle>
+            <DialogDescription>
+              Просмотр PDF: листайте страницы и меняйте масштаб в панели ниже заголовка.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+            {document ? <DocumentPdfPreview documentId={document.id} /> : null}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
