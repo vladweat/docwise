@@ -47,6 +47,7 @@ os.environ["BILLING_PROVIDER"] = "dev"
 os.environ["SSO_PROVIDER"] = "dev"
 os.environ["STRIPE_SECRET_KEY"] = ""
 os.environ["STRIPE_WEBHOOK_SECRET"] = ""
+os.environ["RLS_TEST_FIXTURE_BYPASS"] = "1"
 
 
 def _ensure_test_database() -> None:

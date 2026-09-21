@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from uuid import UUID
 
 from app.core.errors import NotFoundError
+from app.core.rls import bind_session_rls
 from app.core.sentry import capture_pipeline_error
 from app.services.chat.envelope import PERSIST_FAILED, sse, sse_done, sse_finish, sse_from_result
 from app.services.chat.llm import (
@@ -60,6 +61,7 @@ def iter_sse_events(
 
     try:
         with SessionLocal() as db:
+            bind_session_rls(db, organization_id=organization_id)
             user = principal_or_none(db, user_id, organization_id)
             if user is None:
                 yield sse({"type": "error", "content": GENERIC_CHAT_ERROR})
@@ -195,6 +197,7 @@ def _run_retrieval(search, user_id: UUID, organization_id: UUID, query: str, *, 
     if use_split:
         vector = embed_query(query)
         with SessionLocal() as db:
+            bind_session_rls(db, organization_id=organization_id)
             user = principal_or_none(db, user_id, organization_id)
             if user is None:
                 return None
@@ -202,6 +205,7 @@ def _run_retrieval(search, user_id: UUID, organization_id: UUID, query: str, *, 
         return finish_retrieval(query, pool)
 
     with SessionLocal() as db:
+        bind_session_rls(db, organization_id=organization_id)
         user = principal_or_none(db, user_id, organization_id)
         if user is None:
             return None

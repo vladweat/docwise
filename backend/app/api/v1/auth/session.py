@@ -12,6 +12,7 @@ from app.core.auth_cookies import (
     revoke_refresh_token,
 )
 from app.core.deps import get_current_user, get_db
+from app.core.rls import bind_session_rls
 from app.core.errors import AppError
 from app.core.principal import Principal
 from app.models.organization import Organization, OrganizationStatus
@@ -68,6 +69,7 @@ def refresh_session(request: Request, response: Response, db: Session = Depends(
         clear_auth_cookies(response)
         raise
 
+    bind_session_rls(db, organization_id=principal.organization_id)
     revoke_refresh_token(raw)
     issue_session(principal, response, sso=sso_claim)
     return user_response(db, principal)
@@ -107,5 +109,6 @@ def switch_organization(
     if organization.sso_enforced and not has_sso_fresh(current_user.id, organization.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SSO_REQUIRED)
     principal = principal_from_parts(current_user.user, membership, organization)
+    bind_session_rls(db, organization_id=principal.organization_id)
     issue_session(principal, response, sso=organization.sso_enforced)
     return user_response(db, principal)

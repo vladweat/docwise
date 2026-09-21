@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.principal import Principal
+from app.core.rls import bind_session_rls
 from app.core.sentry import capture_pipeline_error
 from app.core.time import utcnow_naive
 from app.models.chat import ChatMessage, ChatMessageRole, ChatSession
@@ -134,6 +135,7 @@ def persist_closed(
 ) -> tuple[ChatResult, bool]:
     try:
         with SessionLocal() as db:
+            bind_session_rls(db, organization_id=organization_id)
             user = principal_or_none(db, user_id, organization_id)
             if user is None:
                 return result, False

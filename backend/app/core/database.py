@@ -18,6 +18,11 @@ class Base(DeclarativeBase):
     pass
 
 
+from app.core.rls import register_rls_listeners  # noqa: E402
+
+register_rls_listeners()
+
+
 def check_postgres() -> bool:
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))

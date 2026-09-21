@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.auth_cookies import ACCESS_COOKIE
 from app.core.database import SessionLocal
 from app.core.principal import Principal
+from app.core.rls import bind_session_rls, clear_session_rls
 from app.core.security import decode_access_token
 from app.models.user import User, UserRole
 from app.services.org.domains import enforce_host_pin
@@ -19,6 +20,7 @@ def get_db() -> Generator[Session, None, None]:
     try:
         yield db
     finally:
+        clear_session_rls(db)
         db.close()
 
 
@@ -77,6 +79,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Princip
             detail="Not authenticated",
         )
     enforce_host_pin(db, request, principal.organization_id, mode="session")
+    bind_session_rls(db, organization_id=principal.organization_id)
     return principal
 
 

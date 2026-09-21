@@ -121,3 +121,11 @@ Compose: `SSO_PROVIDER=dev` (фикстурная assertion). Живой Okta/Wo
 Сессионные куки **host-only** (без `Domain` на родительский суффикс). Если `Host` привязан к org, он **должен** совпасть с `org_id` сессии. Hostname — дополнительный конъюнкт, не замена SQL `organization_id`. На хосте Acme нельзя переключить сессию в Globex.
 
 Неподтверждённый домен не биндится; один hostname — одна org. CORS/CSRF allowlist — из проверенного домена, не из тела. Compose: `/etc/hosts`, без Let's Encrypt в CI.
+
+## ADR-016. Postgres RLS только на корпусе
+
+**Решение:** `FORCE ROW LEVEL SECURITY` на `documents` и `document_chunks`. GUC `app.organization_id` / bypass для Celery. `bind_session_rls` после resolve principal и на SSE-путях, где идёт retrieval.
+
+**Почему:** именно эти таблицы питают dense/FTS; одна забытая привязка org в SQL — кросс-тенантный текст в RRF. Чат и аудит уже всегда с `organization_id` (и `user_id`) в запросах; RLS на `chat_messages` без колонки org — лишняя сложность.
+
+**Следствие:** миграция `015`. Внутренняя ACL (`access_roles`) не в RLS. Pytest: `RLS_TEST_FIXTURE_BYPASS` только для прямых ORM-фикстур корпуса.
