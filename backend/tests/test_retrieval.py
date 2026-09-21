@@ -12,16 +12,20 @@ from app.services.retrieval import (
     DENSE_TOP_K,
     RRF_K,
     SPARSE_TOP_K,
-    _fts_or_query,
     bm25_scores,
     reciprocal_rank_fusion,
     retrieve,
     sparse_search,
 )
+from app.services.retrieval_search import _fts_or_query
 from app.services.text import lexical_tokens
 from helpers import make_org, make_principal, wipe_app_tables
 
-RETRIEVAL_PY = Path(__file__).resolve().parents[1] / "app" / "services" / "retrieval.py"
+_SERVICES = Path(__file__).resolve().parents[1] / "app" / "services"
+RETRIEVAL_SOURCE = "\n".join(
+    (_SERVICES / name).read_text()
+    for name in ("retrieval.py", "retrieval_search.py", "retrieval_types.py")
+)
 
 
 def test_lexical_tokens_keep_words_digits_and_cyrillic():
@@ -72,7 +76,7 @@ def test_fts_query_drops_stopwords_and_ors_content_terms():
 
 
 def test_no_solidity_heuristics_in_retrieval():
-    source = RETRIEVAL_PY.read_text()
+    source = RETRIEVAL_SOURCE
     assert "is_overview_question" not in source
     assert "citations_are_interface_stubs" not in source
     assert "select_overview_code_chunks" not in source

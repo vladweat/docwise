@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/locale-provider";
-import { ApiRequestError, fetchDocumentPdf } from "@/lib/api";
+import { ApiRequestError, fetchDocumentRaw } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const pdfBufferCache = new Map<string, Promise<ArrayBuffer>>();
@@ -13,7 +13,7 @@ const pdfBufferCache = new Map<string, Promise<ArrayBuffer>>();
 function loadPdfBuffer(documentId: string): Promise<ArrayBuffer> {
   const hit = pdfBufferCache.get(documentId);
   if (hit) return hit;
-  const next = fetchDocumentPdf(documentId)
+  const next = fetchDocumentRaw(documentId)
     .then((blob) => blob.arrayBuffer())
     .catch((err) => {
       pdfBufferCache.delete(documentId);

@@ -3,19 +3,13 @@ import { translate, type Locale } from "@/i18n/messages";
 import type { Citation } from "@/types/chat";
 
 /** Keep Russian text in sync with backend `NO_CONTEXT_ANSWER` in `retrieval.py`. */
-export const NO_CONTEXT_ANSWER_RU = translate("ru", "chat.noContextAnswer");
-
 export function isNoContextAnswer(content: string): boolean {
   const trimmed = content.trim();
   return (
     trimmed === translate("ru", "chat.noContextAnswer") ||
-    trimmed === translate("en", "chat.noContextAnswer") ||
-    trimmed === NO_CONTEXT_ANSWER_RU
+    trimmed === translate("en", "chat.noContextAnswer")
   );
 }
-
-/** @deprecated Use isNoContextAnswer; backend still returns the RU string today. */
-export const NO_CONTEXT_ANSWER = NO_CONTEXT_ANSWER_RU;
 
 export function citationLabel(
   citation: Pick<Citation, "doc_title" | "page" | "section">,
