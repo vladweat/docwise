@@ -1,7 +1,8 @@
 export interface Citation {
   doc_id: string;
   doc_title: string;
-  page: number;
+  page?: number | null;
+  section?: string | null;
   snippet: string;
 }
 

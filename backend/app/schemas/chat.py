@@ -8,7 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class Citation(BaseModel):
     doc_id: UUID
     doc_title: str
-    page: int
+    page: int | None = None
+    section: str | None = None
     snippet: str
 
 

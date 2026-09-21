@@ -80,10 +80,10 @@ M3 и M4 после M2 можно вести параллельно, но кли
 - [x] SHA-256 байтов; дубликат `file_hash` → `409` (без тела существующей записи, [ADR-011](decisions.md))
 - [x] `GET /api/v1/documents` — пагинация, фильтр `status`, только ACL пользователя
 - [x] `GET /api/v1/documents/{id}/status` — статус + `last_error`; нет прав / нет записи → `404`
-- [x] `GET /api/v1/documents/{id}/raw` — `application/pdf`, тот же ACL, `404` без утечки названия
+- [x] `GET /api/v1/documents/{id}/raw` — PDF или DOCX media type, тот же ACL, `404` без утечки названия
 - [x] `DELETE /api/v1/documents/{id}` — каскад Postgres (документ + чанки) + MinIO; только manage KB
 - [x] Upload и delete: `require_admin`
-- [x] Rate limit upload (`RATE_LIMIT_UPLOAD_PER_MINUTE`); лимит размера (~50 MB), только PDF в v1
+- [x] Rate limit upload (`RATE_LIMIT_UPLOAD_PER_MINUTE`); лимит размера (~50 MB); PDF + DOCX upload
 
 ### Celery
 

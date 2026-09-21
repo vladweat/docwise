@@ -19,7 +19,8 @@ from app.schemas.document import (
 from app.services.documents import (
     create_document_from_upload,
     delete_document,
-    document_pdf_bytes,
+    document_raw_bytes,
+    document_response,
     document_status,
     list_documents,
     update_document_access_roles,
@@ -27,6 +28,11 @@ from app.services.documents import (
 from app.services.storage import ObjectStorage, get_object_storage
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+_RAW_OPENAPI_CONTENT: dict[str, dict[str, object]] = {
+    "application/pdf": {},
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {},
+}
 
 
 def get_storage() -> ObjectStorage:
@@ -42,7 +48,7 @@ def require_upload_admin(current_user: Principal = Depends(require_kb_admin)) ->
     "/upload",
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload a PDF (admin or manager)",
+    summary="Upload a PDF or DOCX (admin or manager)",
     description="Requires admin or manager. Duplicate SHA-256 returns 409 without the existing document.",
 )
 async def upload_document(
@@ -62,7 +68,7 @@ async def upload_document(
         access_roles_raw=access_roles,
         storage=storage,
     )
-    return document
+    return document_response(db, document)
 
 
 @router.get(
@@ -102,9 +108,9 @@ def get_document_status(
 
 @router.get(
     "/{document_id}/raw",
-    summary="PDF bytes",
+    summary="Original file bytes (PDF or DOCX)",
     responses={
-        200: {"content": {"application/pdf": {}}},
+        200: {"content": _RAW_OPENAPI_CONTENT},
         404: {"description": "Missing or not visible to the caller"},
     },
 )
@@ -114,11 +120,11 @@ def get_document_raw(
     current_user: Principal = Depends(get_current_user),
     storage: ObjectStorage = Depends(get_storage),
 ) -> Response:
-    data, title = document_pdf_bytes(db, current_user, document_id, storage=storage)
+    data, title, media_type = document_raw_bytes(db, current_user, document_id, storage=storage)
     safe_title = "".join(ch for ch in title if ch not in '"\\\r\n')[:180] or "document.pdf"
     return Response(
         content=data,
-        media_type="application/pdf",
+        media_type=media_type,
         headers={
             "Content-Disposition": f'inline; filename="{safe_title}"',
             "Cache-Control": "private, no-store",
@@ -139,7 +145,8 @@ def patch_document_access(
     db: Session = Depends(get_db),
     current_user: Principal = Depends(require_kb_admin),
 ) -> DocumentResponse:
-    return update_document_access_roles(db, current_user, document_id, payload)
+    document = update_document_access_roles(db, current_user, document_id, payload)
+    return document_response(db, document)
 
 
 @router.delete(

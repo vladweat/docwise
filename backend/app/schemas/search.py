@@ -23,7 +23,8 @@ class SearchInspectRequest(BaseModel):
 class InspectHit(BaseModel):
     chunk_id: str
     document_id: UUID
-    page: int
+    page: int | None = None
+    section: str | None = None
     score: float
     snippet: str
 

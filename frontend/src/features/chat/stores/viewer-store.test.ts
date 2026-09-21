@@ -24,7 +24,9 @@ describe("openCitation", () => {
     expect(state.target).toEqual({
       docId: CITATION.doc_id,
       docTitle: CITATION.doc_title,
+      format: "pdf",
       page: 4,
+      section: undefined,
       snippet: "vacation",
     });
   });

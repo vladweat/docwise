@@ -1,12 +1,15 @@
 from datetime import datetime
 from uuid import UUID
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class DocumentResponse(BaseModel):
     id: UUID
     title: str
+    content_format: Literal["pdf", "docx"] = "pdf"
     file_size_bytes: int
     total_pages: int | None = None
     access_roles: list[str] = Field(default_factory=list)

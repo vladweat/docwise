@@ -78,8 +78,13 @@ export function DocumentUploadModal({
     setError(null);
     if (!next) return;
     const name = next.name.toLowerCase();
-    if (!name.endsWith(".pdf") && next.type !== "application/pdf") {
-      setError("Только PDF");
+    const isPdf = name.endsWith(".pdf") || next.type === "application/pdf";
+    const isDocx =
+      name.endsWith(".docx") ||
+      next.type ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (!isPdf && !isDocx) {
+      setError("Только PDF или DOCX");
       return;
     }
     if (next.size > MAX_UPLOAD_BYTES) {
@@ -120,7 +125,7 @@ export function DocumentUploadModal({
       <DialogContent className="sm:max-w-lg" aria-labelledby={titleId} showCloseButton>
         <form onSubmit={onSubmit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle id={titleId}>Загрузить PDF</DialogTitle>
+            <DialogTitle id={titleId}>Загрузить документ</DialogTitle>
             <DialogDescription>
               Файл попадёт в очередь: parse → chunk → embed. Теги доступа копируются на чанки.
             </DialogDescription>
@@ -141,14 +146,14 @@ export function DocumentUploadModal({
           >
             <Upload className="size-8 text-slate-500" />
             <p className="mt-2 text-sm text-slate-300">
-              Перетащите PDF сюда или <span className="text-blue-400">выберите файл</span>
+              Перетащите PDF/DOCX сюда или <span className="text-blue-400">выберите файл</span>
             </p>
             <p className="mt-1 text-xs text-slate-500">До 50 МБ</p>
             {file ? <p className="mt-2 text-sm text-slate-100">{file.name}</p> : null}
             <input
               ref={inputRef}
               type="file"
-              accept="application/pdf,.pdf"
+              accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               className="hidden"
               onChange={(event) => takeFile(event.target.files?.[0])}
             />

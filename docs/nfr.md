@@ -12,7 +12,7 @@
 - LLM cache key включает `org_id` (M5), поколение индекса и `allowed_roles` вызывающего (иначе кэш — дыра ACL, кросс-тенант или ответ после смены корпуса).
 - Секреты только в env. Не коммитить `.env`, ключи, дампы NDA. Stripe keys не обязательны для Compose (`BILLING_PROVIDER=dev`).
 - Audit: `rag_audit_logs` без тела чанков (только UUID после реранкера). Inspect в production за `ENABLE_SEARCH_INSPECT` (по умолчанию выкл); чужой файл не подтверждается.
-- Upload: лимит размера (ориентир 50 MB), только PDF в v1, SHA-256, rate limit как в ChainWise. Квота страниц org → `402` (не `429`).
+- Upload: лимит размера (ориентир 50 MB), PDF и DOCX, SHA-256, rate limit как в ChainWise. Квота org: страницы PDF или логические разделы DOCX → `402` (не `429`).
 - Chat: квота токенов периода → отказ до retrieval. Rate limit чата → `429`.
 - XSS: не рендерить HTML из PDF/LLM как `dangerouslySetInnerHTML` без санитайза. Markdown ответа — безопасный рендер.
 

@@ -144,7 +144,7 @@ Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Сущес�
 | `session_id` | UUID FK → chat_sessions | Каскад |
 | `role` | Enum `user` \| `assistant` | |
 | `content` | Text | |
-| `sources` | JSONB | Список цитат: `doc_id` (UUID), `title`, `page`, `snippet` |
+| `sources` | JSONB | Список цитат: `doc_id` (UUID), `title`, `page` (PDF), `section` (DOCX), `snippet` |
 | `created_at` | DateTime | |
 
 ### `rag_audit_logs`

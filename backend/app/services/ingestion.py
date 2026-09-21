@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 from app.models.document import EMBEDDING_DIM, Document, DocumentChunk, DocumentStatus, make_chunk_id
 from app.services.chunker import chunk_parsed_document
 from app.services.embeddings import EmbeddingError, embed_texts
+from app.services.document_format import PDF_MAGIC, detect_format
+from app.services.docx_parser import DocxParserError, parse_docx
 from app.services.pdf_parser import PdfParserError, parse_pdf
 from app.services.quotas import IngestionQuotaError, assert_ingest_pages_allowed
 from app.services.storage import ObjectStorage, StorageError, get_object_storage
@@ -24,7 +26,6 @@ from app.core.redis import acquire_indexing_lock, release_indexing_lock
 
 logger = logging.getLogger(__name__)
 
-PDF_MAGIC = b"%PDF"
 LAST_ERROR_MAX_LEN = 2000
 STAGE_PARSE = "parse"
 STAGE_CHUNK = "chunk"
@@ -103,10 +104,13 @@ def index_pdf(
     except PdfParserError as exc:
         raise IngestionError(str(exc)) from exc
 
+    pdf_pages = parsed.total_pages
+    if pdf_pages is None:
+        raise IngestionError("PDF missing page count")
     assert_ingest_pages_allowed(
         db,
         document.organization_id,
-        parsed.total_pages,
+        pdf_pages,
         exclude_document_id=document.id,
     )
 
@@ -152,6 +156,68 @@ def index_pdf(
     return IndexResult(chunk_count=len(chunks), total_pages=parsed.total_pages)
 
 
+def index_docx(
+    db: Session,
+    document: Document,
+    docx_bytes: bytes,
+    *,
+    embedder=None,
+) -> IndexResult:
+    set_ingestion_stage(db, document, STAGE_PARSE)
+    try:
+        parsed = parse_docx(docx_bytes)
+    except DocxParserError as exc:
+        raise IngestionError(str(exc)) from exc
+
+    set_ingestion_stage(db, document, STAGE_CHUNK)
+    chunks = chunk_parsed_document(parsed)
+    if not chunks:
+        raise IngestionError("DOCX produced no extractable text")
+
+    set_ingestion_stage(db, document, STAGE_EMBED)
+    texts = [chunk.embed_text(document.title) for chunk in chunks]
+    try:
+        vectors = embed_texts(texts, embedder=embedder)
+    except EmbeddingError as exc:
+        raise IngestionError(str(exc)) from exc
+    if len(vectors) != len(chunks):
+        raise IngestionError("Embedding count does not match chunk count")
+    for vector in vectors:
+        if len(vector) != EMBEDDING_DIM:
+            raise IngestionError(f"Expected {EMBEDDING_DIM}-dim embeddings, got {len(vector)}")
+
+    ordinal_by_page: dict[int, int] = {}
+    roles = list(document.access_roles)
+    for chunk, vector in zip(chunks, vectors, strict=True):
+        ordinal = ordinal_by_page.get(chunk.page_number, 0)
+        ordinal_by_page[chunk.page_number] = ordinal + 1
+        db.add(
+            DocumentChunk(
+                document_id=document.id,
+                organization_id=document.organization_id,
+                chunk_id=make_chunk_id(document.id, chunk.page_number, ordinal),
+                page_number=chunk.page_number,
+                section_title=chunk.section_title,
+                is_table=chunk.is_table,
+                access_roles=list(roles),
+                content=chunk.content,
+                token_count=chunk.token_count,
+                embedding=vector,
+                doc_title=document.title,
+                bbox=chunk.bbox,
+                highlight_rects=chunk.highlight_rects,
+            )
+        )
+    return IndexResult(chunk_count=len(chunks), total_pages=None)
+
+
+def _indexer_for_bytes(filename: str, content: bytes) -> IndexFn:
+    kind = detect_format(filename, content, None)
+    if kind == "docx":
+        return index_docx
+    return index_pdf
+
+
 def run_ingestion(
     db: Session,
     document_id: str | UUID,
@@ -170,7 +236,6 @@ def run_ingestion(
         logger.info("ingestion skipped document_id=%s reason=locked", doc_uuid)
         return {"status": "skipped", "document_id": str(doc_uuid), "reason": "locked"}
 
-    indexer = index_fn or index_pdf
     try:
         document = db.get(Document, doc_uuid)
         if document is None:
@@ -184,24 +249,27 @@ def run_ingestion(
 
         storage = storage or get_object_storage()
         try:
-            pdf_bytes = storage.get_bytes(document.file_path)
+            file_bytes = storage.get_bytes(document.file_path)
         except StorageError as exc:
             raise IngestionError(f"Failed to download object: {exc}") from exc
 
-        if not pdf_bytes:
+        if not file_bytes:
             raise IngestionError("Downloaded object is empty")
-        if not pdf_bytes.startswith(PDF_MAGIC):
-            raise IngestionError("Downloaded object is not a PDF")
+        kind = detect_format(document.title, file_bytes, None)
+        if kind is None:
+            raise IngestionError("Unsupported document format")
+        indexer = index_fn or (_indexer_for_bytes(document.title, file_bytes))
 
         logger.info(
-            "downloaded document_id=%s bytes=%s key=%s",
+            "downloaded document_id=%s bytes=%s key=%s format=%s",
             document.id,
-            len(pdf_bytes),
+            len(file_bytes),
             document.file_path,
+            kind,
         )
 
         delete_chunks_for_document(db, document.id)
-        result = indexer(db, document, pdf_bytes)
+        result = indexer(db, document, file_bytes)
         if result.total_pages is not None:
             document.total_pages = result.total_pages
         db.flush()

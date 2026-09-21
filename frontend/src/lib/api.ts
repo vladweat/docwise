@@ -377,7 +377,7 @@ export async function deleteDocument(documentId: string): Promise<void> {
   await apiFetch<undefined>(`/documents/${documentId}`, { method: "DELETE" });
 }
 
-export async function fetchDocumentPdf(documentId: string): Promise<Blob> {
+export async function fetchDocumentRaw(documentId: string): Promise<Blob> {
   const response = await authorizedFetch(`/documents/${documentId}/raw`);
   if (!response.ok) {
     if (response.status === 404) {
@@ -386,6 +386,11 @@ export async function fetchDocumentPdf(documentId: string): Promise<Blob> {
     throw new ApiRequestError(await parseError(response), response.status);
   }
   return response.blob();
+}
+
+/** @deprecated use fetchDocumentRaw */
+export async function fetchDocumentPdf(documentId: string): Promise<Blob> {
+  return fetchDocumentRaw(documentId);
 }
 
 export async function inspectSearch(query: string, limit = 15): Promise<SearchInspectResponse> {
