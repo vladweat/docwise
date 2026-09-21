@@ -23,16 +23,16 @@
 - **Стадия:** уровень **A** закрыт (`make up` + `make demo`); **B/C** — [portfolio-levels.md](portfolio-levels.md); операционный чеклист — [portfolio.md](portfolio.md)
 - **Публичный URL / прод:** нет
 
-**E2E (при поднятом Compose и `OPENAI_API_KEY`):** PDF upload → Celery ingest → hybrid search (pgvector + FTS, RRF k=60, rerank) → SSE chat с цитатами → клик → PDF страница + подсветка; list/raw/chat/inspect с `organization_id` + `access_roles`.
+**E2E (при поднятом Compose и `OPENAI_API_KEY`):** PDF/DOCX upload → Celery ingest → hybrid search (pgvector + FTS, RRF k=60, rerank) → SSE chat с цитатами → клик → PDF страница + подсветка **или** DOCX фрагмент + скачивание; list/raw/chat/inspect с `organization_id` + `access_roles`.
 
-**Не работает / вне скоупа:** DOCX ingest, Qdrant, LangChain, Bearer-auth, live Stripe / live IdP, публичный хост, platform admin с чтением чужих корпусов.
+**Не работает / вне скоупа:** полноэкранный Word-preview в KB, Qdrant, LangChain, Bearer-auth, live Stripe / live IdP, публичный хост, platform admin с чтением чужих корпусов.
 
 ---
 
 ## 2. Продукт
 
-- **EN:** Permission-aware enterprise RAG over PDF: SQL-scoped hybrid search, reranking, page-exact citations — multi-tenant B2B on one stack.
-- **RU:** Корпоративный RAG по PDF: изоляция org + роли на SQL до LLM, гибридный поиск, цитаты на страницу.
+- **EN:** Permission-aware enterprise RAG over PDF/DOCX: SQL-scoped hybrid search, reranking, page citations (PDF) and section citations (DOCX) — multi-tenant B2B on one stack.
+- **RU:** Корпоративный RAG по PDF/DOCX: изоляция org + роли на SQL до LLM, гибридный поиск, цитаты на страницу (PDF) или раздел (DOCX).
 
 **JTBD:** сотрудник ищет ответ в регламентах и проверяет по оригиналу PDF; admin/manager ведут KB с ACL.
 
@@ -45,12 +45,12 @@
 | Область | Статус |
 | --- | --- |
 | PDF ingest | есть |
-| DOCX | нет (только в SRS как желательно) |
+| DOCX ingest | есть (`python-docx`, цитаты по `section`, `page_number=0`; без Word-preview в KB) |
 | Chunking | страница/секция, 400–600 tok, overlap 50 внутри страницы |
 | Embeddings | FastEmbed `bge-small-en-v1.5`, 384d |
 | Hybrid | dense pgvector + Postgres FTS Top-25 each → RRF **k=60** |
 | Rerank | `bge-reranker-base`, порог 0.25, Top-4 |
-| Цитаты | `doc_id`, `doc_title`, `page`, `snippet` (SSE до токенов) |
+| Цитаты | `doc_id`, `doc_title`, `page` (PDF), `section` (DOCX), `snippet` (SSE до токенов) |
 | ACL | **pre-retrieval SQL** на documents/chunks (+ org_id) |
 | Multi-tenant | есть (`organizations`, memberships) |
 | Auth | cookies `dw_*` (JWT внутри), Google, dev SSO |
@@ -96,7 +96,7 @@ Python 3.12, FastAPI, SQLAlchemy sync, Celery 5, Redis 7, Postgres `pgvector/pgv
 | ID | Пункт | Статус |
 | --- | --- | --- |
 | M1 | PDF ingest | готово |
-| M2 | DOCX | не начато |
+| M2 | DOCX | готово (ingest + upload; не eval golden) |
 | M3 | hybrid + RRF | готово (FTS, не Qdrant BM25) |
 | M3b | rerank | готово |
 | M4 | citations / grounded refuse | готово |
@@ -159,4 +159,4 @@ Python 3.12, FastAPI, SQLAlchemy sync, Celery 5, Redis 7, Postgres `pgvector/pgv
 
 ## 12. Out of scope
 
-Live Stripe/IdP, SCIM, platform operator corpus, RLS вместо SQL ACL, DOCX v1, LangChain, Qdrant, asyncpg rewrite.
+Live Stripe/IdP, SCIM, platform operator corpus, RLS вместо SQL ACL, Word-preview в браузере, LangChain, Qdrant, asyncpg rewrite.

@@ -270,11 +270,22 @@ function DocumentPreviewDialog({
           <DialogHeader className="border-b border-slate-800 px-4 py-3 pr-12">
             <DialogTitle>{document?.title}</DialogTitle>
             <DialogDescription>
-              Просмотр PDF: листайте страницы и меняйте масштаб в панели ниже заголовка.
+              {document?.content_format === "docx" || document?.title.toLowerCase().endsWith(".docx")
+                ? "DOCX: скачайте файл для полного просмотра в Word."
+                : "Просмотр PDF: листайте страницы и меняйте масштаб в панели ниже заголовка."}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-            {document ? <DocumentPdfPreview documentId={document.id} /> : null}
+            {document &&
+            (document.content_format === "docx" ||
+              document.title.toLowerCase().endsWith(".docx")) ? (
+              <p className="p-6 text-sm text-slate-400">
+                Предпросмотр DOCX в браузере не поддерживается. Откройте цитату в чате или скачайте
+                файл через панель чата.
+              </p>
+            ) : document ? (
+              <DocumentPdfPreview documentId={document.id} />
+            ) : null}
           </div>
         </div>
       </DialogContent>

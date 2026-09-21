@@ -1,6 +1,6 @@
 # Docwise
 
-Production-grade **enterprise RAG** for PDF knowledge bases: FastAPI, PostgreSQL/pgvector, Celery, Next.js. Permission-aware hybrid retrieval, cross-encoder rerank, and exact PDF page citations.
+Production-grade **enterprise RAG** for PDF and DOCX knowledge bases: FastAPI, PostgreSQL/pgvector, Celery, Next.js. Permission-aware hybrid retrieval, cross-encoder rerank, PDF page citations, and DOCX citations by section.
 
 Target deploy is **shared B2B SaaS** (many organizations on one stack). Isolation is SQL `organization_id` plus inner `access_roles`.
 
@@ -14,10 +14,15 @@ Naive “split every 500 characters, embed, stuff Top-K into a prompt” fails i
 | --- | --- | --- |
 | PDF structure | Cuts through tables and headings | Page/section-bounded chunks; tables as Markdown; meta header before embed |
 | Access leaks | One vector index, filter in the prompt | SQL `access_roles && allowed_roles` on **dense and sparse** *before* RRF, rerank, or the LLM |
-| Trust | A paragraph with no page | Citations `{doc_id, doc_title, page, snippet}`; click opens that PDF page |
+| Trust | A paragraph with no source | PDF: `{doc_id, doc_title, page, snippet}` + page highlight; DOCX: `section` instead of a fake page |
 | Empty context | The model invents | Refuse: no Top-4 after rerank → no “creative” completion |
 
 Keyword search does not understand the question. A junior employee must never receive an answer derived from a file they cannot open. `all` means everyone **in this org**, not every logged-in SaaS user.
+
+## Not ChatPDF / not ChainWise
+
+- **Not ChatPDF** — shared B2B SaaS (`organization_id` + document `access_roles`), hybrid retrieval in SQL (dense + FTS → RRF → rerank), and grounded refuse when Top-4 is empty; not a single-upload consumer chat with prompt-only guardrails.
+- **Not ChainWise** — reuses auth, Celery, and SSE envelopes from the sibling audit app; product is **corpus-wide document RAG** (PDF + DOCX ingest) with pgvector in Postgres, not one Solidity contract with in-memory BM25 over Qdrant scroll.
 
 ## Architecture
 
@@ -31,12 +36,13 @@ flowchart TB
   subgraph api [FastAPI]
     Upload[Documents API]
     Chat[Chat SSE]
+    Inspect[Search inspect]
   end
 
   subgraph worker [Celery]
-    Parse[PyMuPDF / pdfplumber]
+    Parse[PyMuPDF / pdfplumber / python-docx]
     Chunk[Page-bounded chunking]
-    Embed[FastEmbed 384-d]
+    Embed[FastEmbed 384-d + FTS tsvector]
   end
 
   PG[(PostgreSQL + pgvector)]
@@ -53,9 +59,11 @@ flowchart TB
   Parse --> Chunk --> Embed --> PG
   Chat --> PG
   Chat --> LLM
+  Inspect --> PG
+  UI --> Upload
 ```
 
-Question path: session roles → SQL ACL → pgvector Top-25 **and** independent Postgres FTS Top-25 → RRF (`k=60`) → rerank → Top-4 → grounded stream (`citations` → `token` → `meta` → `[DONE]`).
+**Hybrid pipeline (chat):** session roles → SQL ACL → pgvector Top-25 **and** independent Postgres FTS Top-25 → RRF (`k=60`) → cross-encoder rerank (threshold 0.25) → Top-4 → grounded stream (`citations` → `token` → `meta` → `[DONE]`). Org-admin `/inspect` exposes the same stages under the same SQL filters (dev flag).
 
 ## SQL RBAC
 
@@ -75,7 +83,7 @@ WHERE organization_id = :current_org
 | Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 **sync Session** |
 | Queue | Redis 7, Celery 5 |
 | Data | PostgreSQL 15 + pgvector (`vector(384)` cosine; FTS `tsvector` + GIN, independent of dense) |
-| Parse | PyMuPDF, pdfplumber |
+| Parse | PyMuPDF, pdfplumber; DOCX via `python-docx` (section-bounded chunks) |
 | ML | fastembed `bge-small-en-v1.5` + `bge-reranker-base`; LLM via OpenAI/Anthropic |
 | Frontend | Next.js 15, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
 | Infra | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend `tsc` + vitest + lint + build) |
@@ -98,7 +106,7 @@ Two positives still miss target page after rerank (`hb-security-email`, `eng-pyt
 
 ## Run the demo
 
-Three commands after a one-time `make deps`. Images build **offline** (`network: none`).
+**Quickstart (~15 min):** copy env → one-time `make deps` (downloads models and `node_modules`) → `make up` → `make demo` → open UI. Chat needs `OPENAI_API_KEY` (or KodikRouter) in `.env`; see [`.env.example`](.env.example). Images build **offline** (`network: none`) after deps.
 
 ```bash
 cp .env.example .env          # set OPENAI_API_KEY (or KodikRouter) for chat
@@ -126,6 +134,16 @@ Open http://localhost:3001 — on localhost the login screen has **Войти к
 4. Org-admin `/inspect`: stages dense / FTS / RRF / reranked. Admin without `hr` still does not see the compensation chunk.
 
 Script: `eval/seed_demo.py` (same fixture PDFs as eval; real `index_pdf`, not Celery). Local passwords only.
+
+**Sample files (upload tests):** regenerate with `backend/.venv/bin/python samples/export-sample-documents.py` → [samples/documents/](samples/documents/) (12 demo PDFs + `Travel-Policy-Test.docx`). DOCX has no in-browser Word preview in the KB modal — chat pane shows the cited snippet and download.
+
+## Screenshots
+
+Demo org (`make demo`). Regenerate: [docs/screenshots/README.md](docs/screenshots/README.md) or `node scripts/capture-portfolio-screenshots.mjs`.
+
+| Chat + citation | PDF highlight | ACL refuse (employee / salary) | Inspect pipeline (admin) |
+| --- | --- | --- | --- |
+| ![Chat with citation](docs/screenshots/01-chat-citation.png) | ![PDF highlight](docs/screenshots/02-pdf-highlight.png) | ![ACL refuse](docs/screenshots/03-acl-refuse.png) | ![Inspect stages](docs/screenshots/04-inspect-pipeline.png) |
 
 ## Security scenarios (what CI already guards)
 

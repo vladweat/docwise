@@ -30,14 +30,22 @@ from app.schemas.document import (
     DocumentResponse,
     DocumentStatusResponse,
 )
+from app.services.document_format import (
+    DOCX_MEDIA,
+    PDF_MAGIC,
+    detect_format,
+    media_type_for_title,
+    suffix_format,
+)
+from app.services.docx_parser import estimate_docx_quota_units
 from app.services.quotas import enforce_page_quota_for_upload
 from app.services.storage import ObjectStorage, StorageError, get_object_storage, object_key_for_document
 from app.services.text import InvalidRoleTag, TooManyRoleTags, normalize_role_tags
 
 logger = logging.getLogger(__name__)
 
-PDF_MAGIC = b"%PDF"
 NOT_FOUND_DETAIL = "Document not found"
+UNSUPPORTED_FORMAT = "Only PDF and DOCX files are supported"
 DUPLICATE_HASH_DETAIL = "Document with this file hash already exists"
 
 
@@ -138,33 +146,48 @@ def count_pdf_pages(content: bytes) -> int:
     try:
         pdf = fitz.open(stream=content, filetype="pdf")
     except Exception as exc:
-        raise BadRequestError("Only PDF files are supported") from exc
+        raise BadRequestError(UNSUPPORTED_FORMAT) from exc
     try:
         pages = int(pdf.page_count)
     finally:
         pdf.close()
     if pages < 1:
-        raise BadRequestError("Only PDF files are supported")
+        raise BadRequestError(UNSUPPORTED_FORMAT)
     return pages
 
 
-def validate_pdf_upload(filename: str, content: bytes, content_type: str | None, max_bytes: int) -> None:
+def quota_units_for_upload(filename: str, content: bytes, file_kind: str) -> int:
+    if file_kind == "docx":
+        return estimate_docx_quota_units(content)
+    return count_pdf_pages(content)
+
+
+def validate_document_upload(
+    filename: str,
+    content: bytes,
+    content_type: str | None,
+    max_bytes: int,
+) -> str:
+    """Return ``pdf`` or ``docx`` when valid."""
     if not content:
         raise BadRequestError("Empty file")
     if len(content) > max_bytes:
         raise PayloadTooLargeError("File exceeds size limit")
-    suffix = Path(filename).suffix.lower()
-    if suffix != ".pdf":
-        raise BadRequestError("Only PDF files are supported")
-    if not content.startswith(PDF_MAGIC):
-        raise BadRequestError("Only PDF files are supported")
+    kind = detect_format(filename, content, content_type)
+    if kind is None:
+        raise BadRequestError(UNSUPPORTED_FORMAT)
     media = (content_type or "").split(";")[0].strip().lower()
-    if media and media not in {"application/pdf", "application/octet-stream"}:
-        raise BadRequestError("Only PDF files are supported")
+    if kind == "pdf" and media and media not in {"application/pdf", "application/octet-stream"}:
+        raise BadRequestError(UNSUPPORTED_FORMAT)
+    if kind == "docx" and media and media not in {DOCX_MEDIA, "application/octet-stream"}:
+        raise BadRequestError(UNSUPPORTED_FORMAT)
+    if kind == "pdf" and not content.startswith(PDF_MAGIC):
+        raise BadRequestError(UNSUPPORTED_FORMAT)
+    return kind
 
 
-def _title_from_filename(filename: str) -> str:
-    name = Path(filename).name.strip() or "document.pdf"
+def _title_from_filename(filename: str, *, default_ext: str = ".pdf") -> str:
+    name = Path(filename).name.strip() or f"document{default_ext}"
     return name[:512]
 
 
@@ -179,9 +202,9 @@ def create_document_from_upload(
     storage: ObjectStorage | None = None,
 ) -> Document:
     settings = get_settings()
-    validate_pdf_upload(filename, content, content_type, settings.upload_max_bytes)
+    file_kind = validate_document_upload(filename, content, content_type, settings.upload_max_bytes)
     access_roles = parse_access_roles(access_roles_raw)
-    incoming_pages = count_pdf_pages(content)
+    incoming_pages = quota_units_for_upload(filename, content, file_kind)
     digest = hashlib.sha256(content).hexdigest()
     org_id = user.organization_id
 
@@ -196,12 +219,14 @@ def create_document_from_upload(
     enforce_page_quota_for_upload(db, org_id, incoming_pages)
 
     document_id = uuid4()
-    title = _title_from_filename(filename)
+    default_ext = ".docx" if file_kind == "docx" else ".pdf"
+    title = _title_from_filename(filename, default_ext=default_ext)
     key = object_key_for_document(document_id, filename, organization_id=org_id)
     storage = storage or get_object_storage()
+    stored_media = DOCX_MEDIA if file_kind == "docx" else "application/pdf"
 
     try:
-        storage.put_bytes(key, content, content_type="application/pdf")
+        storage.put_bytes(key, content, content_type=stored_media)
     except StorageError as exc:
         logger.warning("MinIO put failed document_id=%s", document_id)
         raise UnavailableError("Object storage unavailable") from exc
@@ -258,6 +283,23 @@ def create_document_from_upload(
     return document
 
 
+def document_response(db: Session, document: Document) -> DocumentResponse:
+    return DocumentResponse.model_validate(
+        {
+            "id": document.id,
+            "title": document.title,
+            "content_format": content_format_for_title(document.title),
+            "file_size_bytes": document.file_size_bytes,
+            "total_pages": document.total_pages,
+            "access_roles": list(document.access_roles or []),
+            "status": document.status,
+            "last_error": document.last_error,
+            "preview_snippet": preview_snippet_for_document(db, document),
+            "created_at": document.created_at,
+        }
+    )
+
+
 def list_documents(
     db: Session,
     user: Principal,
@@ -278,19 +320,7 @@ def list_documents(
     )
     return DocumentListResponse(
         items=[
-            DocumentResponse.model_validate(
-                {
-                    "id": row.id,
-                    "title": row.title,
-                    "file_size_bytes": row.file_size_bytes,
-                    "total_pages": row.total_pages,
-                    "access_roles": list(row.access_roles or []),
-                    "status": row.status,
-                    "last_error": row.last_error,
-                    "preview_snippet": preview_snippet_for_document(db, row),
-                    "created_at": row.created_at,
-                }
-            )
+            document_response(db, row)
             for row in rows
         ],
         total=int(total),
@@ -309,12 +339,12 @@ def document_status(db: Session, user: Principal, document_id: UUID) -> Document
     )
 
 
-def document_pdf_bytes(
+def document_raw_bytes(
     db: Session,
     user: Principal,
     document_id: UUID,
     storage: ObjectStorage | None = None,
-) -> tuple[bytes, str]:
+) -> tuple[bytes, str, str]:
     document = get_visible_document(db, user, document_id)
     storage = storage or get_object_storage()
     try:
@@ -322,7 +352,11 @@ def document_pdf_bytes(
     except StorageError as exc:
         logger.warning("MinIO get failed document_id=%s", document_id)
         raise NotFoundError(NOT_FOUND_DETAIL) from exc
-    return data, document.title
+    return data, document.title, media_type_for_title(document.title)
+
+
+def content_format_for_title(title: str) -> str:
+    return suffix_format(title) or "pdf"
 
 
 def update_document_access_roles(

@@ -4,9 +4,15 @@ import type { Citation } from "@/types/chat";
 export const NO_CONTEXT_ANSWER =
   "В предоставленных документах нет информации по данному вопросу.";
 
-export function citationLabel(citation: Pick<Citation, "doc_title" | "page">): string {
+export function citationLabel(
+  citation: Pick<Citation, "doc_title" | "page" | "section">,
+): string {
   const title = citation.doc_title.trim() || "Документ";
-  return `${title} (стр. ${citation.page})`;
+  if (citation.page != null && citation.page > 0) {
+    return `${title} (стр. ${citation.page})`;
+  }
+  const section = citation.section?.trim();
+  return section ? `${title} (${section})` : title;
 }
 
 export type AnswerPart =
@@ -21,8 +27,18 @@ export function resolveCitation(
   citations: Citation[],
   title: string,
   page: number,
+  section?: string,
 ): Citation | undefined {
   const needle = normalizeTitle(title);
+  if (section) {
+    const sectionNeedle = section.trim().toLowerCase();
+    return citations.find(
+      (item) =>
+        normalizeTitle(item.doc_title) === needle &&
+        (item.section?.trim().toLowerCase() === sectionNeedle ||
+          item.section?.trim().toLowerCase().includes(sectionNeedle)),
+    );
+  }
   return (
     citations.find(
       (item) => item.page === page && normalizeTitle(item.doc_title) === needle,
@@ -30,7 +46,8 @@ export function resolveCitation(
   );
 }
 
-const INLINE_CITE_RE = /\[([^\]\n]+?),\s*(?:p\.|стр\.?)\s*(\d+)\]|\[\^(\d+)\]/gi;
+const INLINE_CITE_RE =
+  /\[([^\]\n]+?),\s*(?:p\.|стр\.?)\s*(\d+)\]|\[([^\]\n]+?),\s*раздел:\s*([^\]]+)\]|\[\^(\d+)\]/gi;
 
 export function splitAnswerParts(content: string, citations: Citation[]): AnswerPart[] {
   if (!content) return [];
@@ -44,10 +61,14 @@ export function splitAnswerParts(content: string, citations: Citation[]): Answer
     }
     const title = match[1];
     const pageFromTitle = match[2];
-    const caret = match[3];
+    const docxTitle = match[3];
+    const docxSection = match[4];
+    const caret = match[5];
     let citation: Citation | undefined;
     if (title && pageFromTitle) {
       citation = resolveCitation(citations, title, Number(pageFromTitle));
+    } else if (docxTitle && docxSection) {
+      citation = resolveCitation(citations, docxTitle, 0, docxSection);
     } else if (caret) {
       const n = Number(caret);
       citation = citations[n - 1] ?? citations.find((item) => item.page === n);

@@ -7,8 +7,14 @@ export const PANE_OPEN_STORAGE_KEY = "dw-pdf-pane-open";
 export interface ViewerTarget {
   docId: string;
   docTitle: string;
+  format: "pdf" | "docx";
   page: number;
+  section?: string | null;
   snippet: string;
+}
+
+function formatForTitle(title: string): "pdf" | "docx" {
+  return title.toLowerCase().endsWith(".docx") ? "docx" : "pdf";
 }
 
 interface ViewerState {
@@ -48,7 +54,9 @@ export const useViewerStore = create<ViewerState>((set) => ({
       target: {
         docId: citation.doc_id,
         docTitle: citation.doc_title,
-        page: citation.page,
+        format: formatForTitle(citation.doc_title),
+        page: citation.page ?? 0,
+        section: citation.section,
         snippet: citation.snippet,
       },
     });

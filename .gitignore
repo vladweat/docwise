@@ -49,3 +49,6 @@ backend/.models/*
 # Host libs copied for offline Docker (libgomp)
 backend/.libs/*
 !backend/.libs/.gitkeep
+
+frontend/scripts/*
+scripts/node_modules/

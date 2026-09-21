@@ -13,6 +13,7 @@
 - [x] **3. Онбординг в UI** — на localhost кнопки «Войти как сотрудник / HR / admin».
 - [x] **4. Пустые и ошибочные состояния** — отказ без контекста, ingest `failed` + `last_error`, `402` тост, `/raw` 404 без утечки названия.
 - [x] **5. README-витрина** — проблема, схема, цифры eval, команды, ACL-проход.
+- [x] **5b. Скриншоты в README** — `docs/screenshots/01`–`04`, галерея в README; regen: [screenshots/README.md](screenshots/README.md).
 - [x] **6. Перегон eval после FTS** — `make eval` 2026-09-21 (Ragas + ACL PASS). Отчёт [reports/rag_benchmark.md](../reports/rag_benchmark.md).
 - [x] **7. Inspect UI** — `/inspect` для org-admin; Compose `ENABLE_SEARCH_INSPECT=true`; prod по умолчанию выкл.
 - [x] **8. 5 security-сценариев в README**.
@@ -35,7 +36,7 @@
 | 6 | `make eval` | Частично: запуск и правка отчёта | Живой LLM/эмбеддинги, поднятый Compose |
 | 7 | Inspect UI (API уже есть) | Да | Не включать в prod без флага |
 | 8 | Security-блок в README | Да | — |
-| 9 | Подсветка PDF / экспорт / DOCX | Да, **одно** | Выбор; bbox на кривых PDF может быть хрупким |
+| 9 | Подсветка PDF / sample export / DOCX ingest | Да | PDF highlight + `samples/documents/`; DOCX ingest + chat snippet (без Word-preview в KB) |
 | 10 | Скоуп в README | Да | — |
 | 11 | Видео | Нет (не запись экрана) | Запись; агент может расписать тайминг и клики |
 | 12 | Деплой в интернет | Частично: Docker/env/чеклист | Хостинг, DNS, ключ LLM, оплата |

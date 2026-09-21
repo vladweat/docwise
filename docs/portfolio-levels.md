@@ -28,11 +28,11 @@ M0–M6 в репо уже закрыты — это **код**, не замен
 
 ### 2. Упаковка репозитория (EN)
 
-- [ ] README: problem → **architecture diagram** → ACL SQL → hybrid pipeline → `make demo` (проверить, что схема не устарела)
-- [ ] Скриншоты (3–5): chat+citation, PDF highlight, ACL отказ, (опц.) `/inspect`
-- [ ] «Not ChatPDF» / «Not ChainWise» — 2–3 буллета differentiation
+- [x] README: problem → **architecture diagram** → ACL SQL → hybrid pipeline → `make demo` (схема синхронизирована с `docs/architecture.md`, 2026-09-21)
+- [x] Скриншоты (3–5): chat+citation, PDF highlight, ACL отказ, `/inspect` — `docs/screenshots/01`–`04`, галерея в README
+- [x] «Not ChatPDF» / «Not ChainWise» — 2 буллета в README
 - [ ] Badges: CI status (если публичный CI виден)
-- [ ] `.env.example` без секретов; quickstart ≤15 мин для reviewer
+- [x] `.env.example` без секретов; quickstart ≤15 мин для reviewer (абзац в README + `.env.example`)
 
 ### 3. Карьерная упаковка (вне репо, но часть портфолио)
 
@@ -43,7 +43,7 @@ M0–M6 в репо уже закрыты — это **код**, не замен
 
 ### 4. Честные границы (написать вслух и в README)
 
-- [ ] DOCX — нет (PDF v1); не обещать
+- [x] DOCX ingest есть; честно: цитаты по разделу, без Word-preview в KB; eval golden пока PDF-only
 - [ ] Live Stripe / live IdP — dev envelope only
 - [ ] Нет публичного URL — ок **на моке**, не ок **в cold CV без видео**
 
@@ -86,7 +86,7 @@ M0–M6 в репо уже закрыты — это **код**, не замен
 
 | Не делать | Почему |
 |-----------|--------|
-| DOCX «для красоты» | не в v1; SRS optional |
+| Полноценный Word-viewer в UI | ingest есть; viewer — snippet + download |
 | Qdrant / LangChain rewrite | ломает канон и стори |
 | Live Stripe + prod IdP | out of scope; dev envelope достаточно |
 | Platform admin / SCIM | не маркер middle RAG |

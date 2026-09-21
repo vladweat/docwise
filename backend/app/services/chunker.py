@@ -21,7 +21,8 @@ CHUNK_MAX_TOKENS = 600
 CHUNK_OVERLAP_TOKENS = 50
 UNTITLED_SECTION = "Untitled"
 
-_META_HEADER = "[Document: {document} | Section: {section} | Page: {page}]"
+_META_HEADER_PAGE = "[Document: {document} | Section: {section} | Page: {page}]"
+_META_HEADER_SECTION = "[Document: {document} | Section: {section}]"
 
 
 @dataclass(frozen=True)
@@ -53,11 +54,14 @@ def format_embed_text(
     content: str,
 ) -> str:
     section = (section_title or "").strip() or UNTITLED_SECTION
-    header = _META_HEADER.format(
-        document=document_title,
-        section=section,
-        page=page_number,
-    )
+    if page_number <= 0:
+        header = _META_HEADER_SECTION.format(document=document_title, section=section)
+    else:
+        header = _META_HEADER_PAGE.format(
+            document=document_title,
+            section=section,
+            page=page_number,
+        )
     return f"{header}\n{content}"
 
 

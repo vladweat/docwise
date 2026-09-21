@@ -49,7 +49,7 @@ class ParsedPage:
 
 @dataclass(frozen=True)
 class ParsedDocument:
-    total_pages: int
+    total_pages: int | None
     pages: tuple[ParsedPage, ...]
 
 

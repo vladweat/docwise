@@ -13,12 +13,14 @@ from app.services.embeddings import EmbeddingError
 from app.services.ingestion import (
     IndexResult,
     IngestionError,
+    index_docx,
     index_pdf,
     persist_ingestion_failure,
     run_ingestion,
 )
 from app.services.storage import StorageError
 from helpers import make_org, wipe_app_tables
+from docx_fixtures import policy_docx_bytes
 from pdf_fixtures import blank_pdf_bytes, policy_pdf_bytes
 
 MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
@@ -460,3 +462,62 @@ def test_run_ingestion_parser_reingest_does_not_duplicate(db: Session, storage: 
     assert len(chunk_ids) == len(set(chunk_ids))
     assert all(row.embedding is not None and len(row.embedding) == EMBEDDING_DIM for row in rows)
     assert all(row.access_roles == ["hr", "admin"] for row in rows)
+
+
+def test_index_docx_chunks_use_section_not_page(db: Session, stub_embeddings):
+    org = make_org(db)
+    document_id = uuid4()
+    docx = policy_docx_bytes()
+    document = Document(
+        id=document_id,
+        organization_id=org.id,
+        title="Policy.docx",
+        file_path=f"orgs/{org.id}/{document_id}/Policy.docx",
+        file_hash="docxhash",
+        file_size_bytes=len(docx),
+        total_pages=2,
+        access_roles=["all"],
+        status=DocumentStatus.pending.value,
+    )
+    db.add(document)
+    db.commit()
+
+    result = index_docx(db, document, docx)
+    db.flush()
+    rows = db.query(DocumentChunk).filter_by(document_id=document.id).all()
+    assert result.total_pages is None
+    assert rows
+    assert all(row.page_number == 0 for row in rows)
+    assert any("travel cap" in row.content.lower() for row in rows)
+    assert any(row.is_table and "L3" in row.content for row in rows)
+    assert all("| Page:" not in text for text in stub_embeddings["texts"])
+    assert all("Section:" in text for text in stub_embeddings["texts"])
+
+
+def test_run_ingestion_docx_ready(db: Session, storage: FakeStorage):
+    org = make_org(db)
+    document_id = uuid4()
+    docx = policy_docx_bytes()
+    key = f"orgs/{org.id}/{document_id}/Policy.docx"
+    storage.objects[key] = docx
+    document = Document(
+        id=document_id,
+        organization_id=org.id,
+        title="Policy.docx",
+        file_path=key,
+        file_hash="docx-run",
+        file_size_bytes=len(docx),
+        total_pages=2,
+        access_roles=["all"],
+        status=DocumentStatus.pending.value,
+    )
+    db.add(document)
+    db.commit()
+
+    outcome = run_ingestion(db, document.id, storage=storage)
+    stored = db.get(Document, document.id)
+    assert outcome["status"] == "ready"
+    assert stored is not None
+    assert stored.status == DocumentStatus.ready.value
+    assert stored.total_pages == 2
+    assert db.query(DocumentChunk).filter_by(document_id=document.id).count() > 0

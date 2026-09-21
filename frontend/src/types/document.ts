@@ -1,6 +1,9 @@
+export type DocumentContentFormat = "pdf" | "docx";
+
 export interface DocumentResponse {
   id: string;
   title: string;
+  content_format?: DocumentContentFormat;
   file_size_bytes: number;
   total_pages: number | null;
   access_roles: string[];

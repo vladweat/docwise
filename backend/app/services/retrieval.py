@@ -65,10 +65,15 @@ class RetrievedChunk:
         return text[: max_len - 1].rstrip() + "…"
 
     def to_citation(self) -> dict[str, object]:
+        page = self.page_number if self.page_number > 0 else None
+        section = (self.section_title or "").strip() or None
+        if page is None and not section:
+            section = "Document"
         return {
             "doc_id": str(self.document_id),
             "doc_title": self.doc_title,
-            "page": self.page_number,
+            "page": page,
+            "section": section,
             "snippet": self.snippet(),
         }
 

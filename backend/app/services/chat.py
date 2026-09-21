@@ -71,8 +71,9 @@ SYSTEM_PROMPT = (
     f"«{NO_CONTEXT_ANSWER}» "
     "Do not invent facts, numbers, or policies. "
     "Format lists and tables in Markdown. "
-    "Every factual statement must cite the document title and page "
-    "in the form [Title.pdf, стр. N]. Reply in the same language as the user's question."
+    "Every factual statement must cite the source: for PDFs use "
+    "[Title.pdf, стр. N]; for Word documents use [Title.docx, раздел: Section Name] "
+    "(no page numbers for DOCX). Reply in the same language as the user's question."
 )
 
 
@@ -115,7 +116,11 @@ def build_messages(
     parts: list[str] = []
     for index, chunk in enumerate(chunks, start=1):
         title = chunk.doc_title or "Document"
-        parts.append(f"[{index}] {title} | page {chunk.page_number}\n{chunk.content}")
+        if chunk.page_number > 0:
+            parts.append(f"[{index}] {title} | page {chunk.page_number}\n{chunk.content}")
+        else:
+            section = (chunk.section_title or "").strip() or "Document"
+            parts.append(f"[{index}] {title} | section {section}\n{chunk.content}")
     context = "\n\n".join(parts) if parts else "(no excerpts)"
     messages: list[dict[str, str]] = [
         {"role": "system", "content": SYSTEM_PROMPT},

@@ -43,10 +43,10 @@ POST /api/v1/documents/upload
 Content-Type: multipart/form-data
 ```
 
-Поля: `file` (PDF), `access_roles` (повторяющееся поле или JSON-список). `admin` или `manager` текущей org (`require_kb_admin`).  
-Ответ `201`: метаданные документа, `status: pending`, `total_pages` по `page_count` файла (без извлечения текста). Дубликат SHA-256 `file_hash` **в этой org** → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL и не подтверждался чужой тенант). Unique `(organization_id, file_hash)`. Текст PDF в хендлере не извлекается: байты в MinIO (префикс org), строка `pending` с `organization_id` сессии, Celery `ingestion.process_document`.
+Поля: `file` (PDF или DOCX), `access_roles` (повторяющееся поле или JSON-список). `admin` или `manager` текущей org (`require_kb_admin`).  
+Ответ `201`: метаданные документа (`content_format`: `pdf` \| `docx`), `status: pending`, `total_pages` — для PDF `page_count` файла; для DOCX число логических разделов (квота), без извлечения текста в хендлере. Дубликат SHA-256 `file_hash` **в этой org** → `409` `{ "detail": "Document with this file hash already exists" }` без тела существующей записи (чтобы не утекали `id`/`title` файла вне ACL и не подтверждался чужой тенант). Unique `(organization_id, file_hash)`. Текст в хендлере не извлекается: байты в MinIO (префикс org), строка `pending` с `organization_id` сессии, Celery `ingestion.process_document`.
 
-Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Не-PDF → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`. Квота страниц плана (M6): уже занятые (включая `pending`/`processing`) плюс страницы входящего PDF > капа → `402` `{ "detail": "Organization quota exceeded" }` без Celery. Не использовать `404` на свою квоту.
+Лимит размера: `UPLOAD_MAX_BYTES` (по умолчанию 50 MiB) → `413`. Неподдерживаемый формат → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` по `user.id`. Квота страниц плана (M6): уже занятые (включая `pending`/`processing`) плюс единицы входящего файла (страницы PDF или разделы DOCX) > капа → `402` `{ "detail": "Organization quota exceeded" }` без Celery. Не использовать `404` на свою квоту.
 
 ```http
 GET /api/v1/documents
@@ -98,7 +98,7 @@ Content-Type: application/json
 Ответ: `Content-Type: text/event-stream`. Cookie-сессия, лимит `RATE_LIMIT_CHAT_PER_MINUTE` по `user.id`. Квота токенов периода (M6): если исчерпана → SSE `{ "type": "error", "content": "Organization quota exceeded" }` **до** retrieval (тот же смысл, что HTTP `402`). Формат как в ChainWise (не именованные `event:` из чернового ТЗ):
 
 ```
-data: {"type":"citations","citations":[{"doc_id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","doc_title":"Travel.pdf","page":4,"snippet":"..."}]}
+data: {"type":"citations","citations":[{"doc_id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","doc_title":"Travel.pdf","page":4,"section":null,"snippet":"..."}]}
 
 data: {"type":"token","content":"Employees "}
 

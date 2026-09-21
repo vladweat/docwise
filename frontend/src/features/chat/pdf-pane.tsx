@@ -17,6 +17,16 @@ const PdfViewer = dynamic(() => import("@/features/chat/pdf-viewer").then((mod) 
   ),
 });
 
+const DocxViewer = dynamic(() => import("@/features/chat/docx-viewer").then((mod) => mod.DocxViewer), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6">
+      <Skeleton className="h-8 w-40" />
+      <Skeleton className="h-[40%] w-[90%]" />
+    </div>
+  ),
+});
+
 function ClosePaneButton({ onClose }: { onClose?: () => void }) {
   if (!onClose) return null;
   return (
@@ -68,8 +78,10 @@ export function PdfPane({
             <>
               <p className="truncate text-sm font-medium text-slate-100">{target.docTitle}</p>
               <p className="text-[11px] text-slate-500">
-                стр. {target.page}
-                {target.snippet ? " · фрагмент подсвечен" : ""}
+                {target.format === "docx"
+                  ? `раздел: ${target.section?.trim() || "—"}`
+                  : `стр. ${target.page}`}
+                {target.snippet && target.format === "pdf" ? " · фрагмент подсвечен" : ""}
               </p>
             </>
           ) : (
@@ -78,7 +90,11 @@ export function PdfPane({
         </div>
         <ClosePaneButton onClose={onClose} />
       </div>
-      {target ? <PdfViewer target={target} /> : <PdfPlaceholder />}
+      {target ? (
+        target.format === "docx" ? <DocxViewer target={target} /> : <PdfViewer target={target} />
+      ) : (
+        <PdfPlaceholder />
+      )}
     </div>
   );
 }
