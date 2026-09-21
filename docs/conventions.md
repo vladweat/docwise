@@ -11,7 +11,7 @@ docwise/
       core/              # процесс: config, DB, JWT, cookies, CSRF, Redis, rate limit, logging
       models/            # ORM, один файл на агрегат
       schemas/           # Pydantic; import из модуля ресурса, не из бочки
-      services/          # домен; пакет только если несколько реализаций (billing/)
+      services/          # домен; пакет только если несколько реализаций (billing/). Крупные модули — соседние файлы: `retrieval_types` / `retrieval_search`, `chat_prompt` / `chat_sse`, `documents_acl` / `documents_upload`
     worker/              # Celery app + tasks (`worker.celery_app`)
     alembic/
     tests/
@@ -20,7 +20,7 @@ docwise/
       app/               # RSC-маршруты и metadata; клиентские острова из features/
       features/          # chat, documents, settings, auth, inspect, health — UI + сторы фичи
       components/        # shell (header, providers) + shadcn `ui/`
-      lib/               # общий HTTP-клиент, format, quota, ACL helpers
+      lib/               # `api/` (client + ресурсы), format, quota, ACL helpers; barrel `lib/api.ts`
       stores/            # общее UI-состояние (toast)
       types/             # контракты API (как Pydantic)
   eval/
