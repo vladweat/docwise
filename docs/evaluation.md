@@ -56,18 +56,18 @@ make demo
 
 ## Когда гонять
 
-После изменений чанкинга, RRF, порога реранкера, системного промпта, эмбеддингов или sparse (FTS vs BM25 по dense). В PR — кратко: выросли/упали метрики, не только «добавлен eval». После независимого FTS (миграция `012`) прогнать заново: интересуют бывшие miss `hb-security-email` и `eng-python`. Числа ниже — последний живой прогон (2026-09-10, ещё interim ADR-005).
+После изменений чанкинга, RRF, порога реранкера, системного промпта, эмбеддингов или sparse (FTS vs BM25 по dense). В PR — кратко: выросли/упали метрики, не только «добавлен eval». После независимого FTS (миграция `012`) — перегонять eval перед интервью/откликами.
 
 ## Пороги релиза
 
-После первого прогона (2026-09-10, 35 кейсов, employee без `hr`/`finance`):
+Последний живой прогон (**2026-09-21**, post-`012`; 35 кейсов, `eval-employee`, retrieval + generation + Ragas):
 
 | Метрика | Порог | Факт |
 | --- | ---: | ---: |
 | Faithfulness | ≥ 0.8 | 1.000 |
-| Context Precision | ориентир ≥ 0.9 | 0.976 |
-| Answer Relevance | ориентир, не гейт | 0.789 |
+| Context Precision | ориентир ≥ 0.9 | 0.994 |
+| Answer Relevance | ориентир, не гейт | 0.725 |
 | Target page hit | ориентир | 0.929 |
 | ACL `must_not_doc_ids` | **0 утечек** | 0 / PASS |
 
-Вывод: это не наивный RAG. SQL-RBAC до LLM держит корпус: HR/Finance не попали в Top-4. Ответы не выходят за контекст (Faithfulness 1.0). Answer Relevance тянут два позитива (`hb-security-email`, `eng-python`): после порога реранкера 0.25 контекст пустой, модель отказывается — это качество retrieval, не дыра ACL. Таблица: [reports/rag_benchmark.md](../reports/rag_benchmark.md).
+Вывод: SQL-RBAC до LLM держит корпус (7 ACL-негативов, 0 leaks). Faithfulness 1.0 на позитивах. Два page miss (`hb-security-email`, `eng-python`) — пустой контекст после rerank 0.25, отказ без галлюцинации. Базовый прогон до FTS (2026-09-10): Context Precision 0.976, Answer Relevance 0.789 — те же page miss. Таблица: [reports/rag_benchmark.md](../reports/rag_benchmark.md).
