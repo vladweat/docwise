@@ -32,9 +32,9 @@ from metrics import RagasScores, score_case
 from app.core.database import SessionLocal
 from app.models.user import User
 from app.services.chat import build_messages
-from app.services.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai
+from app.services.chat.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai
 from app.services.retrieval import NO_CONTEXT_ANSWER, retrieve
-from app.services.tenancy import resolve_principal
+from app.services.org.tenancy import resolve_principal
 
 logger = logging.getLogger("eval")
 

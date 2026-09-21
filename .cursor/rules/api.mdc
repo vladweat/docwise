@@ -1,12 +1,12 @@
 ---
-description: REST and SSE API contracts — keep handlers aligned with docs/api.md
+description: REST and SSE API contracts — keep handlers aligned with docs/engineering/api.md
 globs: backend/**/api/**/*.py,backend/app/schemas/**/*.py
 alwaysApply: false
 ---
 
 # API contracts
 
-Canonical spec: `docs/api.md`. Prefix `/api/v1`. Errors `{ "detail": "..." }`.
+Canonical spec: `docs/engineering/api.md`. Prefix `/api/v1`. Errors `{ "detail": "..." }`.
 
 - Pydantic v2 for every request/response. No ad-hoc dict contracts.
 - Auth on all `/api/v1/*` except login/register/google, `GET/POST /auth/sso/{slug}/*`, and the Stripe webhook. Identity from cookies (`dw_*`) only — ignore `Authorization: Bearer`. Never from body `user_id` / `access_roles` / `org_id` / `organization_id`.
@@ -35,4 +35,4 @@ data: [DONE]
 
 Citations first, then tokens. On failure: `{"type":"error","content":"..."}` — no stack, no foreign document titles.
 
-Inspect is org-admin only (`ENABLE_SEARCH_INSPECT`; off by default in production). Same org + ACL filter as chat. Audit stores chunk UUIDs, never restricted chunk text. After M5, register/invites/switch-org follow `docs/api.md` § Организации. After M6, billing/SSO/domain follow `docs/api.md` and `docs/billing.md` (`BILLING_PROVIDER=dev` in Compose).
+Inspect is org-admin only (`ENABLE_SEARCH_INSPECT`; off by default in production). Same org + ACL filter as chat. Audit stores chunk UUIDs, never restricted chunk text. After M5, register/invites/switch-org follow `docs/engineering/api.md` § Организации. After M6, billing/SSO/domain follow `docs/engineering/api.md` and `docs/platform/billing.md` (`BILLING_PROVIDER=dev` in Compose).

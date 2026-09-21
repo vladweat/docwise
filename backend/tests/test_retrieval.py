@@ -17,7 +17,7 @@ from app.services.retrieval import (
     retrieve,
     sparse_search,
 )
-from app.services.retrieval_search import _fts_or_query
+from app.services.retrieval.search import _fts_or_query
 from app.services.text import lexical_tokens
 from helpers import make_org, make_principal, wipe_app_tables
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.billing import BillingProvider, BillingStatus
 from app.models.organization import Organization, OrganizationPlan
 from app.services.billing.port import PlanChangeResult, apply_subscription_state, remember_event
-from app.services.quotas import ensure_billing_period
+from app.services.org.quotas import ensure_billing_period
 
 
 class DevBillingPort:

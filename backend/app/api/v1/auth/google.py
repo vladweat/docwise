@@ -12,8 +12,8 @@ from app.core.rate_limit import enforce_auth_rate_limit
 from app.models.user import User, UserRole
 from app.schemas.auth import GoogleAuthRequest
 from app.schemas.user import UserResponse
-from app.services.domains import enforce_host_pin, pinned_organization_id
-from app.services.tenancy import (
+from app.services.org.domains import enforce_host_pin, pinned_organization_id
+from app.services.org.tenancy import (
     accept_invite,
     add_membership,
     create_organization,

@@ -25,7 +25,7 @@ from app.services.chat import (
     canonical_allowed_roles,
 )
 from helpers import register_payload, set_membership, wipe_app_tables
-from app.services.llm import LLMUsage
+from app.services.chat.llm import LLMUsage
 from app.services.retrieval import NO_CONTEXT_ANSWER, RetrievedChunk, RetrievalResult
 
 client = TestClient(app)
@@ -543,7 +543,7 @@ def test_cache_miss_after_index_generation_bump(monkeypatch):
     monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
     monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
 
-    from app.services.llm_cache import invalidate_llm_cache
+    from app.services.chat.llm_cache import invalidate_llm_cache
 
     admin = _register()
     first = _invite_into(admin, role=UserRole.employee.value)

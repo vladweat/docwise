@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.services.chunker import (
+from app.services.ingestion.chunker import (
     CHUNK_MAX_TOKENS,
     CHUNK_MIN_TOKENS,
     CHUNK_OVERLAP_TOKENS,
@@ -9,7 +9,7 @@ from app.services.chunker import (
     count_tokens,
     format_embed_text,
 )
-from app.services.pdf_parser import PageBlock, ParsedDocument, ParsedPage, table_to_gfm
+from app.services.ingestion.pdf_parser import PageBlock, ParsedDocument, ParsedPage, table_to_gfm
 from app.services.text import ingest_tokens
 
 

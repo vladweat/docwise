@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Billing and entitlements
 
-Canonical: `docs/billing.md`, ADR-013. Quotas are **not** rate limits.
+Canonical: `docs/platform/billing.md`, ADR-013. Quotas are **not** rate limits.
 
 - `BILLING_PROVIDER=dev` (Compose default) or `stripe`. Handlers read `organizations.plan` / usage from Postgres. Do not call Stripe when provider is `dev`.
 - Quota exceeded → `402`. Feature not in plan → `403`. Abuse rate limit → `429`. Do not mask own quota as `404`.

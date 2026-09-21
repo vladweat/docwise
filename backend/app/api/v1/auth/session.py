@@ -18,9 +18,9 @@ from app.models.organization import Organization, OrganizationStatus
 from app.models.user import User
 from app.schemas.auth import SwitchOrganizationRequest
 from app.schemas.user import UserResponse
-from app.services.domains import enforce_host_pin
-from app.services.sso import SSO_REQUIRED, has_sso_fresh, session_allowed_for_org
-from app.services.tenancy import get_membership, principal_from_parts, resolve_principal, user_response
+from app.services.org.domains import enforce_host_pin
+from app.services.org.sso import SSO_REQUIRED, has_sso_fresh, session_allowed_for_org
+from app.services.org.tenancy import get_membership, principal_from_parts, resolve_principal, user_response
 
 
 @router.post("/refresh", response_model=UserResponse)

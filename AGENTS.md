@@ -2,15 +2,15 @@
 
 Enterprise RAG workspace (repo `docwise`), adapted from sibling `../chainwise`.
 
-Start here: `docs/srs.md` (product), `docs/milestones.md` (roadmap checkboxes), `docs/decisions.md` (TZ vs ChainWise), `docs/reuse-from-chainwise.md` (file map). Portfolio showcase vs interview/abroad levels: `docs/portfolio.md`, `docs/portfolio-levels.md`, `docs/career-kb.md`. Cursor rules in `.cursor/rules/` restates the same invariants.
+Start here: `docs/product/srs.md` (product), `docs/product/milestones.md` (roadmap checkboxes), `docs/engineering/decisions.md` (TZ vs ChainWise), `docs/engineering/reuse-from-chainwise.md` (file map). Portfolio showcase vs interview/abroad levels: `docs/portfolio/portfolio.md`, `docs/portfolio/portfolio-levels.md`, `docs/portfolio/career-kb.md`. Cursor rules in `.cursor/rules/` restates the same invariants.
 
 Non-negotiables:
 
-1. Two-layer access: SQL `organization_id = current_org` ([tenancy.md](docs/tenancy.md)) **then** `document_chunks.access_roles` (and the same on file download). Never prompt-filter unauthorized or cross-tenant chunks.
+1. Two-layer access: SQL `organization_id = current_org` ([tenancy.md](docs/platform/tenancy.md)) **then** `document_chunks.access_roles` (and the same on file download). Never prompt-filter unauthorized or cross-tenant chunks.
 2. No naive character-split RAG. Chunks stay on one page/section; inject a meta header before embedding.
 3. Hybrid search: pgvector + Postgres FTS with org + ACL → RRF (`k=60`) → cross-encoder rerank → Top-4 → grounded LLM. Do **not** `SELECT` all chunks into RAM BM25 (that is ChainWise’s one-contract path).
 4. SSE JSON envelopes like ChainWise: `citations` → `token` → `meta` → `[DONE]`. If context is insufficient, refuse. Every fact needs `{document, page}`.
 
 Keep sync SQLAlchemy. UUID PKs (not ChainWise integer ids). Do not port solc, Slither, or `semantic_splitter.py`. When you change an API or RAG/ACL/tenancy invariant, update `docs/` and the matching `.cursor/rules/` file in the same change.
 
-Plan entitlements, billing, SSO, and hostname pin org — they never replace SQL `organization_id` + `access_roles`. Canonical: `docs/billing.md`, ADR-013–015.
+Plan entitlements, billing, SSO, and hostname pin org — they never replace SQL `organization_id` + `access_roles`. Canonical: `docs/platform/billing.md`, ADR-013–015.

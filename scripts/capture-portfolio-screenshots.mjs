@@ -1,6 +1,6 @@
 /**
- * Optional: automated PNG capture for docs/screenshots/ (Playwright + Chromium).
- * Canonical path for portfolio B is manual capture — see docs/screenshots/README.md.
+ * Optional: automated PNG capture for docs/portfolio/screenshots/ (Playwright + Chromium).
+ * Canonical path for portfolio B is manual capture — see docs/portfolio/screenshots/README.md.
  *
  * Usage: node scripts/capture-portfolio-screenshots.mjs
  * Prereq: make up && make demo; OPENAI_API_KEY in .env; playwright installed under scripts/.
@@ -12,7 +12,7 @@ import { chromium } from "playwright";
 
 const BASE = process.env.DOCWISE_SCREENSHOT_BASE ?? "http://localhost:3001";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.join(__dirname, "..", "docs", "screenshots");
+const OUT = path.join(__dirname, "..", "docs", "portfolio", "screenshots");
 
 const HOURS_Q = "What are the core working hours at Docwise?";
 const SALARY_Q = "What is the individual contributor L3 salary band in USD?";

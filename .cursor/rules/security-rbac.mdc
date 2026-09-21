@@ -5,7 +5,7 @@ alwaysApply: true
 
 # RBAC for retrieval
 
-Canonical: `docs/auth.md` and `docs/tenancy.md`. A junior employee must never receive answers derived from documents they cannot open. An employee of another company must never receive answers from this company’s corpus — including documents tagged `all`. This is the core enterprise requirement.
+Canonical: `docs/platform/auth.md` and `docs/platform/tenancy.md`. A junior employee must never receive answers derived from documents they cannot open. An employee of another company must never receive answers from this company’s corpus — including documents tagged `all`. This is the core enterprise requirement.
 
 ## Enforcement
 

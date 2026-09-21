@@ -10,8 +10,8 @@ from app.core.security import hash_password
 from app.models.organization import Organization, OrganizationStatus
 from app.models.user import User, UserRole
 from app.schemas.auth import RegisterRequest
-from app.services.sso import SSO_REQUIRED
-from app.services.tenancy import (
+from app.services.org.sso import SSO_REQUIRED
+from app.services.org.tenancy import (
     accept_invite,
     add_membership,
     create_organization,

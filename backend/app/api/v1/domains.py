@@ -8,7 +8,7 @@ from app.core.principal import Principal
 from app.schemas.common import foreign_organization_id
 from app.schemas.domain import DomainUpsertRequest, DomainVerifyRequest, OrganizationDomainResponse
 from app.services.billing import NOT_FOUND
-from app.services.domains import (
+from app.services.org.domains import (
     attach_platform_domains,
     custom_domain_for_org,
     domain_response,

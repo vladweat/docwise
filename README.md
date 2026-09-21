@@ -8,12 +8,12 @@ Target deploy is **shared B2B SaaS** (many organizations on one stack). Isolatio
 
 | | |
 | --- | --- |
-| **Live demo** | TBD — [owner checklist](docs/portfolio-owner-tasks.md#c1--публичный-https-demo) · [deploy guide](docs/deploy-public-demo.md) |
-| **Walkthrough video** | TBD (60–90 s) — [shot list](docs/portfolio-owner-tasks.md#c2--видео-6090-с) |
+| **Live demo** | TBD — [owner checklist](docs/portfolio/portfolio-owner-tasks.md#c1--публичный-https-demo) · [deploy guide](docs/portfolio/deploy-public-demo.md) |
+| **Walkthrough video** | TBD (60–90 s) — [shot list](docs/portfolio/portfolio-owner-tasks.md#c2--видео-6090-с) |
 
 Replace `OWNER/REPO` in the CI badge after you publish the GitHub remote.
 
-> Product spec: [docs/srs.md](docs/srs.md) (Russian). Tenancy: [docs/tenancy.md](docs/tenancy.md). Adapted from sibling [ChainWise](../chainwise) (cookies, Celery, SSE) with a different parser and **SQL RBAC on every search**.
+> Product spec: [docs/product/srs.md](docs/product/srs.md) (Russian). Tenancy: [docs/platform/tenancy.md](docs/platform/tenancy.md). Adapted from sibling [ChainWise](../chainwise) (cookies, Celery, SSE) with a different parser and **SQL RBAC on every search**.
 
 ## Why not naive RAG
 
@@ -42,7 +42,7 @@ Keyword search does not understand the question. A junior employee must never re
 | **Proof** | Demo ACL: employee salary question refuses; HR gets `72000`–`88000` USD from `HR-Compensation.pdf`. Eval: **0** `must_not_doc_ids` leaks, Faithfulness **1.000** (2026-09-21) — [reports/rag_benchmark.md](reports/rag_benchmark.md). |
 | **Commercial envelope** | M6 plans/quotas/SSO/domain in product code; portfolio runs `BILLING_PROVIDER=dev` and `SSO_PROVIDER=dev` (dev simulate + fixture SSO, no live Stripe or Okta). Pytest covers quotas and cross-org SSO isolation. |
 
-Owner-only steps (public URL, video, GitHub pin): [docs/portfolio-owner-tasks.md](docs/portfolio-owner-tasks.md).
+Owner-only steps (public URL, video, GitHub pin): [docs/portfolio/portfolio-owner-tasks.md](docs/portfolio/portfolio-owner-tasks.md).
 
 ## Architecture
 
@@ -110,7 +110,7 @@ WHERE organization_id = :current_org
 
 ## Eval metrics
 
-**How we measure:** `eval/golden_dataset.json` (35 cases) runs through the same hybrid retrieval, rerank, and chat path as production, under `eval-employee@docwise.example.com` (`employee`, no `hr`/`finance` department). Ragas judges (Faithfulness, Context Precision, Answer Relevance) use the same LLM client as chat; release gates are Faithfulness ≥ 0.8 and **zero** Top-4 leaks from `must_not_doc_ids` (every case lists HR/Finance doc ids). ACL negative example: employee asks for the L3 salary band → `acl-l3-band` in the golden set; HR compensation chunks never enter Top-4 (see demo walkthrough below). Details: [docs/evaluation.md](docs/evaluation.md).
+**How we measure:** `eval/golden_dataset.json` (35 cases) runs through the same hybrid retrieval, rerank, and chat path as production, under `eval-employee@docwise.example.com` (`employee`, no `hr`/`finance` department). Ragas judges (Faithfulness, Context Precision, Answer Relevance) use the same LLM client as chat; release gates are Faithfulness ≥ 0.8 and **zero** Top-4 leaks from `must_not_doc_ids` (every case lists HR/Finance doc ids). ACL negative example: employee asks for the L3 salary band → `acl-l3-band` in the golden set; HR compensation chunks never enter Top-4 (see demo walkthrough below). Details: [docs/product/evaluation.md](docs/product/evaluation.md).
 
 Last live Ragas run (**2026-09-21**, post FTS migration `012`; 35 cases). Full per-question table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Default CI does **not** run eval (needs an LLM key and indexed fixtures).
 
@@ -159,11 +159,11 @@ Script: `eval/seed_demo.py` (same fixture PDFs as eval; real `index_pdf`, not Ce
 
 ## Screenshots
 
-Demo org (`make demo`). Regenerate: [docs/screenshots/README.md](docs/screenshots/README.md) or `node scripts/capture-portfolio-screenshots.mjs`.
+Demo org (`make demo`). Regenerate: [docs/portfolio/screenshots/README.md](docs/portfolio/screenshots/README.md) or `node scripts/capture-portfolio-screenshots.mjs`.
 
 | Chat + citation | PDF highlight | ACL refuse (employee / salary) | Inspect pipeline (admin) |
 | --- | --- | --- | --- |
-| ![Chat with citation](docs/screenshots/01-chat-citation.png) | ![PDF highlight](docs/screenshots/02-pdf-highlight.png) | ![ACL refuse](docs/screenshots/03-acl-refuse.png) | ![Inspect stages](docs/screenshots/04-inspect-pipeline.png) |
+| ![Chat with citation](docs/portfolio/screenshots/01-chat-citation.png) | ![PDF highlight](docs/portfolio/screenshots/02-pdf-highlight.png) | ![ACL refuse](docs/portfolio/screenshots/03-acl-refuse.png) | ![Inspect stages](docs/portfolio/screenshots/04-inspect-pipeline.png) |
 
 ## Security scenarios (what CI already guards)
 
@@ -191,7 +191,7 @@ This repo is a portfolio-complete RAG workspace, not a billing company. Intentio
 
 Compose: `BILLING_PROVIDER=dev` (plan changes without payments) and `SSO_PROVIDER=dev` (fixture assertion, not a customer IdP). Inspect is on in Compose (`ENABLE_SEARCH_INSPECT=true`) and off by default when `ENVIRONMENT=production`.
 
-Portfolio: level **B** closed in-repo; level **C** (live demo URL + video) — [docs/portfolio-owner-tasks.md](docs/portfolio-owner-tasks.md). Levels A/B/C — [docs/portfolio-levels.md](docs/portfolio-levels.md). Repo showcase — [docs/portfolio.md](docs/portfolio.md).
+Portfolio: level **B** closed in-repo; level **C** (live demo URL + video) — [docs/portfolio/portfolio-owner-tasks.md](docs/portfolio/portfolio-owner-tasks.md). Levels A/B/C — [docs/portfolio/portfolio-levels.md](docs/portfolio/portfolio-levels.md). Repo showcase — [docs/portfolio/portfolio.md](docs/portfolio/portfolio.md).
 
 ## CI
 
@@ -216,7 +216,7 @@ make test-frontend   # vitest
 backend/          # FastAPI + Celery worker
 frontend/         # Next.js 15 App Router
 eval/             # golden set, Ragas runner, demo seed
-docs/             # architecture and SRS (Russian)
+docs/             # product, platform, pipeline, engineering, portfolio (see docs/README.md)
 reports/          # rag_benchmark.md
 .github/workflows/ci.yml
 ```
@@ -226,18 +226,18 @@ reports/          # rag_benchmark.md
 | Doc | Contents |
 | --- | --- |
 | [docs/README.md](docs/README.md) | Index |
-| [docs/srs.md](docs/srs.md) | Product requirements |
-| [docs/architecture.md](docs/architecture.md) | System and flows |
-| [docs/decisions.md](docs/decisions.md) | ADRs vs ChainWise / the draft TZ |
-| [docs/tenancy.md](docs/tenancy.md) | Shared SaaS org isolation |
-| [docs/billing.md](docs/billing.md) | Plans, quotas, billing port |
-| [docs/auth.md](docs/auth.md) | Session, roles, ACL assembly |
-| [docs/retrieval.md](docs/retrieval.md) | Hybrid search (dense + FTS), SSE, inspect |
-| [docs/api.md](docs/api.md) | HTTP contract |
-| [docs/milestones.md](docs/milestones.md) | v1 roadmap |
-| [docs/tech-debt.md](docs/tech-debt.md) | Structural backlog after M0–M6 |
-| [docs/portfolio.md](docs/portfolio.md) | Demo / showcase freeze (not product milestones) |
-| [docs/portfolio-levels.md](docs/portfolio-levels.md) | Portfolio levels A/B/C (interview-ready, abroad) |
-| [docs/portfolio-owner-tasks.md](docs/portfolio-owner-tasks.md) | Video, public demo, GitHub — owner only |
-| [docs/deploy-public-demo.md](docs/deploy-public-demo.md) | HTTPS demo VPS checklist (C1) |
+| [docs/product/srs.md](docs/product/srs.md) | Product requirements |
+| [docs/product/architecture.md](docs/product/architecture.md) | System and flows |
+| [docs/engineering/decisions.md](docs/engineering/decisions.md) | ADRs vs ChainWise / the draft TZ |
+| [docs/platform/tenancy.md](docs/platform/tenancy.md) | Shared SaaS org isolation |
+| [docs/platform/billing.md](docs/platform/billing.md) | Plans, quotas, billing port |
+| [docs/platform/auth.md](docs/platform/auth.md) | Session, roles, ACL assembly |
+| [docs/pipeline/retrieval.md](docs/pipeline/retrieval.md) | Hybrid search (dense + FTS), SSE, inspect |
+| [docs/engineering/api.md](docs/engineering/api.md) | HTTP contract |
+| [docs/product/milestones.md](docs/product/milestones.md) | v1 roadmap |
+| [docs/engineering/tech-debt.md](docs/engineering/tech-debt.md) | Structural backlog after M0–M6 |
+| [docs/portfolio/portfolio.md](docs/portfolio/portfolio.md) | Demo / showcase freeze (not product milestones) |
+| [docs/portfolio/portfolio-levels.md](docs/portfolio/portfolio-levels.md) | Portfolio levels A/B/C (interview-ready, abroad) |
+| [docs/portfolio/portfolio-owner-tasks.md](docs/portfolio/portfolio-owner-tasks.md) | Video, public demo, GitHub — owner only |
+| [docs/portfolio/deploy-public-demo.md](docs/portfolio/deploy-public-demo.md) | HTTPS demo VPS checklist (C1) |
 | [AGENTS.md](AGENTS.md) | Agent checklist |

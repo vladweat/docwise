@@ -22,7 +22,7 @@ from app.services.billing import (
     BillingUnavailable,
     get_billing_port,
 )
-from app.services.quotas import ensure_billing_period, plan_limits, usage_snapshot
+from app.services.org.quotas import ensure_billing_period, plan_limits, usage_snapshot
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from app.models.document import EMBEDDING_DIM
-from app.services.embeddings import (
+from app.services.ingestion.embeddings import (
     MODEL_NAME,
     VECTOR_SIZE,
     EmbeddingError,
@@ -92,8 +92,8 @@ def test_embedding_model_dir_uses_settings(monkeypatch, tmp_path: Path):
 
 
 def test_has_cached_onnx_matches_fastembed_hf_layout(monkeypatch, tmp_path: Path):
-    from app.services.onnx_cache import has_cached_onnx
-    from app.services.reranker import is_reranker_available, reset_reranker_cache
+    from app.services.ingestion.onnx_cache import has_cached_onnx
+    from app.services.retrieval.reranker import is_reranker_available, reset_reranker_cache
 
     embed_dir = tmp_path / "models--qdrant--bge-small-en-v1.5-onnx-q" / "snapshots" / "abc"
     embed_dir.mkdir(parents=True)

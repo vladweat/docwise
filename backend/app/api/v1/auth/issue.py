@@ -5,7 +5,7 @@ from fastapi import Response
 from app.core.auth_cookies import create_refresh_token, set_auth_cookies
 from app.core.principal import Principal
 from app.core.security import create_access_token
-from app.services.sso import mark_sso_fresh
+from app.services.org.sso import mark_sso_fresh
 
 
 def issue_session(principal: Principal, response: Response, *, sso: bool = False) -> Principal:

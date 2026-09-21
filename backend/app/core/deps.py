@@ -9,9 +9,9 @@ from app.core.database import SessionLocal
 from app.core.principal import Principal
 from app.core.security import decode_access_token
 from app.models.user import User, UserRole
-from app.services.domains import enforce_host_pin
-from app.services.sso import session_allowed_for_org
-from app.services.tenancy import resolve_principal
+from app.services.org.domains import enforce_host_pin
+from app.services.org.sso import session_allowed_for_org
+from app.services.org.tenancy import resolve_principal
 
 
 def get_db() -> Generator[Session, None, None]:

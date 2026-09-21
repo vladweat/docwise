@@ -10,9 +10,9 @@ from app.core.security import verify_password
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest
 from app.schemas.user import UserResponse
-from app.services.domains import enforce_host_pin, pinned_organization_id
-from app.services.sso import SSO_REQUIRED
-from app.services.tenancy import user_response
+from app.services.org.domains import enforce_host_pin, pinned_organization_id
+from app.services.org.sso import SSO_REQUIRED
+from app.services.org.tenancy import user_response
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)

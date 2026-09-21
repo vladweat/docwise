@@ -1,22 +1,33 @@
 # Документация Docwise
 
-Источник истины по продукту — [srs.md](srs.md); по отклонениям от черновика ТЗ — [decisions.md](decisions.md). Канон HTTP — [api.md](api.md). FastAPI отдаёт `/docs` и `/openapi.json` вне `production` (в production выключены); OpenAPI не заменяет `api.md`.
+Источник истины по продукту — [srs.md](product/srs.md); по отклонениям от черновика ТЗ — [decisions.md](engineering/decisions.md). Канон HTTP — [api.md](engineering/api.md). FastAPI отдаёт `/docs` и `/openapi.json` вне `production` (в production выключены); OpenAPI не заменяет `api.md`.
+
+## Раскладка каталога
+
+| Каталог | Содержимое |
+| --- | --- |
+| `product/` | SRS, архитектура, roadmap, NFR, frontend, evaluation |
+| `platform/` | tenancy, auth, billing, data-model |
+| `pipeline/` | ingestion, retrieval |
+| `engineering/` | api, ADR/decisions, tech-debt, reuse-from-chainwise |
+| `portfolio/` | витрина, уровни A/B/C, owner tasks, deploy demo, career-kb, screenshots |
+| `meta/` | соглашения репозитория (`conventions.md`) |
 
 ## С чего начать
 
-1. [SRS](srs.md) — цели, FR, стек, критерии приёмки.
-2. [Архитектура](architecture.md) — компоненты, чат и inspect.
-3. [Модель данных](data-model.md), [Auth](auth.md), [Tenancy](tenancy.md), [Billing](billing.md) — Postgres, pgvector, роли, организации, планы/квоты.
-4. [Ingestion](ingestion.md) и [Retrieval](retrieval.md) — индекс, ответы, inspect, аудит.
-5. [API](api.md) и [Frontend](frontend.md) — контракт и UX.
-6. [NFR](nfr.md), [Оценка](evaluation.md), [Roadmap](milestones.md) (чекбоксы вех).
-7. [Техдолг](tech-debt.md) — structural backlog после M0–M6 (не инварианты продукта).
-8. [Портфолио](portfolio.md) — закрытие витрины (не вехи продукта).
-9. [Уровни портфолио A/B/C](portfolio-levels.md) — interview-ready и abroad (не product roadmap).
-10. [Задачи владельца (видео, demo, GitHub)](portfolio-owner-tasks.md) — уровень C, вне кода.
-11. [Публичный demo VPS](deploy-public-demo.md) — C1 deploy checklist.
-12. [Карьерная KB](career-kb.md) — факты для резюме/интервью (не продуктовая спека).
-13. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
+1. [SRS](product/srs.md) — цели, FR, стек, критерии приёмки.
+2. [Архитектура](product/architecture.md) — компоненты, чат и inspect.
+3. [Модель данных](platform/data-model.md), [Auth](platform/auth.md), [Tenancy](platform/tenancy.md), [Billing](platform/billing.md) — Postgres, pgvector, роли, организации, планы/квоты.
+4. [Ingestion](pipeline/ingestion.md) и [Retrieval](pipeline/retrieval.md) — индекс, ответы, inspect, аудит.
+5. [API](engineering/api.md) и [Frontend](product/frontend.md) — контракт и UX.
+6. [NFR](product/nfr.md), [Оценка](product/evaluation.md), [Roadmap](product/milestones.md) (чекбоксы вех).
+7. [Техдолг](engineering/tech-debt.md) — structural backlog после M0–M6 (не инварианты продукта).
+8. [Портфолио](portfolio/portfolio.md) — закрытие витрины (не вехи продукта).
+9. [Уровни портфолио A/B/C](portfolio/portfolio-levels.md) — interview-ready и abroad (не product roadmap).
+10. [Задачи владельца (видео, demo, GitHub)](portfolio/portfolio-owner-tasks.md) — уровень C, вне кода.
+11. [Публичный demo VPS](portfolio/deploy-public-demo.md) — C1 deploy checklist.
+12. [Карьерная KB](portfolio/career-kb.md) — факты для резюме/интервью (не продуктовая спека).
+13. [Соглашения](meta/conventions.md) и [переиспользование ChainWise](engineering/reuse-from-chainwise.md).
 
 ## Инварианты продукта
 

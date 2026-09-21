@@ -10,7 +10,7 @@ from app.schemas.organization import (
     MemberListResponse,
     MemberResponse,
 )
-from app.services.tenancy import add_membership, create_invite, list_members
+from app.services.org.tenancy import add_membership, create_invite, list_members
 from app.services.text import InvalidRoleTag, TooManyRoleTags, normalize_role_tags
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -55,7 +55,7 @@ def create_organization_invite(
     role = body.role.value
     existing = db.query(User).filter(User.email == email).first()
     if existing is not None:
-        from app.services.tenancy import get_membership
+        from app.services.org.tenancy import get_membership
 
         if get_membership(db, existing.id, current_user.organization_id) is not None:
             raise HTTPException(

@@ -12,8 +12,8 @@ import math
 import re
 from dataclasses import dataclass
 
-from app.services.embeddings import embed_texts
-from app.services.llm import complete_openai
+from app.services.ingestion.embeddings import embed_texts
+from app.services.chat.llm import complete_openai
 from app.services.retrieval import NO_CONTEXT_ANSWER
 
 logger = logging.getLogger(__name__)

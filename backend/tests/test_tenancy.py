@@ -190,7 +190,7 @@ def test_client_organization_id_in_body_is_ignored(storage: FakeStorage, monkeyp
 
 def test_retrieval_and_cache_do_not_cross_orgs(monkeypatch):
     from app.core.config import get_settings
-    from app.services.llm import LLMUsage
+    from app.services.chat.llm import LLMUsage
     from app.services.retrieval import RetrievedChunk, RetrievalResult
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")

@@ -12,7 +12,7 @@ VECTOR_SIZE = 384
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.services.onnx_cache import has_cached_onnx  # noqa: E402
+from app.services.ingestion.onnx_cache import has_cached_onnx  # noqa: E402
 
 
 def main() -> int:

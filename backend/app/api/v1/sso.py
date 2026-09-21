@@ -17,8 +17,8 @@ from app.models.sso import OrganizationSsoConnection
 from app.schemas.common import foreign_organization_id
 from app.schemas.sso import DevSsoAssertion, SsoConnectionResponse, SsoUpsertRequest
 from app.services.billing import NOT_FOUND
-from app.services.domains import enforce_host_pin, pinned_organization_id
-from app.services.sso import (
+from app.services.org.domains import enforce_host_pin, pinned_organization_id
+from app.services.org.sso import (
     SSO_NOT_FOUND,
     complete_sso_login,
     parse_attribute_map,
@@ -26,7 +26,7 @@ from app.services.sso import (
     require_sso_entitlement,
     sso_paths,
 )
-from app.services.tenancy import user_response
+from app.services.org.tenancy import user_response
 
 public_router = APIRouter(prefix="/auth", tags=["sso"])
 admin_router = APIRouter(prefix="/organizations", tags=["sso"])

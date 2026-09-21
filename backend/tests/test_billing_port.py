@@ -21,7 +21,7 @@ from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.organization import Organization, OrganizationStatus
 from app.services.billing import billing_readiness, get_billing_port
 from app.services.billing.stripe_adapter import StripeBillingPort
-from app.services.quotas import QUOTA_EXCEEDED
+from app.services.org.quotas import QUOTA_EXCEEDED
 from helpers import make_org, register_payload, wipe_app_tables
 from pdf_fixtures import tagged_pdf_bytes
 

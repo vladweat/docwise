@@ -6,7 +6,7 @@ from fastapi import HTTPException, Request, status
 
 from app.api import API_V1
 from app.core.config import get_settings
-from app.services.domains import origin_allowed
+from app.services.org.domains import origin_allowed
 
 CSRF_HEADER_VALUE = "Docwise"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}

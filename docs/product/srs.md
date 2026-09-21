@@ -1,0 +1,137 @@
+# SRS: Docwise (Enterprise Doc AI)
+
+**Репозиторий:** `docwise`  
+**Название:** Docwise / Enterprise RAG Workspace  
+**Тип:** shared B2B SaaS умного поиска и Q&A по документам (много организаций на одном деплое). Private cloud / on-prem — тот же код с одной организацией, см. [tenancy.md](../platform/tenancy.md).
+
+Это каноническое продуктовое ТЗ. Детали реализации, отличающиеся от черновика (asyncpg → sync Session, SSE-конверт ChainWise), зафиксированы в [decisions.md](../engineering/decisions.md). PK — UUID, как в ТЗ. Карта кода: [reuse-from-chainwise.md](../engineering/reuse-from-chainwise.md).
+
+**Позиционирование:** *Production-grade Enterprise RAG system built with FastAPI, PostgreSQL/pgvector, Celery, and Next.js, featuring permission-aware retrieval, hybrid search with reranking, and exact PDF page citations.*
+
+---
+
+## 1. Проблема
+
+В компаниях копятся тысячи PDF/DOCX (регламенты, политики, NDA, отчёты, договоры).
+
+| Боль | Почему наивный подход ломается |
+| --- | --- |
+| Семантика | Keyword-поиск не понимает формулировку вопроса |
+| Структура PDF | Нарезка по N символам рвёт таблицы и теряет заголовки |
+| Утечка ACL | Общий чат без фильтра векторов отдаёт стажёру финансы C-level |
+| Доверие | Без точной страницы в оригинале ответ модели нельзя проверить |
+
+Docwise закрывает это связкой: **изоляция организаций**, **RBAC на retrieval**, **structure-aware chunking**, **hybrid search + rerank**, **цитаты в PDF-вьюере**.
+
+---
+
+## 2. Цели продукта (v1)
+
+1. Загрузить PDF, проиндексировать структуру (страницы, секции, таблицы) и отвечать на вопросы только по этому корпусу.
+2. Не отдать в LLM ни одного чанка, к которому у пользователя нет права.
+3. Каждый факт в ответе цитируется как `{document, page}`; клик открывает оригинал на этой странице.
+4. Если в разрешённом контексте ответа нет — явный отказ, без догадок.
+5. Качество retrieval измеримо (Ragas + ACL-негативы), а не «кажется, отвечает».
+
+Слои доступа: **организация** (`org_id`) снаружи, роли/отделы внутри. Shared SaaS — SQL `organization_id` плюс внутренняя ACL; см. [tenancy.md](../platform/tenancy.md) и [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
+
+После M5 — коммерческая оболочка ([M6](milestones.md#milestone-6--commercial-saas)): планы и квоты, SSO/SAML, custom domain; биллинг за портом (`dev` по умолчанию, Stripe не обязателен).
+
+Вне скоупа до отдельных вех: консоль оператора платформы, SCIM, боевой эквайринг как критерий, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение своих эмбеддингов, DOCX как обязательный формат (желателен, не блокер).
+
+---
+
+## 3. Стек (целевой)
+
+| Слой | Технологии |
+| --- | --- |
+| Backend | Python 3.12, FastAPI, Uvicorn, Pydantic v2, SQLAlchemy 2 **sync Session** |
+| Очереди | Redis 7, Celery 5 |
+| Данные | PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`), dense 384d cosine + FTS (`tsvector` + GIN) независимо от dense |
+| Парсинг | PyMuPDF (`fitz`), pdfplumber (таблицы → Markdown) |
+| ML | fastembed `BAAI/bge-small-en-v1.5`, `BAAI/bge-reranker-base`; LLM `gpt-4o-mini` / Anthropic через `httpx` |
+| Frontend | Next.js 15 App Router, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
+| Инфра | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend tsc + vitest + lint + build) |
+
+Происхождение каркаса: соседний [ChainWise](../../chainwise/README.md). Не подменять стек (LangChain как ядро, другой векторный движок) без явной просьбы.
+
+---
+
+## 4. Функциональные требования
+
+### FR-1. Knowledge base
+
+- Авторизованный пользователь с правом manage KB загружает PDF и назначает `access_roles[]`.
+- Система считает SHA-256, кладёт байты в MinIO, строку в `documents` (`pending`) и ставит Celery-задачу.
+- Статусы: `pending → processing → ready | failed`. Failed сохраняет `last_error`.
+- Список документов с пагинацией и статусами; удаление каскадно (Postgres + MinIO).
+- Отдача оригинала только при том же ACL, что и у строки документа. Публичный URL ведра запрещён.
+
+### FR-2. Ingestion
+
+- Парсинг по физическим страницам; таблицы — GitHub-flavored Markdown; координаты блоков сохранять, если доступны.
+- Чанк не пересекает границу страницы; 400–600 токенов, overlap 50 только внутри страницы/секции.
+- Перед эмбеддингом — мета-заголовок `[Document: … | Section: … | Page: N]`.
+- Payload чанка содержит `access_roles` документа. Re-ingest идемпотентен (delete by `document_id`).
+
+### FR-3. Retrieval + chat
+
+- Фильтр SQL `access_roles && allowed_roles` на **каждый** dense и sparse/FTS запрос.
+- Hybrid: dense Top-25 + FTS Top-25 (независимо) → RRF `k=60` → Top-15 → cross-encoder → порог 0.25 → Top-4.
+- Генерация строго по Top-4. Пустой список после порога → фиксированный отказ без вызова «творчества».
+- SSE: сначала цитаты, затем токены, затем метрики. Протокол — JSON-конверты ChainWise (см. [api.md](../engineering/api.md)).
+
+### FR-4. UI
+
+- Split-pane: сессии (скрываемые) / чат с min-width / PDF ~55% остатка. Сноска — интерактивный тег `Doc.pdf (стр. N)`. Левую и правую панели можно полностью скрыть; клик по сноске открывает PDF.
+- Клик: открыть файл, перейти на страницу, подсветить фрагмент.
+- Админка KB: таблица + drag-and-drop + теги доступа + поллинг статуса.
+
+### FR-5. Оценка и аудит
+
+- Каждый retrieval (чат и inspect) пишется в `rag_audit_logs`: query, user, UUID чанков после реранкера, latency_ms, tokens_used, feedback.
+- В аудит не писать полный текст чанков (в т.ч. restricted).
+- Feedback `+1 / -1` на своё assistant-сообщение (`POST /api/v1/chat/feedback`).
+- `eval/` с golden set ≥ 30 вопросов и отчётом Ragas.
+
+### FR-6. Инспекция (admin)
+
+- `POST /api/v1/search/inspect` — списки `dense` / `sparse` / `rrf` / `reranked` со скорами. Тот же SQL ACL, что у чата; роли не из тела запроса.
+- Только `admin`. `ENABLE_SEARCH_INSPECT`: в production по умолчанию выкл (`404`), иначе вкл. Явное `true`/`false` перекрывает дефолт.
+- Нет admin-override: HR-only чанк не виден admin без `hr` в `allowed_roles`. Пользователь без роли не видит чанк и не узнаёт, что файл есть.
+
+### FR-7. Организации (shared SaaS)
+
+- Документы, чанки, чат и аудит принадлежат `organizations`. Поиск никогда не ходит по чужому `org_id`.
+- Пользователь глобальный; роль и отделы — на членстве в org. Текущая org только из сессии.
+- `all` значит «все в этой организации», не «все залогиненные в SaaS».
+- Self-serve: регистрация создаёт организацию; дальше — инвайты org-admin.
+- Спека: [tenancy.md](../platform/tenancy.md). Приёмка — критерии M5, не §6 v1.
+
+### FR-8. Планы, SSO, домен (после M5)
+
+- У организации есть план (`starter` \| `team` \| `enterprise`) и квоты seats / страниц / токенов чата за период. Исчерпание → `402` на upload / инвайт / chat **до** retrieval. Rate limit по-прежнему `429`.
+- SSO/SAML и custom domain — entitlement Enterprise. Org SSO берётся из коннектора, не из assertion. Hostname пинит org; SQL `organization_id` не отменяется.
+- Провайдер оплаты не источник ACL. Compose закрывает приёмку на `BILLING_PROVIDER=dev`. Спека: [billing.md](../platform/billing.md). Приёмка — [M6](milestones.md#milestone-6--commercial-saas).
+
+---
+
+## 5. Нефункциональные требования
+
+См. [nfr.md](nfr.md). Кратко: нулевые утечки ACL; отказ без галлюцинаций; парсинг не в HTTP-запросе; секреты только в env.
+
+---
+
+## 6. Критерии приёмки v1
+
+- [x] Upload сложного PDF с таблицей → `ready`, чанки с одной `page_number`, таблица в Markdown.
+- [x] Вопрос находит верную страницу; клик в UI открывает её.
+- [x] Пользователь без роли не видит чанк в inspect, chat и `/raw`.
+- [x] Нехватка контекста → отказ «в документах нет информации», без выдуманных фактов.
+- [x] Повторный ingest того же `document_id` не плодит дубли в `document_chunks`.
+- [x] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек.
+- [x] CI: ruff + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах.
+
+Shared SaaS (после v1): нулевые утечки **между организациями**, в том числе на документах с `access_roles = ['all']`. Критерии — [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
+
+Коммерческая оболочка (после M5): квоты и SSO/домен не пересекают org; приёмка на `dev`-биллинге без живого Stripe. Критерии — [M6](milestones.md#milestone-6--commercial-saas).
