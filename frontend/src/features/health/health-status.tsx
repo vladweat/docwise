@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FadeIn } from "@/components/ui/fade-in";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/i18n/locale-provider";
 import { fetchHealth } from "@/lib/api";
 import type { HealthResponse } from "@/types/health";
 
@@ -22,6 +23,7 @@ function StatusBadge({ value, ok }: { value: string; ok: boolean }) {
 }
 
 export function HealthStatus() {
+  const { t } = useI18n();
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,9 @@ export function HealthStatus() {
 
   if (error) {
     return (
-      <Alert variant="destructive">Не удалось подключиться к API: {error}</Alert>
+      <Alert variant="destructive">
+        {t("errors.apiConnectFailed")} {error}
+      </Alert>
     );
   }
 

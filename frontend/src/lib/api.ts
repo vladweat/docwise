@@ -19,6 +19,7 @@ import type { OrganizationDomain } from "@/types/domain";
 import type { SearchInspectResponse } from "@/types/search";
 import type { DevSsoAssertion, SsoConnection, SsoUpsertRequest } from "@/types/sso";
 import { consumeSseBuffer, parseSseBlock } from "@/lib/sse";
+import { tClient } from "@/i18n/client-translate";
 
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
 const GENERIC_API_HOSTS = new Set(["localhost", "127.0.0.1"]);
@@ -381,7 +382,7 @@ export async function fetchDocumentRaw(documentId: string): Promise<Blob> {
   const response = await authorizedFetch(`/documents/${documentId}/raw`);
   if (!response.ok) {
     if (response.status === 404) {
-      throw new ApiRequestError("Документ недоступен", 404);
+      throw new ApiRequestError(tClient("errors.documentUnavailable"), 404);
     }
     throw new ApiRequestError(await parseError(response), response.status);
   }

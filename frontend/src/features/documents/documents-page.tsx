@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 
 import { AuthGate } from "@/features/auth/auth-gate";
 import { useAuth } from "@/features/auth/auth-provider";
+import { DocumentsEmptyState } from "@/features/documents/documents-empty-state";
 import { DocumentUploadModal } from "@/features/documents/document-upload-modal";
 import { InviteMemberModal } from "@/features/documents/invite-member-modal";
 import { IngestionSteps } from "@/features/documents/ingestion-steps";
@@ -39,10 +41,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useI18n } from "@/i18n/locale-provider";
 import { canManageKnowledgeBase, formatAccessRole } from "@/lib/access-roles";
 import { ApiRequestError, deleteDocument, fetchDocumentStatus, fetchDocuments } from "@/lib/api";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { stashPendingQuestion } from "@/features/chat/lib/pending-question";
 import { useToastStore } from "@/stores/toast-store";
 import type { DocumentResponse } from "@/types/document";
 import { DocumentPdfPreview } from "@/features/documents/document-pdf-preview";
@@ -61,9 +65,11 @@ function isInFlight(status: string): boolean {
 }
 
 export function DocumentsPage() {
+  const { t } = useI18n();
   const { user } = useAuth();
   const canManage = canManageKnowledgeBase(user);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadInitialFile, setUploadInitialFile] = useState<File | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<DocumentResponse | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DocumentResponse | null>(null);
@@ -84,24 +90,24 @@ export function DocumentsPage() {
         <FadeIn className="mx-auto max-w-5xl space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold">База знаний</h2>
+              <h2 className="text-xl font-semibold">{t("documents.title")}</h2>
               <p className="mt-1 text-sm text-slate-400">
                 {user?.organization_name
-                  ? `Организация «${user.organization_name}». Список только документов, которые пересекаются с вашими ролями.`
-                  : "Список только документов, которые пересекаются с вашими ролями. Чужие ACL сюда не попадают."}
+                  ? t("documents.subtitleOrg", { org: user.organization_name })
+                  : t("documents.subtitle")}
               </p>
             </div>
             {canManage ? (
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" onClick={() => setInviteOpen(true)}>
-                  Пригласить
+                  {t("documents.invite")}
                 </Button>
                 <Button type="button" onClick={() => setUploadOpen(true)}>
-                  Загрузить PDF
+                  {t("documents.uploadPdf")}
                 </Button>
               </div>
             ) : (
-              <p className="text-xs text-slate-500">Загрузка и удаление — только admin.</p>
+              <p className="text-xs text-slate-500">{t("documents.adminOnlyHint")}</p>
             )}
           </div>
           {query.isLoading ? (
@@ -115,25 +121,32 @@ export function DocumentsPage() {
             <Alert variant="destructive">
               {query.error instanceof ApiRequestError
                 ? query.error.message
-                : "Не удалось загрузить документы"}
+                : t("errors.loadDocumentsFailed")}
             </Alert>
           ) : null}
           {query.data && query.data.items.length === 0 ? (
-            <Alert>
-              Пока нет документов, которые вам видно. Чужие теги и чужая организация сюда не
-              попадают. Если это локальный стенд: `make demo`, затем обновите список.
-            </Alert>
+            <DocumentsEmptyState
+              canManage={canManage}
+              onUploadClick={() => {
+                setUploadInitialFile(null);
+                setUploadOpen(true);
+              }}
+              onFilePicked={(file) => {
+                setUploadInitialFile(file);
+                setUploadOpen(true);
+              }}
+            />
           ) : null}
           {query.data && query.data.items.length > 0 ? (
             <div className="rounded-xl border border-slate-800">
               <Table className="min-w-[48rem]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Название</TableHead>
-                    <TableHead>Размер</TableHead>
-                    <TableHead>Страницы</TableHead>
-                    <TableHead>Доступ</TableHead>
-                    <TableHead>Статус</TableHead>
+                    <TableHead>{t("documents.colTitle")}</TableHead>
+                    <TableHead>{t("documents.colSize")}</TableHead>
+                    <TableHead>{t("documents.colPages")}</TableHead>
+                    <TableHead>{t("documents.colAccess")}</TableHead>
+                    <TableHead>{t("documents.colStatus")}</TableHead>
                     {canManage ? <TableHead> </TableHead> : null}
                   </TableRow>
                 </TableHeader>
@@ -153,7 +166,14 @@ export function DocumentsPage() {
           ) : null}
         </FadeIn>
       </main>
-      <DocumentUploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <DocumentUploadModal
+        open={uploadOpen}
+        initialFile={uploadInitialFile}
+        onClose={() => {
+          setUploadOpen(false);
+          setUploadInitialFile(null);
+        }}
+      />
       <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
       <DocumentPreviewDialog document={previewDocument} onClose={() => setPreviewDocument(null)} />
       <DeleteConfirmDialog document={pendingDelete} onClose={() => setPendingDelete(null)} />
@@ -172,8 +192,11 @@ function DocumentRow({
   onPreview: (doc: DocumentResponse) => void;
   onAskDelete: (doc: DocumentResponse) => void;
 }) {
+  const { t } = useI18n();
   const { user } = useAuth();
+  const router = useRouter();
   const queryClient = useQueryClient();
+  const pushToast = useToastStore((state) => state.push);
   const inFlight = isInFlight(doc.status);
   const statusQuery = useQuery({
     queryKey: ["document-status", user?.id, doc.id],
@@ -186,6 +209,7 @@ function DocumentRow({
   const stage = statusQuery.data?.stage ?? null;
   const lastError = statusQuery.data?.last_error ?? doc.last_error;
   const showSteps = isInFlight(status) || status === "failed";
+  const prevStatusRef = useRef(status);
 
   useEffect(() => {
     const next = statusQuery.data?.status;
@@ -194,6 +218,19 @@ function DocumentRow({
       void queryClient.invalidateQueries({ queryKey: ["documents"] });
     }
   }, [doc.status, queryClient, statusQuery.data?.status]);
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+    if (prev === status || status !== "ready") return;
+    pushToast(t("documents.readyToast", { title: doc.title }), "info", {
+      label: t("documents.askAboutAction"),
+      onClick: () => {
+        stashPendingQuestion(t("chat.askAboutDocument", { title: doc.title }));
+        router.push("/");
+      },
+    });
+  }, [doc.title, pushToast, router, status, t]);
 
   return (
     <TableRow>
@@ -206,7 +243,7 @@ function DocumentRow({
           className="mt-1 h-auto p-0 text-xs text-blue-300 hover:text-blue-200"
           onClick={() => onPreview(doc)}
         >
-          Открыть PDF
+          {t("documents.openPdf")}
         </Button>
       </TableCell>
       <TableCell className="text-slate-400">{formatBytes(doc.file_size_bytes)}</TableCell>
@@ -240,7 +277,7 @@ function DocumentRow({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={`Удалить ${doc.title}`}
+            aria-label={t("documents.deleteAria", { title: doc.title })}
             onClick={() => onAskDelete(doc)}
           >
             <Trash2 className="size-4 text-slate-400" />
@@ -258,6 +295,7 @@ function DocumentPreviewDialog({
   document: DocumentResponse | null;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <Dialog
       open={document !== null}
@@ -271,18 +309,15 @@ function DocumentPreviewDialog({
             <DialogTitle>{document?.title}</DialogTitle>
             <DialogDescription>
               {document?.content_format === "docx" || document?.title.toLowerCase().endsWith(".docx")
-                ? "DOCX: скачайте файл для полного просмотра в Word."
-                : "Просмотр PDF: листайте страницы и меняйте масштаб в панели ниже заголовка."}
+                ? t("documents.previewDocxHint")
+                : t("documents.previewPdfHint")}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             {document &&
             (document.content_format === "docx" ||
               document.title.toLowerCase().endsWith(".docx")) ? (
-              <p className="p-6 text-sm text-slate-400">
-                Предпросмотр DOCX в браузере не поддерживается. Откройте цитату в чате или скачайте
-                файл через панель чата.
-              </p>
+              <p className="p-6 text-sm text-slate-400">{t("documents.previewDocxUnsupported")}</p>
             ) : document ? (
               <DocumentPdfPreview documentId={document.id} />
             ) : null}
@@ -300,17 +335,19 @@ function DeleteConfirmDialog({
   document: DocumentResponse | null;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
   const mutation = useMutation({
     mutationFn: (id: string) => deleteDocument(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["documents"] });
-      pushToast("Документ удалён", "info");
+      pushToast(t("documents.deletedToast"), "info");
       onClose();
     },
     onError: (err) => {
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось удалить документ";
+      const message =
+        err instanceof ApiRequestError ? err.message : t("errors.deleteDocumentFailed");
       pushToast(message, "error");
     },
   });
@@ -324,13 +361,13 @@ function DeleteConfirmDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удалить документ?</AlertDialogTitle>
+          <AlertDialogTitle>{t("documents.deleteTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            «{document?.title}» будет удалён вместе с чанками и файлом в хранилище. Это нельзя отменить.
+            {t("documents.deleteBody", { title: document?.title ?? "" })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={mutation.isPending}>Отмена</AlertDialogCancel>
+          <AlertDialogCancel disabled={mutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             className={cn(buttonVariants({ variant: "destructive" }))}
             disabled={mutation.isPending || !document}
@@ -339,7 +376,7 @@ function DeleteConfirmDialog({
               if (document) mutation.mutate(document.id);
             }}
           >
-            {mutation.isPending ? "Удаление…" : "Удалить"}
+            {mutation.isPending ? t("common.deleting") : t("common.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

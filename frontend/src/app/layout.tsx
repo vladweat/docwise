@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 
+import { DocumentTitleSync } from "@/components/document-title-sync";
 import { AppHeader } from "@/components/app-header";
 import { AuthProvider } from "@/features/auth/auth-provider";
+import { LocaleProvider } from "@/i18n/locale-provider";
 import { QueryProvider } from "@/components/query-provider";
 import { ToastHost } from "@/components/toast-host";
 
@@ -9,7 +11,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Docwise",
-  description: "Корпоративный поиск и Q&A по документам с учётом прав доступа",
+  description: "Permission-aware corporate document search and Q&A",
 };
 
 export const viewport: Viewport = {
@@ -25,11 +27,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ru">
       <body className="flex h-dvh flex-col overflow-hidden">
         <QueryProvider>
-          <AuthProvider>
-            <AppHeader />
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
-            <ToastHost />
-          </AuthProvider>
+          <LocaleProvider>
+            <AuthProvider>
+              <DocumentTitleSync />
+              <AppHeader />
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+              <ToastHost />
+            </AuthProvider>
+          </LocaleProvider>
         </QueryProvider>
       </body>
     </html>

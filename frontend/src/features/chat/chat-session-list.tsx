@@ -19,9 +19,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/i18n/locale-provider";
 import { ApiRequestError, deleteChatSession, fetchChatSessions } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { startNewChatSession } from "@/features/chat/lib/new-session";
 import { useChatStore } from "@/features/chat/stores/chat-store";
 import { useToastStore } from "@/stores/toast-store";
 import { useViewerStore } from "@/features/chat/stores/viewer-store";
@@ -36,6 +38,7 @@ export function ChatSessionList({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const storeSessionId = useChatStore((state) => state.sessionId);
   const activeId = currentId || storeSessionId;
   const pushToast = useToastStore((state) => state.push);
@@ -49,22 +52,21 @@ export function ChatSessionList({
   });
 
   const sidebar = Boolean(onClose);
+  const untitled = t("chat.untitledSession");
 
   function startNew() {
-    useChatStore.getState().resetNew();
-    useViewerStore.getState().clear();
-    void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+    startNewChatSession(queryClient);
     router.push("/");
   }
 
   const header = (
     <div className="flex items-center gap-1 px-2 py-2">
       <p className="min-w-0 flex-1 px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-        Сессии
+        {t("chat.sessions")}
       </p>
       <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={startNew}>
         <MessageSquarePlus />
-        <span className="hidden sm:inline">Новая</span>
+        <span className="hidden sm:inline">{t("chat.newSession")}</span>
       </Button>
       {onClose ? (
         <Button
@@ -73,8 +75,8 @@ export function ChatSessionList({
           size="icon"
           className="size-8 shrink-0"
           onClick={onClose}
-          aria-label="Скрыть список сессий"
-          title="Скрыть список сессий"
+          aria-label={t("chat.hideSessions")}
+          title={t("chat.hideSessions")}
         >
           <PanelLeftClose />
         </Button>
@@ -84,9 +86,7 @@ export function ChatSessionList({
 
   if (query.error && !query.data) {
     const message =
-      query.error instanceof ApiRequestError
-        ? query.error.message
-        : "Не удалось загрузить сессии";
+      query.error instanceof ApiRequestError ? query.error.message : t("errors.loadSessionsFailed");
     return (
       <aside className={sessionAsideClass(sidebar)}>
         {header}
@@ -114,10 +114,11 @@ export function ChatSessionList({
             <Skeleton className="h-8 w-3/4" />
           </li>
         ) : items.length === 0 ? (
-          <li className="px-2 py-2 text-xs text-slate-500">Пока пусто</li>
+          <li className="px-2 py-2 text-xs text-slate-500">{t("chat.emptySessions")}</li>
         ) : (
           items.map((item) => {
             const active = item.id === activeId;
+            const title = item.title || untitled;
             return (
               <li key={item.id} className="group flex shrink-0 items-start gap-0.5 md:shrink">
                 <Link
@@ -128,9 +129,9 @@ export function ChatSessionList({
                       ? "bg-slate-800 text-slate-100"
                       : "text-slate-300 hover:bg-slate-900",
                   )}
-                  title={item.title ?? "Без названия"}
+                  title={title}
                 >
-                  <span className="block truncate">{item.title || "Без названия"}</span>
+                  <span className="block truncate">{title}</span>
                   <span
                     className={cn(
                       "text-[10px] text-slate-500",
@@ -148,8 +149,8 @@ export function ChatSessionList({
                     "size-7 shrink-0 text-slate-500 hover:text-red-300",
                     sidebar ? "opacity-0 group-hover:opacity-100 focus-visible:opacity-100" : "",
                   )}
-                  aria-label={`Удалить сессию ${item.title || ""}`.trim()}
-                  title="Удалить сессию"
+                  aria-label={`${t("chat.deleteSession")} ${title}`.trim()}
+                  title={t("chat.deleteSession")}
                   onClick={() => setPendingDelete(item)}
                 >
                   <Trash2 />
@@ -167,12 +168,12 @@ export function ChatSessionList({
             pushToast(
               query.error instanceof ApiRequestError
                 ? query.error.message
-                : "Не удалось загрузить сессии",
+                : t("errors.loadSessionsFailed"),
             );
             void query.refetch();
           }}
         >
-          Повторить загрузку
+          {t("common.retry")}
         </button>
       ) : null}
       <DeleteSessionDialog
@@ -195,12 +196,14 @@ function DeleteSessionDialog({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const pushToast = useToastStore((state) => state.push);
+  const untitled = t("chat.untitledSession");
   const mutation = useMutation({
     mutationFn: (id: string) => deleteChatSession(id),
     onSuccess: async (_data, id) => {
       await queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
-      pushToast("Сессия удалена", "info");
+      pushToast(t("chat.sessionDeleted"), "info");
       if (isCurrent || useChatStore.getState().sessionId === id) {
         useChatStore.getState().resetNew();
         useViewerStore.getState().clear();
@@ -210,7 +213,7 @@ function DeleteSessionDialog({
     },
     onError: (err) => {
       const message =
-        err instanceof ApiRequestError ? err.message : "Не удалось удалить сессию";
+        err instanceof ApiRequestError ? err.message : t("errors.deleteSessionFailed");
       pushToast(message, "error");
     },
   });
@@ -224,14 +227,13 @@ function DeleteSessionDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Удалить сессию?</AlertDialogTitle>
+          <AlertDialogTitle>{t("chat.deleteSessionTitle")}</AlertDialogTitle>
           <AlertDialogDescription>
-            «{session?.title || "Без названия"}» будет удалена вместе с сообщениями. Это нельзя
-            отменить.
+            {t("chat.deleteSessionBody", { title: session?.title || untitled })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={mutation.isPending}>Отмена</AlertDialogCancel>
+          <AlertDialogCancel disabled={mutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             className={cn(buttonVariants({ variant: "destructive" }))}
             disabled={mutation.isPending || !session}
@@ -240,7 +242,7 @@ function DeleteSessionDialog({
               if (session) mutation.mutate(session.id);
             }}
           >
-            {mutation.isPending ? "Удаление…" : "Удалить"}
+            {mutation.isPending ? t("common.deleting") : t("common.delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

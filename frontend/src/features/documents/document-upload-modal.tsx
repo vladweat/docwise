@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useId, useRef, useState, type DragEvent, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
 
@@ -17,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/i18n/locale-provider";
 import {
   ACCESS_ROLE_OPTIONS,
   allowedRolesForUser,
@@ -32,13 +41,16 @@ const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export function DocumentUploadModal({
   open,
   onClose,
+  initialFile = null,
 }: {
   open: boolean;
   onClose: () => void;
+  initialFile?: File | null;
 }) {
   const titleId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
   const [file, setFile] = useState<File | null>(null);
@@ -48,16 +60,16 @@ export function DocumentUploadModal({
 
   const mutation = useMutation({
     mutationFn: () => {
-      if (!file) throw new Error("Выберите PDF");
+      if (!file) throw new Error(t("errors.selectFile"));
       return uploadDocument(file, roles);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["documents"] });
-      pushToast("Файл поставлен в очередь обработки", "info");
+      pushToast(t("documents.queuedToast"), "info");
       resetAndClose();
     },
     onError: (err) => {
-      const raw = err instanceof ApiRequestError ? err.message : "Не удалось загрузить файл";
+      const raw = err instanceof ApiRequestError ? err.message : t("errors.uploadFailed");
       const message =
         err instanceof ApiRequestError ? userFacingApiMessage(err.status, err.message) : raw;
       setError(message);
@@ -74,25 +86,32 @@ export function DocumentUploadModal({
     onClose();
   }
 
-  const takeFile = useCallback((next: File | undefined) => {
-    setError(null);
-    if (!next) return;
-    const name = next.name.toLowerCase();
-    const isPdf = name.endsWith(".pdf") || next.type === "application/pdf";
-    const isDocx =
-      name.endsWith(".docx") ||
-      next.type ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    if (!isPdf && !isDocx) {
-      setError("Только PDF или DOCX");
-      return;
-    }
-    if (next.size > MAX_UPLOAD_BYTES) {
-      setError("Файл больше 50 МБ");
-      return;
-    }
-    setFile(next);
-  }, []);
+  const takeFile = useCallback(
+    (next: File | undefined) => {
+      setError(null);
+      if (!next) return;
+      const name = next.name.toLowerCase();
+      const isPdf = name.endsWith(".pdf") || next.type === "application/pdf";
+      const isDocx =
+        name.endsWith(".docx") ||
+        next.type ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      if (!isPdf && !isDocx) {
+        setError(t("documents.onlyPdfDocx"));
+        return;
+      }
+      if (next.size > MAX_UPLOAD_BYTES) {
+        setError(t("documents.fileTooLarge"));
+        return;
+      }
+      setFile(next);
+    },
+    [t],
+  );
+
+  useEffect(() => {
+    if (open && initialFile) takeFile(initialFile);
+  }, [open, initialFile, takeFile]);
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -125,10 +144,8 @@ export function DocumentUploadModal({
       <DialogContent className="sm:max-w-lg" aria-labelledby={titleId} showCloseButton>
         <form onSubmit={onSubmit} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle id={titleId}>Загрузить документ</DialogTitle>
-            <DialogDescription>
-              Файл попадёт в очередь: parse → chunk → embed. Теги доступа копируются на чанки.
-            </DialogDescription>
+            <DialogTitle id={titleId}>{t("documents.uploadTitle")}</DialogTitle>
+            <DialogDescription>{t("documents.uploadDescription")}</DialogDescription>
           </DialogHeader>
 
           <div
@@ -146,9 +163,10 @@ export function DocumentUploadModal({
           >
             <Upload className="size-8 text-slate-500" />
             <p className="mt-2 text-sm text-slate-300">
-              Перетащите PDF/DOCX сюда или <span className="text-blue-400">выберите файл</span>
+              {t("documents.uploadDrop")}
+              <span className="text-blue-400">{t("documents.uploadPick")}</span>
             </p>
-            <p className="mt-1 text-xs text-slate-500">До 50 МБ</p>
+            <p className="mt-1 text-xs text-slate-500">{t("documents.uploadMaxSize")}</p>
             {file ? <p className="mt-2 text-sm text-slate-100">{file.name}</p> : null}
             <input
               ref={inputRef}
@@ -160,7 +178,7 @@ export function DocumentUploadModal({
           </div>
 
           <fieldset>
-            <Label className="mb-2">Теги доступа</Label>
+            <Label className="mb-2">{t("documents.accessTags")}</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {ACCESS_ROLE_OPTIONS.map((option) => {
                 const checked = roles.includes(option.value);
@@ -186,19 +204,17 @@ export function DocumentUploadModal({
           </fieldset>
 
           {!visibleAfterUpload && roles.length > 0 ? (
-            <Alert variant="warning">
-              Выбранные теги не пересекаются с вашими ролями — файл не появится в этом списке (ACL).
-            </Alert>
+            <Alert variant="warning">{t("documents.aclWarning")}</Alert>
           ) : null}
 
           {error ? <Alert variant="destructive">{error}</Alert> : null}
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={resetAndClose} disabled={mutation.isPending}>
-              Отмена
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={!file || roles.length === 0 || mutation.isPending}>
-              {mutation.isPending ? "Загрузка…" : "Загрузить"}
+              {mutation.isPending ? t("common.uploading") : t("common.upload")}
             </Button>
           </DialogFooter>
         </form>

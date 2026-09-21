@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEMO_ACCOUNTS, DEMO_EMPLOYEE_EMAIL, DEMO_HR_EMAIL } from "@/features/auth/demo-accounts";
-import {
-  DEMO_QUESTION_HOURS,
-  DEMO_QUESTION_SALARY,
-  chatSuggestionsFor,
-  isDemoOrganization,
-} from "@/features/chat/lib/chat-suggestions";
+import { chatSuggestionKeysFor, isDemoOrganization } from "@/features/chat/lib/chat-suggestions";
 import type { UserResponse } from "@/types/auth";
 
 function user(partial: Partial<UserResponse>): UserResponse {
@@ -34,17 +29,17 @@ describe("demo accounts", () => {
   });
 });
 
-describe("chatSuggestionsFor", () => {
+describe("chatSuggestionKeysFor", () => {
   it("puts the salary question last for an employee so they can trigger a refuse", () => {
-    const items = chatSuggestionsFor(user({ departments: [] }));
-    expect(items[0]).toBe(DEMO_QUESTION_HOURS);
-    expect(items).toContain(DEMO_QUESTION_SALARY);
-    expect(items.at(-1)).toBe(DEMO_QUESTION_SALARY);
+    const items = chatSuggestionKeysFor(user({ departments: [] }));
+    expect(items[0]).toBe("chat.suggestionHours");
+    expect(items).toContain("chat.suggestionSalary");
+    expect(items.at(-1)).toBe("chat.suggestionSalary");
   });
 
   it("leads with salary for HR", () => {
-    const items = chatSuggestionsFor(user({ departments: ["hr"] }));
-    expect(items[0]).toBe(DEMO_QUESTION_SALARY);
+    const items = chatSuggestionKeysFor(user({ departments: ["hr"] }));
+    expect(items[0]).toBe("chat.suggestionSalary");
   });
 });
 

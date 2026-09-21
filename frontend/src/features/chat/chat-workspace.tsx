@@ -11,6 +11,7 @@ import { SplitPane } from "@/features/chat/split-pane";
 import { useChatStore } from "@/features/chat/stores/chat-store";
 import { hydrateLayout, useLayoutStore } from "@/features/chat/stores/layout-store";
 import { hydratePaneOpen, useViewerStore } from "@/features/chat/stores/viewer-store";
+import { useI18n } from "@/i18n/locale-provider";
 import type { Citation } from "@/types/chat";
 
 function subscribeDesktop(onChange: () => void) {
@@ -20,6 +21,7 @@ function subscribeDesktop(onChange: () => void) {
 }
 
 export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
+  const { t } = useI18n();
   const storeSessionId = useChatStore((state) => state.sessionId);
   const target = useViewerStore((state) => state.target);
   const paneOpen = useViewerStore((state) => state.paneOpen);
@@ -61,7 +63,7 @@ export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
           {sessionsOpen ? (
             <ChatSessionList currentId={activeId} onClose={closeSessions} />
           ) : (
-            <PaneRail side="left" label="Показать список сессий" onClick={openSessions} />
+            <PaneRail side="left" label={t("chat.showSessionsPane")} onClick={openSessions} />
           )}
           <SplitPane
             collapsed={!paneOpen}
@@ -73,7 +75,7 @@ export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
             right={<PdfPane target={target} onClose={closePane} />}
           />
           {paneOpen ? null : (
-            <PaneRail side="right" label="Показать панель документа" onClick={openPane} />
+            <PaneRail side="right" label={t("chat.showDocumentPane")} onClick={openPane} />
           )}
         </div>
       ) : (

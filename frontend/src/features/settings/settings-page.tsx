@@ -25,6 +25,7 @@ import {
 } from "@/lib/api";
 import type { PlanName } from "@/types/billing";
 import type { SsoAttributeMap } from "@/types/sso";
+import { useI18n } from "@/i18n/locale-provider";
 import { useToastStore } from "@/stores/toast-store";
 
 const DEFAULT_ATTRIBUTE_MAP: SsoAttributeMap = {
@@ -34,6 +35,7 @@ const DEFAULT_ATTRIBUTE_MAP: SsoAttributeMap = {
 };
 
 export function SettingsPage() {
+  const { t } = useI18n();
   const { user, refreshUser } = useAuth();
   const canManage = canManageOrganization(user);
   const queryClient = useQueryClient();
@@ -104,12 +106,15 @@ export function SettingsPage() {
         window.location.assign(result.checkout_url);
         return;
       }
-      pushToast(`План: ${PLAN_LABEL[result.plan ?? selectedPlan]}`, "info");
+      pushToast(
+        t("settings.planChanged", { plan: PLAN_LABEL[result.plan ?? selectedPlan] }),
+        "info",
+      );
       setDraftPlan("");
       await invalidateBilling();
     },
     onError: (err) => {
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось сменить план";
+      const message = err instanceof ApiRequestError ? err.message : t("errors.changePlanFailed");
       pushToast(message, "error");
     },
   });
@@ -118,11 +123,11 @@ export function SettingsPage() {
     mutationFn: (action: "activate" | "past_due" | "cancel") => simulateDevBilling(action),
     onSuccess: async (sub) => {
       if (sub.billing_status === "past_due" || sub.billing_status === "canceled") {
-        pushToast("Организация приостановлена (как при past_due / отмене)", "info");
+        pushToast(t("settings.orgSuspended"), "info");
         await refreshUser();
         return;
       }
-      pushToast("Подписка активна", "info");
+      pushToast(t("settings.subscriptionActive"), "info");
       await invalidateBilling();
     },
     onError: (err) => {
@@ -130,7 +135,7 @@ export function SettingsPage() {
         void refreshUser();
         return;
       }
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось изменить биллинг";
+      const message = err instanceof ApiRequestError ? err.message : t("errors.billingSimulateFailed");
       pushToast(message, "error");
     },
   });
@@ -141,7 +146,7 @@ export function SettingsPage() {
       try {
         attribute_map = JSON.parse(attributeMapText) as SsoAttributeMap;
       } catch {
-        throw new ApiRequestError("Некорректный JSON маппинга групп", 400);
+        throw new ApiRequestError(t("errors.ssoJsonInvalid"), 400);
       }
       return upsertOrganizationSso({
         protocol: "saml",
@@ -153,11 +158,14 @@ export function SettingsPage() {
       });
     },
     onSuccess: async (result) => {
-      pushToast(result.sso_enforced ? "SSO сохранён, вход только через IdP" : "SSO сохранён", "info");
+      pushToast(
+        result.sso_enforced ? t("settings.ssoSavedEnforced") : t("settings.ssoSaved"),
+        "info",
+      );
       await queryClient.invalidateQueries({ queryKey: ["org-sso"] });
     },
     onError: (err) => {
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось сохранить SSO";
+      const message = err instanceof ApiRequestError ? err.message : t("errors.saveSsoFailed");
       pushToast(message, "error");
     },
   });
@@ -167,15 +175,15 @@ export function SettingsPage() {
     onSuccess: async (result) => {
       const saved = customHostname.trim().toLowerCase();
       if (result.platform_hostnames.includes(saved)) {
-        pushToast("Это платформенный хост этой организации, он уже привязан.", "info");
+        pushToast(t("settings.platformHostBound"), "info");
         setCustomHostname(result.custom_hostname ?? "");
       } else {
-        pushToast("Домен сохранён. Неподтверждённый hostname не пинит сессию.", "info");
+        pushToast(t("settings.domainSaved"), "info");
       }
       await queryClient.invalidateQueries({ queryKey: ["org-domain"] });
     },
     onError: (err) => {
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось сохранить домен";
+      const message = err instanceof ApiRequestError ? err.message : t("errors.saveDomainFailed");
       pushToast(message, "error");
     },
   });
@@ -183,15 +191,15 @@ export function SettingsPage() {
   const verifyDomainMutation = useMutation({
     mutationFn: () => {
       const token = domainQuery.data?.verification_token;
-      if (!token) throw new ApiRequestError("Нет токена проверки", 400);
+      if (!token) throw new ApiRequestError(t("errors.verifyTokenMissing"), 400);
       return verifyOrganizationDomain(token);
     },
     onSuccess: async () => {
-      pushToast("Домен подтверждён", "info");
+      pushToast(t("settings.domainVerified"), "info");
       await queryClient.invalidateQueries({ queryKey: ["org-domain"] });
     },
     onError: (err) => {
-      const message = err instanceof ApiRequestError ? err.message : "Не удалось подтвердить домен";
+      const message = err instanceof ApiRequestError ? err.message : t("errors.verifyDomainFailed");
       pushToast(message, "error");
     },
   });
@@ -208,22 +216,19 @@ export function SettingsPage() {
       <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <FadeIn className="mx-auto max-w-2xl space-y-4">
           <div>
-            <h2 className="text-xl font-semibold">Настройки организации</h2>
+            <h2 className="text-xl font-semibold">{t("settings.title")}</h2>
             <p className="mt-1 text-sm text-slate-400">
               {user?.organization_name
-                ? `План и квоты «${user.organization_name}».`
-                : "План и квоты текущей организации."}
+                ? t("settings.subtitleOrg", { org: user.organization_name })
+                : t("settings.subtitle")}
             </p>
           </div>
 
           {!canManage ? (
             <Card>
               <CardHeader>
-                <CardTitle>Недостаточно прав</CardTitle>
-                <CardDescription>
-                  Просмотр плана и usage доступен только admin этой организации. Manager управляет базой знаний, не
-                  биллингом.
-                </CardDescription>
+                <CardTitle>{t("settings.forbiddenTitle")}</CardTitle>
+                <CardDescription>{t("settings.forbiddenBody")}</CardDescription>
               </CardHeader>
             </Card>
           ) : (

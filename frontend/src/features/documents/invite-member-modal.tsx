@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useI18n } from "@/i18n/locale-provider";
 import { ACCESS_ROLE_OPTIONS } from "@/lib/access-roles";
 import { ApiRequestError, createOrganizationInvite } from "@/lib/api";
 import { userFacingApiMessage } from "@/lib/quota";
@@ -38,6 +39,7 @@ export function InviteMemberModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const pushToast = useToastStore((state) => state.push);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("employee");
@@ -67,17 +69,17 @@ export function InviteMemberModal({
         departments,
       });
       if (result.status === "added") {
-        pushToast("Пользователь добавлен в организацию", "info");
+        pushToast(t("documents.memberAddedToast"), "info");
         resetAndClose();
       } else {
         setToken(result.invite_token);
-        pushToast("Инвайт создан. Передайте токен новому сотруднику.", "info");
+        pushToast(t("documents.inviteCreatedToast"), "info");
       }
     } catch (err) {
       const message =
         err instanceof ApiRequestError
           ? userFacingApiMessage(err.status, err.message)
-          : "Не удалось пригласить";
+          : t("errors.inviteFailed");
       setError(message);
     } finally {
       setSubmitting(false);
@@ -93,23 +95,21 @@ export function InviteMemberModal({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Пригласить в организацию</DialogTitle>
-          <DialogDescription>
-            Существующий email получит членство сразу. Новый пользователь регистрируется с токеном инвайта.
-          </DialogDescription>
+          <DialogTitle>{t("documents.inviteTitle")}</DialogTitle>
+          <DialogDescription>{t("documents.inviteDescription")}</DialogDescription>
         </DialogHeader>
         {token ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">Токен инвайта (один раз):</p>
+            <p className="text-sm text-slate-300">{t("documents.inviteTokenOnce")}</p>
             <code className="block break-all rounded-md bg-slate-950 p-2 text-xs text-slate-200">{token}</code>
             <Button type="button" className="w-full" onClick={resetAndClose}>
-              Готово
+              {t("common.done")}
             </Button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="grid gap-3">
             <div>
-              <Label htmlFor="invite-email">Email</Label>
+              <Label htmlFor="invite-email">{t("auth.email")}</Label>
               <Input
                 id="invite-email"
                 type="email"
@@ -119,7 +119,7 @@ export function InviteMemberModal({
               />
             </div>
             <div>
-              <Label htmlFor="invite-role">Роль</Label>
+              <Label htmlFor="invite-role">{t("documents.inviteRole")}</Label>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger id="invite-role" className="mt-1">
                   <SelectValue />
@@ -134,7 +134,7 @@ export function InviteMemberModal({
               </Select>
             </div>
             <fieldset>
-              <legend className="text-sm font-medium">Отделы</legend>
+              <legend className="text-sm font-medium">{t("documents.inviteDepartments")}</legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {DEPARTMENT_OPTIONS.map((item) => {
                   const checked = departments.includes(item.value);
@@ -159,10 +159,10 @@ export function InviteMemberModal({
             {error ? <Alert variant="destructive">{error}</Alert> : null}
             <DialogFooter>
               <Button type="button" variant="secondary" className="flex-1" onClick={resetAndClose}>
-                Отмена
+                {t("common.cancel")}
               </Button>
               <Button type="submit" className="flex-1" disabled={submitting}>
-                {submitting ? "…" : "Пригласить"}
+                {submitting ? "…" : t("common.invite")}
               </Button>
             </DialogFooter>
           </form>

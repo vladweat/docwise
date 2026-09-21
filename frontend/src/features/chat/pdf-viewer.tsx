@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/i18n/locale-provider";
 import { ApiRequestError, fetchDocumentPdf } from "@/lib/api";
 import { findSnippetRects, type HighlightRect } from "@/features/chat/lib/pdf-highlight";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ function loadPdfBuffer(documentId: string): Promise<ArrayBuffer> {
 }
 
 export function PdfViewer({ target }: { target: ViewerTarget }) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
@@ -115,10 +117,10 @@ export function PdfViewer({ target }: { target: ViewerTarget }) {
         if (cancelled) return;
         const message =
           err instanceof ApiRequestError && err.status === 404
-            ? "Документ недоступен"
+            ? t("errors.documentUnavailable")
             : err instanceof ApiRequestError
               ? err.message
-              : "Не удалось открыть документ";
+              : t("errors.openDocumentFailed");
         setError(message);
       } finally {
         if (!cancelled) setLoading(false);
@@ -129,14 +131,14 @@ export function PdfViewer({ target }: { target: ViewerTarget }) {
     return () => {
       cancelled = true;
     };
-  }, [target.docId, target.page, target.snippet, page, width]);
+  }, [target.docId, target.page, target.snippet, page, width, t]);
 
   return (
     <div ref={containerRef} className="relative min-h-0 flex-1 overflow-auto bg-slate-950">
       {loading ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/50 text-sm text-slate-400">
           <LoaderCircle className="mr-2 size-4 animate-spin" />
-          Загрузка PDF…
+          {t("chat.loadingPdf")}
         </div>
       ) : null}
       {error ? (
@@ -170,7 +172,7 @@ export function PdfViewer({ target }: { target: ViewerTarget }) {
               className="size-7"
               disabled={page <= 1}
               onClick={() => setPage((value) => Math.max(1, value - 1))}
-              aria-label="Предыдущая страница"
+              aria-label={t("viewer.prevPage")}
             >
               <ChevronLeft />
             </Button>
@@ -184,7 +186,7 @@ export function PdfViewer({ target }: { target: ViewerTarget }) {
               className="size-7"
               disabled={page >= pageCount}
               onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
-              aria-label="Следующая страница"
+              aria-label={t("viewer.nextPage")}
             >
               <ChevronRight />
             </Button>

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
-import { ChatWorkspace } from "@/features/chat/chat-workspace";
+import { HomePage } from "@/features/home/home-page";
 
 export const metadata: Metadata = {
-  title: "Чат — Docwise",
+  title: "Docwise",
 };
 
-export default function HomePage() {
-  return <ChatWorkspace />;
+export default function Page() {
+  return <HomePage />;
 }

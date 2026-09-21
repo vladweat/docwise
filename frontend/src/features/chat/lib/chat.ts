@@ -1,15 +1,30 @@
+import { getClientLocale, tClient } from "@/i18n/client-translate";
+import { translate, type Locale } from "@/i18n/messages";
 import type { Citation } from "@/types/chat";
 
-/** Keep in sync with backend `NO_CONTEXT_ANSWER` in `retrieval.py`. */
-export const NO_CONTEXT_ANSWER =
-  "В предоставленных документах нет информации по данному вопросу.";
+/** Keep Russian text in sync with backend `NO_CONTEXT_ANSWER` in `retrieval.py`. */
+export const NO_CONTEXT_ANSWER_RU = translate("ru", "chat.noContextAnswer");
+
+export function isNoContextAnswer(content: string): boolean {
+  const trimmed = content.trim();
+  return (
+    trimmed === translate("ru", "chat.noContextAnswer") ||
+    trimmed === translate("en", "chat.noContextAnswer") ||
+    trimmed === NO_CONTEXT_ANSWER_RU
+  );
+}
+
+/** @deprecated Use isNoContextAnswer; backend still returns the RU string today. */
+export const NO_CONTEXT_ANSWER = NO_CONTEXT_ANSWER_RU;
 
 export function citationLabel(
   citation: Pick<Citation, "doc_title" | "page" | "section">,
+  locale: Locale = getClientLocale(),
 ): string {
-  const title = citation.doc_title.trim() || "Документ";
+  const title = citation.doc_title.trim() || translate(locale, "common.document");
   if (citation.page != null && citation.page > 0) {
-    return `${title} (стр. ${citation.page})`;
+    const pageWord = translate(locale, "chat.pageShort");
+    return `${title} (${pageWord} ${citation.page})`;
   }
   const section = citation.section?.trim();
   return section ? `${title} (${section})` : title;
@@ -47,7 +62,7 @@ export function resolveCitation(
 }
 
 const INLINE_CITE_RE =
-  /\[([^\]\n]+?),\s*(?:p\.|стр\.?)\s*(\d+)\]|\[([^\]\n]+?),\s*раздел:\s*([^\]]+)\]|\[\^(\d+)\]/gi;
+  /\[([^\]\n]+?),\s*(?:p\.|стр\.?)\s*(\d+)\]|\[([^\]\n]+?),\s*(?:раздел:|section:)\s*([^\]]+)\]|\[\^(\d+)\]/gi;
 
 export function splitAnswerParts(content: string, citations: Citation[]): AnswerPart[] {
   if (!content) return [];
@@ -105,4 +120,8 @@ export function uniqueCitations(citations: Citation[]): Citation[] {
     out.push(item);
   }
   return out;
+}
+
+export function localizedNoContextAnswer(): string {
+  return tClient("chat.noContextAnswer");
 }
