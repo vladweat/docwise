@@ -5,6 +5,7 @@ import { Suspense, useEffect, type ReactNode } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/features/auth/auth-provider";
+import { useI18n } from "@/i18n/locale-provider";
 
 function GateStatus({ label }: { label: string }) {
   return (
@@ -25,6 +26,7 @@ function postLoginPath(next: string | null): string {
 }
 
 function GuestRedirect({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,17 +37,18 @@ function GuestRedirect({ children }: { children: ReactNode }) {
   }, [isAuthenticated, loading, router, searchParams]);
 
   if (loading) {
-    return <GateStatus label="Загрузка…" />;
+    return <GateStatus label={t("gate.loading")} />;
   }
   if (isAuthenticated) {
-    return <GateStatus label="Перенаправление…" />;
+    return <GateStatus label={t("gate.redirect")} />;
   }
   return <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>;
 }
 
 export function GuestGate({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   return (
-    <Suspense fallback={<GateStatus label="Загрузка…" />}>
+    <Suspense fallback={<GateStatus label={t("gate.loading")} />}>
       <GuestRedirect>{children}</GuestRedirect>
     </Suspense>
   );

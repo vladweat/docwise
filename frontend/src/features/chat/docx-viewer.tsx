@@ -4,6 +4,7 @@ import { Download, LoaderCircle } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/i18n/locale-provider";
 import { ApiRequestError, fetchDocumentRaw } from "@/lib/api";
 import type { ViewerTarget } from "@/features/chat/stores/viewer-store";
 
@@ -22,14 +23,15 @@ function highlightSnippet(text: string, snippet: string): ReactNode {
 }
 
 export function DocxViewer({ target }: { target: ViewerTarget }) {
+  const { t } = useI18n();
   const [snippet, setSnippet] = useState(target.snippet);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
   const sectionLabel = useMemo(
-    () => target.section?.trim() || "раздел не указан",
-    [target.section],
+    () => target.section?.trim() || t("chat.docxSectionUnknown"),
+    [target.section, t],
   );
 
   useEffect(() => {
@@ -43,8 +45,7 @@ export function DocxViewer({ target }: { target: ViewerTarget }) {
         setDownloadUrl(objectUrl);
       })
       .catch((err) => {
-        const message =
-          err instanceof ApiRequestError ? err.message : "Не удалось загрузить DOCX";
+        const message = err instanceof ApiRequestError ? err.message : t("errors.loadDocxFailed");
         setError(message);
       })
       .finally(() => setLoading(false));
@@ -52,17 +53,15 @@ export function DocxViewer({ target }: { target: ViewerTarget }) {
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [target.docId]);
+  }, [target.docId, t]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
-      <p className="text-xs text-slate-500">
-        Word-документ: цитата по разделу «{sectionLabel}». Полный просмотр — скачайте файл.
-      </p>
+      <p className="text-xs text-slate-500">{t("chat.docxIntro", { section: sectionLabel })}</p>
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-slate-400">
           <LoaderCircle className="size-4 animate-spin" />
-          Загрузка…
+          {t("gate.loading")}
         </div>
       ) : null}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
@@ -70,7 +69,7 @@ export function DocxViewer({ target }: { target: ViewerTarget }) {
         <Button type="button" variant="secondary" size="sm" className="w-fit" asChild>
           <a href={downloadUrl} download={target.docTitle}>
             <Download className="size-4" />
-            Скачать {target.docTitle}
+            {t("chat.download", { name: target.docTitle })}
           </a>
         </Button>
       ) : null}

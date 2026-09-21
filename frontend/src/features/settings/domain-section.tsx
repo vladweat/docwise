@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useI18n } from "@/i18n/locale-provider";
 import { ApiRequestError } from "@/lib/api";
 import type { OrganizationDomain } from "@/types/domain";
 
@@ -29,30 +30,31 @@ export function DomainSection({
   onSave: () => void;
   onVerify: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
-          <CardTitle>Домен</CardTitle>
-          <CardDescription>Платформенный хост пинит эту org. Cookie host-only, без Domain на родителя.</CardDescription>
+          <CardTitle>{t("settings.domainTitle")}</CardTitle>
+          <CardDescription>{t("settings.domainDescription")}</CardDescription>
         </div>
         {domain?.custom_verified ? (
           <Badge variant="success">Verified</Badge>
         ) : domain?.custom_hostname ? (
-          <Badge variant="warning">Не подтверждён</Badge>
+          <Badge variant="warning">{t("settings.unverified")}</Badge>
         ) : null}
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-slate-300">
         {loading ? <Skeleton className="h-4 w-40" /> : null}
         {error ? (
           <Alert variant="destructive">
-            {error instanceof ApiRequestError ? error.message : "Не удалось загрузить домен"}
+            {error instanceof ApiRequestError ? error.message : t("errors.loadDomainFailed")}
           </Alert>
         ) : null}
         {domain ? (
           <>
             <p className="text-xs text-slate-500">
-              Платформа:{" "}
+              {t("settings.platformHost")}{" "}
               {domain.platform_hostnames.map((host) => (
                 <code key={host} className="mr-2 text-slate-300">
                   {host}
@@ -60,13 +62,11 @@ export function DomainSection({
               ))}
             </p>
             {!domain.entitlement ? (
-              <p className="text-slate-400">
-                Свой CNAME входит в план Enterprise. Compose: `/etc/hosts`, без Let&apos;s Encrypt.
-              </p>
+              <p className="text-slate-400">{t("settings.customCnameNote")}</p>
             ) : (
               <>
                 <div>
-                  <Label htmlFor="custom-host">Свой CNAME</Label>
+                  <Label htmlFor="custom-host">{t("settings.customCname")}</Label>
                   <Input
                     id="custom-host"
                     className="mt-1"
@@ -75,20 +75,17 @@ export function DomainSection({
                     placeholder="kb.acme.example"
                     disabled={busy}
                   />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Свой CNAME вроде kb.acme.example. Имя на .docwise.app, которое ещё не занято другим slug, можно
-                    сохранить и подтвердить.
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">{t("settings.customCnameHint")}</p>
                 </div>
                 {domain.verification_token ? (
                   <p className="text-xs text-slate-500">
-                    Токен проверки (TXT/HTTP, Compose — POST verify):{" "}
+                    {t("settings.verifyToken")}{" "}
                     <code className="break-all text-slate-300">{domain.verification_token}</code>
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" disabled={busy} onClick={onSave}>
-                    Сохранить домен
+                    {t("settings.saveDomain")}
                   </Button>
                   {domain.custom_hostname && !domain.custom_verified ? (
                     <Button
@@ -98,13 +95,11 @@ export function DomainSection({
                       disabled={busy || !domain.verification_token}
                       onClick={onVerify}
                     >
-                      Подтвердить
+                      {t("settings.verifyDomain")}
                     </Button>
                   ) : null}
                 </div>
-                <p className="text-xs text-slate-500">
-                  Неподтверждённый hostname не биндится. На хосте этой org нельзя переключиться в другую.
-                </p>
+                <p className="text-xs text-slate-500">{t("settings.unverifiedHostNote")}</p>
               </>
             )}
           </>

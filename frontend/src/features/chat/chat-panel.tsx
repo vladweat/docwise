@@ -14,13 +14,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiRequestError, fetchChatSession, streamChat } from "@/lib/api";
 import {
-  NO_CONTEXT_ANSWER,
+  isNoContextAnswer,
   splitAnswerParts,
   stripCitationMarkers,
   uniqueCitations,
 } from "@/features/chat/lib/chat";
-import { chatSuggestionsFor, isDemoOrganization } from "@/features/chat/lib/chat-suggestions";
-import { userFacingApiMessage } from "@/lib/quota";
+import { ChatEmptyState } from "@/features/chat/chat-empty-state";
+import { takePendingQuestion } from "@/features/chat/lib/pending-question";
+import {
+  hasSeenCitationHint,
+  markCitationHintSeen,
+} from "@/features/chat/lib/citation-hint";
+import { useI18n } from "@/i18n/locale-provider";
+import { userFacingChatError } from "@/lib/chat-errors";
+import { canManageOrganization } from "@/lib/access-roles";
 import { cn } from "@/lib/utils";
 import { useChatStore, type UiMessage } from "@/features/chat/stores/chat-store";
 import { useToastStore } from "@/stores/toast-store";
@@ -37,15 +44,15 @@ export function ChatPanel({
   const router = useRouter();
   const user = useAuth().user;
   const userId = user?.id;
-  const suggestions = chatSuggestionsFor(user);
-  const demoOrg = isDemoOrganization(user);
   const [question, setQuestion] = useState("");
+  const [showCitationHint, setShowCitationHint] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(Boolean(sessionId));
   const messages = useChatStore((state) => state.messages);
   const sending = useChatStore((state) => state.sending);
   const listRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useI18n();
 
   function resizeInput() {
     const el = inputRef.current;
@@ -101,9 +108,7 @@ export function ChatPanel({
           return;
         }
         const message =
-          err instanceof ApiRequestError
-            ? err.message
-            : "Не удалось загрузить историю чата";
+          err instanceof ApiRequestError ? err.message : t("errors.loadChatHistoryFailed");
         useToastStore.getState().push(message);
       })
       .finally(() => {
@@ -120,6 +125,28 @@ export function ChatPanel({
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const pending = takePendingQuestion();
+    if (pending) {
+      setQuestion(pending);
+      requestAnimationFrame(() => resizeInput());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasSeenCitationHint()) return;
+    const hasCitation = messages.some(
+      (item) => item.role === "assistant" && uniqueCitations(item.sources).length > 0,
+    );
+    setShowCitationHint(hasCitation);
+  }, [messages]);
+
+  function chatErrorMessage(status: number | undefined, raw: string): string {
+    const showDevLlmHint =
+      process.env.NODE_ENV === "development" || canManageOrganization(user);
+    return userFacingChatError(status, raw, { showDevLlmHint });
+  }
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -182,7 +209,7 @@ export function ChatPanel({
         return;
       }
       if (event.type === "error") {
-        const message = userFacingApiMessage(undefined, event.content);
+        const message = chatErrorMessage(undefined, event.content);
         useToastStore.getState().push(message);
         chat.patchMessage(assistantId, (item) => {
           if (item.content.trim()) return item;
@@ -200,10 +227,10 @@ export function ChatPanel({
       if (controller.signal.aborted) return;
       const message =
         err instanceof ApiRequestError
-          ? userFacingApiMessage(err.status, err.message)
+          ? chatErrorMessage(err.status, err.message)
           : err instanceof Error
             ? err.message
-            : "Не удалось получить ответ";
+            : t("errors.chatReplyFailed");
       useToastStore.getState().push(message);
       useChatStore.getState().patchMessage(assistantId, (item) => ({
         ...item,
@@ -213,6 +240,12 @@ export function ChatPanel({
     } finally {
       useChatStore.getState().setSending(false);
     }
+  }
+
+  function handleSelectCitation(citation: Citation) {
+    markCitationHintSeen();
+    setShowCitationHint(false);
+    onSelectCitation?.(citation);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -234,47 +267,39 @@ export function ChatPanel({
               <Skeleton className="h-24 w-full" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-5 py-6 text-center sm:py-10">
-              <div>
-                <h2 className="text-lg font-semibold sm:text-xl">Спросите по документам</h2>
-                <p className="mt-2 max-w-md text-sm text-slate-400">
-                  Ответ строится только по файлам, которые вам доступны. Каждая цитата открывает
-                  страницу PDF и подсвечивает фрагмент. Если в разрешённом корпусе ответа нет —
-                  отказ, без догадок.
-                </p>
-              </div>
-              {demoOrg ? (
-                <Alert className="max-w-md text-left">
-                  Демо: сотрудник не видит HR-Compensation.pdf. Один и тот же вопрос про L3 salary
-                  band — отказ у employee, цитата у HR.
-                </Alert>
-              ) : null}
-              <div className="flex w-full flex-col gap-2">
-                {suggestions.map((item) => (
-                  <Button
-                    key={item}
-                    type="button"
-                    variant="outline"
-                    onClick={() => void send(item)}
-                    className="h-auto justify-start whitespace-normal rounded-xl px-4 py-3 text-left font-normal"
-                  >
-                    {item}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            <ChatEmptyState onSend={(text) => void send(text)} />
           ) : (
             messages.map((message) => (
               <MessageBubble
                 key={message.id}
                 message={message}
                 streaming={sending && message.role === "assistant" && !message.error}
-                onSelectCitation={onSelectCitation}
+                onSelectCitation={handleSelectCitation}
               />
             ))
           )}
         </div>
       </div>
+
+      {showCitationHint ? (
+        <div className="shrink-0 border-t border-slate-800 bg-slate-950/80 px-3 py-2 sm:px-4">
+          <div className="mx-auto flex max-w-2xl items-start justify-between gap-2">
+            <Alert className="flex-1 py-2 text-left text-xs sm:text-sm">{t("chat.citationClickHint")}</Alert>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-xs"
+              onClick={() => {
+                markCitationHintSeen();
+                setShowCitationHint(false);
+              }}
+            >
+              {t("common.close")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="shrink-0 border-t border-slate-800 bg-slate-950 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:py-4">
         <div className="mx-auto min-w-0 max-w-2xl">
@@ -287,7 +312,7 @@ export function ChatPanel({
                 resizeInput();
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Вопрос по корпоративным документам…"
+              placeholder={t("chat.placeholder")}
               disabled={sending || loadingHistory}
               rows={1}
               className="max-h-32 min-h-11 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent sm:max-h-40"
@@ -298,13 +323,13 @@ export function ChatPanel({
               className="mb-0.5 size-11 shrink-0 sm:size-9"
               disabled={sending || loadingHistory || !question.trim()}
               onClick={() => void send(question)}
-              aria-label="Отправить"
+              aria-label={t("chat.send")}
             >
               {sending ? <LoaderCircle className="animate-spin" /> : <ArrowUp />}
             </Button>
           </div>
           <p className="mt-2 hidden text-center text-[11px] text-slate-500 sm:block">
-            Enter — отправить, Shift+Enter — новая строка
+            {t("chat.inputHint")}
           </p>
         </div>
       </div>
@@ -321,11 +346,12 @@ function MessageBubble({
   streaming: boolean;
   onSelectCitation?: (citation: Citation) => void;
 }) {
+  const { t } = useI18n();
   const isUser = message.role === "user";
   const chips = uniqueCitations(message.sources);
   const parts = splitAnswerParts(message.content, message.sources);
   const plainContent = chips.length > 0 ? stripCitationMarkers(message.content) : message.content;
-  const isRefusal = message.content.trim() === NO_CONTEXT_ANSWER;
+  const isRefusal = isNoContextAnswer(message.content);
 
   return (
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
@@ -338,7 +364,7 @@ function MessageBubble({
       >
         {!isUser ? (
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-            Docwise{message.cached ? " · из кеша" : ""}
+            Docwise{message.cached ? t("chat.cachedSuffix") : ""}
           </p>
         ) : null}
         {chips.length > 0 ? (
@@ -381,7 +407,7 @@ function MessageBubble({
               )
             )
           ) : streaming ? (
-            "Печатает…"
+            t("chat.typing")
           ) : null}
           {streaming && message.content ? (
             <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-current align-middle" />

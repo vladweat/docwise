@@ -35,7 +35,7 @@ describe("splitAnswerParts", () => {
 
 describe("citationLabel", () => {
   it("uses стр. for the chip", () => {
-    expect(citationLabel(CITATION)).toBe("Policy.pdf (стр. 2)");
+    expect(citationLabel(CITATION, "ru")).toBe("Policy.pdf (стр. 2)");
   });
 });
 

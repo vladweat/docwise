@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { useI18n } from "@/i18n/locale-provider";
 
 declare global {
   interface Window {
@@ -33,6 +34,7 @@ const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 export function GoogleSignInButton({ organizationName }: { organizationName?: string }) {
   const { loginGoogle, clearError } = useAuth();
+  const { locale } = useI18n();
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(280);
@@ -71,7 +73,7 @@ export function GoogleSignInButton({ organizationName }: { organizationName?: st
         size: "large",
         width,
         text: "continue_with",
-        locale: "ru",
+        locale,
       });
     };
 
@@ -94,7 +96,7 @@ export function GoogleSignInButton({ organizationName }: { organizationName?: st
     script.addEventListener("load", render);
     document.head.appendChild(script);
     return () => script.removeEventListener("load", render);
-  }, [clearError, loginGoogle, organizationName, width]);
+  }, [clearError, locale, loginGoogle, organizationName, width]);
 
   if (!GOOGLE_CLIENT_ID) return null;
 

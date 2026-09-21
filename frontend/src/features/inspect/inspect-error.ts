@@ -1,14 +1,15 @@
+import { tClient } from "@/i18n/client-translate";
 import { ApiRequestError } from "@/lib/api";
 
 export function inspectErrorMessage(err: unknown): string {
   if (err instanceof ApiRequestError && err.status === 404) {
-    return "Инспекция выключена (ENABLE_SEARCH_INSPECT). В Compose она включена вне production.";
+    return tClient("errors.inspectDisabled");
   }
   if (err instanceof ApiRequestError && err.status === 403) {
-    return "Недостаточно прав.";
+    return tClient("errors.inspectForbidden");
   }
   if (err instanceof ApiRequestError) {
     return err.message;
   }
-  return "Не удалось выполнить inspect";
+  return tClient("errors.inspectFailed");
 }

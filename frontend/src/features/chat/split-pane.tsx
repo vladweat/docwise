@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { useI18n } from "@/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "dw-split-chat-pct";
@@ -29,6 +30,7 @@ export function SplitPane({
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
 }) {
+  const { t } = useI18n();
   const [chatWidth, setChatWidth] = useState(0);
   const dragging = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -103,8 +105,8 @@ export function SplitPane({
       {collapsed ? null : (
         <button
           type="button"
-          aria-label="Изменить ширину панелей"
-          title="Двойной щелчок — скрыть панель документа"
+          aria-label={t("chat.resizePanes")}
+          title={t("chat.resizePanesHint")}
           className={cn(
             "group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-slate-800 hover:bg-blue-500/70",
             "focus-visible:bg-blue-500/70 focus-visible:outline-none",

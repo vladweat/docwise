@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, LoaderCircle, ZoomIn, ZoomOut } from "lucide
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/i18n/locale-provider";
 import { ApiRequestError, fetchDocumentPdf } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const ZOOM_STEP = 0.25;
 const PAGE_PADDING = 32;
 
 export function DocumentPdfPreview({ documentId }: { documentId: string }) {
+  const { t } = useI18n();
   const measureRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
@@ -117,10 +119,10 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
         if (err instanceof Error && err.message.toLowerCase().includes("cancel")) return;
         const message =
           err instanceof ApiRequestError && err.status === 404
-            ? "Документ недоступен"
+            ? t("errors.documentUnavailable")
             : err instanceof ApiRequestError
               ? err.message
-              : "Не удалось открыть документ";
+              : t("errors.openDocumentFailed");
         setError(message);
       } finally {
         if (!cancelled) setLoading(false);
@@ -133,7 +135,7 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
       renderTaskRef.current?.cancel();
       renderTaskRef.current = null;
     };
-  }, [documentId, fitWidth, page, zoom]);
+  }, [documentId, fitWidth, page, zoom, t]);
 
   const zoomOut = useCallback(() => {
     setZoom((value) => Math.max(MIN_ZOOM, Number((value - ZOOM_STEP).toFixed(2))));
@@ -157,7 +159,7 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
               className="size-8"
               disabled={page <= 1 || loading}
               onClick={() => setPage((value) => Math.max(1, value - 1))}
-              aria-label="Предыдущая страница"
+              aria-label={t("viewer.prevPage")}
             >
               <ChevronLeft className="size-4" />
             </Button>
@@ -171,7 +173,7 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
               className="size-8"
               disabled={page >= pageCount || loading}
               onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
-              aria-label="Следующая страница"
+              aria-label={t("viewer.nextPage")}
             >
               <ChevronRight className="size-4" />
             </Button>
@@ -184,7 +186,7 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
               className="size-8"
               disabled={loading || zoom <= MIN_ZOOM}
               onClick={zoomOut}
-              aria-label="Уменьшить"
+              aria-label={t("viewer.zoomOut")}
             >
               <ZoomOut className="size-4" />
             </Button>
@@ -195,7 +197,7 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
                 loading && "pointer-events-none opacity-50",
               )}
               onClick={resetZoom}
-              aria-label="Сбросить масштаб"
+              aria-label={t("viewer.zoomReset")}
             >
               {Math.round(zoom * 100)}%
             </button>
@@ -206,7 +208,7 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
               className="size-8"
               disabled={loading || zoom >= MAX_ZOOM}
               onClick={zoomIn}
-              aria-label="Увеличить"
+              aria-label={t("viewer.zoomIn")}
             >
               <ZoomIn className="size-4" />
             </Button>
@@ -219,7 +221,7 @@ export function DocumentPdfPreview({ documentId }: { documentId: string }) {
         {loading ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/60 text-sm text-slate-400">
             <LoaderCircle className="mr-2 size-4 animate-spin" />
-            Загрузка PDF…
+            {t("chat.loadingPdf")}
           </div>
         ) : null}
         {error ? (
