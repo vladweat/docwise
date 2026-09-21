@@ -1,8 +1,17 @@
 # Docwise
 
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+
 Production-grade **enterprise RAG** for PDF and DOCX knowledge bases: FastAPI, PostgreSQL/pgvector, Celery, Next.js. Permission-aware hybrid retrieval, cross-encoder rerank, PDF page citations, and DOCX citations by section.
 
 Target deploy is **shared B2B SaaS** (many organizations on one stack). Isolation is SQL `organization_id` plus inner `access_roles`.
+
+| | |
+| --- | --- |
+| **Live demo** | TBD — [owner checklist](docs/portfolio-owner-tasks.md#c1--публичный-https-demo) · [deploy guide](docs/deploy-public-demo.md) |
+| **Walkthrough video** | TBD (60–90 s) — [shot list](docs/portfolio-owner-tasks.md#c2--видео-6090-с) |
+
+Replace `OWNER/REPO` in the CI badge after you publish the GitHub remote.
 
 > Product spec: [docs/srs.md](docs/srs.md) (Russian). Tenancy: [docs/tenancy.md](docs/tenancy.md). Adapted from sibling [ChainWise](../chainwise) (cookies, Celery, SSE) with a different parser and **SQL RBAC on every search**.
 
@@ -23,6 +32,17 @@ Keyword search does not understand the question. A junior employee must never re
 
 - **Not ChatPDF** — shared B2B SaaS (`organization_id` + document `access_roles`), hybrid retrieval in SQL (dense + FTS → RRF → rerank), and grounded refuse when Top-4 is empty; not a single-upload consumer chat with prompt-only guardrails.
 - **Not ChainWise** — reuses auth, Celery, and SSE envelopes from the sibling audit app; product is **corpus-wide document RAG** (PDF + DOCX ingest) with pgvector in Postgres, not one Solidity contract with in-memory BM25 over Qdrant scroll.
+
+## Portfolio narrative
+
+| | |
+| --- | --- |
+| **Problem** | Company handbooks and policies live in PDFs; naive RAG leaks restricted rows and hallucinates without page-level trust. |
+| **Approach** | Hybrid retrieval in PostgreSQL (pgvector + FTS → RRF → rerank) with **two SQL filters** (`organization_id` + `access_roles`) before fusion, rerank, or the LLM. Page-bounded chunks; SSE answers cite `{doc_id, page}`. |
+| **Proof** | Demo ACL: employee salary question refuses; HR gets `72000`–`88000` USD from `HR-Compensation.pdf`. Eval: **0** `must_not_doc_ids` leaks, Faithfulness **1.000** (2026-09-21) — [reports/rag_benchmark.md](reports/rag_benchmark.md). |
+| **Commercial envelope** | M6 plans/quotas/SSO/domain in product code; portfolio runs `BILLING_PROVIDER=dev` and `SSO_PROVIDER=dev` (dev simulate + fixture SSO, no live Stripe or Okta). Pytest covers quotas and cross-org SSO isolation. |
+
+Owner-only steps (public URL, video, GitHub pin): [docs/portfolio-owner-tasks.md](docs/portfolio-owner-tasks.md).
 
 ## Architecture
 
@@ -169,9 +189,9 @@ This repo is a portfolio-complete RAG workspace, not a billing company. Intentio
 - Agents with tool-calling beyond the corpus
 - Training custom embeddings; rewrite to asyncpg
 
-Compose billing is `BILLING_PROVIDER=dev`. Inspect is on in Compose (`ENABLE_SEARCH_INSPECT=true`) and off by default when `ENVIRONMENT=production`.
+Compose: `BILLING_PROVIDER=dev` (plan changes without payments) and `SSO_PROVIDER=dev` (fixture assertion, not a customer IdP). Inspect is on in Compose (`ENABLE_SEARCH_INSPECT=true`) and off by default when `ENVIRONMENT=production`.
 
-Portfolio: level A done locally; B/C checklist — [docs/portfolio-levels.md](docs/portfolio-levels.md). Repo showcase items — [docs/portfolio.md](docs/portfolio.md).
+Portfolio: level **B** closed in-repo; level **C** (live demo URL + video) — [docs/portfolio-owner-tasks.md](docs/portfolio-owner-tasks.md). Levels A/B/C — [docs/portfolio-levels.md](docs/portfolio-levels.md). Repo showcase — [docs/portfolio.md](docs/portfolio.md).
 
 ## CI
 
@@ -218,4 +238,6 @@ reports/          # rag_benchmark.md
 | [docs/tech-debt.md](docs/tech-debt.md) | Structural backlog after M0–M6 |
 | [docs/portfolio.md](docs/portfolio.md) | Demo / showcase freeze (not product milestones) |
 | [docs/portfolio-levels.md](docs/portfolio-levels.md) | Portfolio levels A/B/C (interview-ready, abroad) |
+| [docs/portfolio-owner-tasks.md](docs/portfolio-owner-tasks.md) | Video, public demo, GitHub — owner only |
+| [docs/deploy-public-demo.md](docs/deploy-public-demo.md) | HTTPS demo VPS checklist (C1) |
 | [AGENTS.md](AGENTS.md) | Agent checklist |

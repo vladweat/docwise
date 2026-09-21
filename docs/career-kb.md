@@ -11,7 +11,7 @@
 | Шкалы вех | **две**: личный DoD M1–M12 (месяц «можно показать») и **M0–M6** в репо — не сливать |
 | Прод / пилот у заказчика | в KB **не** выделять (сейчас нет) |
 | Перед интервью | перегнать `make eval` при изменении RAG; последний прогон **2026-09-21** — [reports/rag_benchmark.md](../reports/rag_benchmark.md) |
-| Видео 60–90 с, публичный стенд | **в планах** (уровень C — [portfolio-levels.md](portfolio-levels.md)) |
+| Видео 60–90 с, публичный стенд | чеклист владельца — [portfolio-owner-tasks.md](portfolio-owner-tasks.md); деплой C1 — [deploy-public-demo.md](deploy-public-demo.md) |
 | Уровни портфолио A/B/C | [portfolio-levels.md](portfolio-levels.md); статус B/C — см. чеклист в конце файла |
 | Роли в демо | достаточно **employee / hr / admin** (manager в скрипт не включать) |
 
@@ -20,7 +20,7 @@
 ## 1. Статус
 
 - **Путь:** `/home/lzvw/projects/docwise`, ветка `main`
-- **Стадия:** уровень **A** закрыт (`make up` + `make demo`); **B/C** — [portfolio-levels.md](portfolio-levels.md); операционный чеклист — [portfolio.md](portfolio.md)
+- **Стадия:** уровень **A** и **B в репо** закрыты; **C** (URL + видео) — [portfolio-owner-tasks.md](portfolio-owner-tasks.md); уровни — [portfolio-levels.md](portfolio-levels.md); чеклист репо — [portfolio.md](portfolio.md)
 - **Публичный URL / прод:** нет
 
 **E2E (при поднятом Compose и `OPENAI_API_KEY`):** PDF/DOCX upload → Celery ingest → hybrid search (pgvector + FTS, RRF k=60, rerank) → SSE chat с цитатами → клик → PDF страница + подсветка **или** DOCX фрагмент + скачивание; list/raw/chat/inspect с `organization_id` + `access_roles`.
@@ -139,10 +139,7 @@ Python 3.12, FastAPI, SQLAlchemy sync, Celery 5, Redis 7, Postgres `pgvector/pgv
 
 ## 10. Планы (вне кода)
 
-Уровни **B** (eval ritual, README polish, S1b) и **C** (C1 публичный demo **или** C2 видео): [portfolio-levels.md](portfolio-levels.md).
-
-- Видео 60–90 с (screen recording) — C2.
-- Публичный стенд (хостинг, DNS, ключ LLM) — C1.
+Уровни **B** (eval ritual, README polish, S1b) и **C** (C1 demo + C2 видео): [portfolio-levels.md](portfolio-levels.md). Исполнение C — [portfolio-owner-tasks.md](portfolio-owner-tasks.md).
 
 ---
 

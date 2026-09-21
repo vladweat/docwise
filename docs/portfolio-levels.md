@@ -31,10 +31,12 @@ M0–M6 в репо уже закрыты — это **код**, не замен
 - [x] README: problem → **architecture diagram** → ACL SQL → hybrid pipeline → `make demo` (схема синхронизирована с `docs/architecture.md`, 2026-09-21)
 - [x] Скриншоты (3–5): chat+citation, PDF highlight, ACL отказ, `/inspect` — `docs/screenshots/01`–`04`, галерея в README
 - [x] «Not ChatPDF» / «Not ChainWise» — 2 буллета в README
-- [ ] Badges: CI status (если публичный CI виден)
+- [x] Badges: CI status — placeholder `OWNER/REPO` в README до публичного GitHub
 - [x] `.env.example` без секретов; quickstart ≤15 мин для reviewer (абзац в README + `.env.example`)
 
 ### 3. Карьерная упаковка (вне репо, но часть портфолио)
+
+Чеклист владельца: [portfolio-owner-tasks.md](portfolio-owner-tasks.md).
 
 - [ ] CV/LinkedIn: 3–5 буллетов ([маркеры в career-kb](career-kb.md#11-резюме--интервью))
 - [ ] Title: **Backend / Applied AI (RAG)** — не ML Engineer
@@ -44,14 +46,16 @@ M0–M6 в репо уже закрыты — это **код**, не замен
 ### 4. Честные границы (написать вслух и в README)
 
 - [x] DOCX ingest есть; честно: цитаты по разделу, без Word-preview в KB; eval golden пока PDF-only
-- [ ] Live Stripe / live IdP — dev envelope only
-- [ ] Нет публичного URL — ок **на моке**, не ок **в cold CV без видео**
+- [x] Live Stripe / live IdP — dev envelope only (README «Portfolio narrative» + Out of scope)
+- [ ] Нет публичного URL / видео — TBD в README; закрыть по [portfolio-owner-tasks.md](portfolio-owner-tasks.md) (C1+C2)
 
 **Критерий B:** можешь отправить ссылку на репо + сказать «цифры в rag_benchmark от DD.MM» + провести ACL live за 3 мин.
 
 ---
 
 ## Уровень C — full portfolio abroad (полноценно для холодного рынка)
+
+Владелец: [portfolio-owner-tasks.md](portfolio-owner-tasks.md). Деплой C1: [deploy-public-demo.md](deploy-public-demo.md).
 
 Нужно **хотя бы одно** из двух (оба — идеал):
 
@@ -75,7 +79,7 @@ M0–M6 в репо уже закрыты — это **код**, не замен
 ### Общее для C
 
 - [ ] GitHub pin + description EN one-liner
-- [ ] Один **case study** блок (можно секция README «Portfolio narrative»): Problem / Approach / ACL / Results (metrics)
+- [x] Один **case study** блок — секция README «Portfolio narrative»
 - [ ] Согласованность с Landlords/Puffins pinned — **не** три равных AI-флагмана на одном резюме
 
 **Критерий C:** рекрутер за 2 минуты без твоего участия видит ACL+RAG; ты не стыдишься ссылки в cold message.
