@@ -95,6 +95,14 @@ Self-serve:
 - Подсказывать в ошибке `409`, что такой PDF уже есть у *другой* организации.
 - Считать план, Stripe customer id или SAML-атрибут `org` источником `organization_id`.
 
+## Postgres RLS (корпус)
+
+RLS только на **`documents`** и **`document_chunks`**: это поверхность hybrid retrieval; пропущенный `organization_id` в одном SQL-пути дал бы чужой индексированный текст. Политика `docwise_tenant_visible(organization_id)` по GUC `app.organization_id`; Celery ingest — `app.rls_bypass=on`. API/SSE chat выставляют org, потому что тот же запрос читает чанки.
+
+Чат (`chat_sessions` / `chat_messages`) и `rag_audit_logs` **без** RLS: в коде уже жёсткий фильтр `organization_id` (+ `user_id` для сессий). RLS там не даёт выигрыша, только усложняет политики без `organization_id` на сообщениях.
+
+**Не заменяет** `WHERE organization_id` и `access_roles` в приложении (внутренняя ACL по-прежнему только в SQL/сервисах).
+
 ## Вне M6 (позже)
 
-Postgres RLS как defense-in-depth, консоль оператора платформы, SCIM. RLS не заменяет `org_id` в запросах приложения. Боевой эквайринг (live Stripe / ЮKassa) не критерий продукта, пока M6 закрыт на `dev`.
+Консоль оператора платформы, SCIM. Боевой эквайринг (live Stripe / ЮKassa) не критерий продукта, пока M6 закрыт на `dev`.

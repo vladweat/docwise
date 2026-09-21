@@ -362,7 +362,7 @@ flowchart LR
 Не открывать, пока не закрыт критерий M6:
 
 - консоль оператора платформы (чтение чужих корпусов запрещено и там, пока нет явного break-glass в SRS)
-- Postgres RLS как defense-in-depth (не замена `org_id` в запросах)
+- [x] Postgres RLS на `documents` / `document_chunks` (миграция `015`; не замена `org_id` + ACL в запросах)
 - SCIM / directory sync; маппинг групп IdP сразу в `access_roles` документов
 - боевой эквайринг как критерий (ЮKassa, Stripe live); адаптер Stripe в коде — опция M6b
 - онлайн-редактирование файлов

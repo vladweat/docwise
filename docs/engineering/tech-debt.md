@@ -62,7 +62,9 @@
 
 ## Medium
 
-- [x] **Двойная запись ACL и `org_id` на чанки.** Составной FK `document_chunks (document_id, organization_id) → documents (id, organization_id)` (миграции `013`–`014`; простой `document_id` FK снят, иначе два пути ломают join). PATCH копирует `access_roles` только на чанки той же org. RLS по-прежнему вне скоупа ([milestones.md](../product/milestones.md)).
+- [x] **Двойная запись ACL и `org_id` на чанки.** Составной FK `document_chunks (document_id, organization_id) → documents (id, organization_id)` (миграции `013`–`014`; простой `document_id` FK снят, иначе два пути ломают join). PATCH копирует `access_roles` только на чанки той же org.
+
+- [x] **Postgres RLS на корпусе.** Миграция `015`: только `documents` + `document_chunks`; GUC `app.organization_id` / bypass для Celery. `app/core/rls.py`. Регрессия: `tests/test_rls.py`.
 
 - [x] **Глобальный HNSW, фильтр по org после индекса.** Индекс тот же; перед dense `SET LOCAL hnsw.iterative_scan = relaxed_order` и `hnsw.max_scan_tuples` (`HNSW_MAX_SCAN_TUPLES`, дефолт 20000). Org-partitioned ANN не делали.
 

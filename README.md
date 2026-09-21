@@ -184,8 +184,7 @@ Tests: `backend/tests/test_inspect.py`, tenancy/ACL cases in documents and retri
 This repo is a portfolio-complete RAG workspace, not a billing company. Intentionally **not** built:
 
 - Live Stripe / real customer IdP (SAML in prod) / SCIM
-- Postgres RLS (SQL `organization_id` + `access_roles` is the product gate)
-- Platform operator console that can read customer corpora
+- Platform operator console that can read customer corpora (tenant gate: SQL `organization_id` + `access_roles` + Postgres RLS on corpus tables)
 - Agents with tool-calling beyond the corpus
 - Training custom embeddings; rewrite to asyncpg
 
