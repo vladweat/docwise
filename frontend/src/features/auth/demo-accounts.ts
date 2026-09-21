@@ -48,3 +48,8 @@ export function showDemoLogins(): boolean {
   if (typeof window === "undefined") return false;
   return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 }
+
+/** Public demo VPS: demo buttons + no self-serve registration in the login UI. */
+export function publicDemoProfile(): boolean {
+  return process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "true";
+}

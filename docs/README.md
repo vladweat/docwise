@@ -13,8 +13,10 @@
 7. [Техдолг](tech-debt.md) — structural backlog после M0–M6 (не инварианты продукта).
 8. [Портфолио](portfolio.md) — закрытие витрины (не вехи продукта).
 9. [Уровни портфолио A/B/C](portfolio-levels.md) — interview-ready и abroad (не product roadmap).
-10. [Карьерная KB](career-kb.md) — факты для резюме/интервью (не продуктовая спека).
-11. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
+10. [Задачи владельца (видео, demo, GitHub)](portfolio-owner-tasks.md) — уровень C, вне кода.
+11. [Публичный demo VPS](deploy-public-demo.md) — C1 deploy checklist.
+12. [Карьерная KB](career-kb.md) — факты для резюме/интервью (не продуктовая спека).
+13. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
 
 ## Инварианты продукта
 

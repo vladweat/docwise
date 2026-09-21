@@ -4,6 +4,8 @@
 
 **Уровни A / B / C** (локальный DoD → interview-ready → abroad): канон в [portfolio-levels.md](portfolio-levels.md). Этот файл — чеклист **репозитория** (≈ уровень A + часть B).
 
+**Уровень B в репо закрыт** (README narrative, dev billing/SSO в тексте, [portfolio-owner-tasks.md](portfolio-owner-tasks.md), [deploy-public-demo.md](deploy-public-demo.md)). Уровень **C** — только владелец (видео + публичный URL).
+
 Критерий готовности: чужой человек проходит «зашёл → понял ценность → увидел ACL → кликнул цитату» без онбординга из ТЗ. Дальше фичи замораживаются.
 
 ## Сделать (порядок)
@@ -19,10 +21,10 @@
 - [x] **8. 5 security-сценариев в README**.
 - [x] **9. Визуальный удар** — подсветка сниппета на странице PDF по клику на цитату.
 - [x] **10. Заморозка скоупа** — README «Out of scope».
-- [ ] **11. Видео 60–90 с** — запись экрана (не репозиторий).
-- [ ] **12. Публичный стенд** — хостинг вне репо.
+- [ ] **11. Видео 60–90 с** — [portfolio-owner-tasks.md](portfolio-owner-tasks.md#c2--видео-6090-с).
+- [ ] **12. Публичный стенд** — [deploy-public-demo.md](deploy-public-demo.md) + owner tasks.
 
-Пункты **1–10** — репозиторий (все закрыты; п.6 — закоммитить отчёт при политике репо). **11–12** — вокруг репозитория.
+Пункты **1–10** — репозиторий (все закрыты; п.6 — закоммитить отчёт при политике репо). **11–12** — вокруг репозитория (сценарий и чеклист в репо, исполнение — владелец).
 
 ## Кто делает
 
@@ -38,8 +40,8 @@
 | 8 | Security-блок в README | Да | — |
 | 9 | Подсветка PDF / sample export / DOCX ingest | Да | PDF highlight + `samples/documents/`; DOCX ingest + chat snippet (без Word-preview в KB) |
 | 10 | Скоуп в README | Да | — |
-| 11 | Видео | Нет (не запись экрана) | Запись; агент может расписать тайминг и клики |
-| 12 | Деплой в интернет | Частично: Docker/env/чеклист | Хостинг, DNS, ключ LLM, оплата |
+| 11 | Видео | Сценарий в [portfolio-owner-tasks.md](portfolio-owner-tasks.md) | Запись и ссылка в README |
+| 12 | Деплой в интернет | [deploy-public-demo.md](deploy-public-demo.md), `.env.example` § Public demo | Хостинг, DNS, ключ LLM, URL в README |
 
 ## Не делать для этой цели
 
