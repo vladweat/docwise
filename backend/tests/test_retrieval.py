@@ -21,10 +21,10 @@ from app.services.retrieval.search import _fts_or_query
 from app.services.text import lexical_tokens
 from helpers import make_org, make_principal, wipe_app_tables
 
-_SERVICES = Path(__file__).resolve().parents[1] / "app" / "services"
+_RETRIEVAL_PKG = Path(__file__).resolve().parents[1] / "app" / "services" / "retrieval"
 RETRIEVAL_SOURCE = "\n".join(
-    (_SERVICES / name).read_text()
-    for name in ("retrieval.py", "retrieval_search.py", "retrieval_types.py")
+    (_RETRIEVAL_PKG / name).read_text()
+    for name in ("__init__.py", "search.py", "types.py")
 )
 
 

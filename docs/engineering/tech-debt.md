@@ -20,13 +20,13 @@
 
 ### Слои названы, границы нет
 
-- [x] **`core` vs `utils` vs `services` без правила.** `core/` — инфра процесса (config, DB, JWT, cookies, CSRF, Redis, rate limit, логи). `services/` — домен; middleware может звать `domains` / `sso`. Пакет только у нескольких реализаций (`billing/`). Правило: [conventions.md](../meta/conventions.md).
+- [x] **`core` vs `utils` vs `services` без правила.** `core/` — инфра процесса (config, DB, JWT, cookies, CSRF, Redis, rate limit, логи). `services/` — домен по подпакетам (`chat/`, `org/`, …); middleware может звать `org.domains` / `org.sso`. Правило: [conventions.md](../meta/conventions.md).
 
 - [x] **Celery не там, куда указывает карта.** Задача в `backend/worker/celery_app.py` (`celery -A worker.celery_app`). Прод-образ копирует `app/` и `worker/`, не `tests/`.
 
 - [x] **Модели свалены не по агрегату.** `organization` (org, membership, invite, plan); `sso`; `domain`; `billing` (`BillingStatus` + events); `chat`; `audit` (`RagAuditLog`). HTTP домена — `api/v1/domains.py`.
 
-- [x] **SSO разрезан по трём пакетам.** HTTP ACS/login и CRUD коннектора — `api/v1/sso.py`; логика — `services/sso.py`. `foreign_organization_id()` — `schemas/common.py`.
+- [x] **SSO разрезан по трём пакетам.** HTTP ACS/login и CRUD коннектора — `api/v1/sso.py`; логика — `services/org/sso.py`. `foreign_organization_id()` — `schemas/common.py`.
 
 - [x] **Имена сервис ≠ ресурс.** `api/v1/documents.py` → `services/documents/`. `api/v1/search.py` → `services/retrieval/inspect.py`. Retrieval чата — `services/retrieval/`.
 
@@ -54,7 +54,7 @@
 
 Исправлять до первого реального тенанта / нагрузки.
 
-- [x] **LLM-кэш без инвалидации.** Ключ `llm_cache:{v}:{org_id}:{generation}:{roles_hash}:{question_hash}`, TTL 24 ч (`backend/app/services/llm_cache.py`). Поколение — `organizations.llm_index_generation`; bump + SCAN-delete ключей org при PATCH ACL, DELETE и ready ingest. Cache hit пишет `tokens_used=null` (квоту не жжёт). История диалога в ключ по-прежнему не входит.
+- [x] **LLM-кэш без инвалидации.** Ключ `llm_cache:{v}:{org_id}:{generation}:{roles_hash}:{question_hash}`, TTL 24 ч (`backend/app/services/chat/llm_cache.py`). Поколение — `organizations.llm_index_generation`; bump + SCAN-delete ключей org при PATCH ACL, DELETE и ready ingest. Cache hit пишет `tokens_used=null` (квоту не жжёт). История диалога в ключ по-прежнему не входит.
 
 - [x] **Sparse-поиск — всё ещё interim ADR-005.** `document_chunks.search_vector` (`simple`, GIN). FTS Top-25 с тем же `organization_id` и `access_roles && allowed_roles`, независимо от dense, затем RRF (`backend/app/services/retrieval/`). Регрессия: `test_sparse_fts_finds_lexical_hit_outside_dense_top`. Живой eval (`make eval` / `make eval-retrieval`) после смены fusion не гонялся — смотреть `hb-security-email`, `eng-python`.
 
@@ -68,7 +68,7 @@
 
 - [x] **Сервисы кидают `HTTPException`.** Домен — `AppError` (`core/errors.py`), хендлер в `main.py`. `HTTPException` остаётся в `api/` / `core/` (deps, CSRF, rate limit).
 
-- [x] **God-модули.** `api/v1/auth/` (password / Google / session), `chat_sessions.py` + `chat.py`, settings: `billing-section` / `sso-section` / `domain-section`.
+- [x] **God-модули.** `api/v1/auth/` (password / Google / session), `chat/` (`sse`, `persist`, `sessions`), `ingestion/` (`worker`, `indexing`), settings: `billing-section` / `sso-section` / `domain-section`.
 
 - [x] **Delete: MinIO раньше Postgres.** Сначала commit строки БД, потом `delete_object`. Сбой MinIO после commit — `204`, сирота в бакете, список согласован.
 

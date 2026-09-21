@@ -11,13 +11,20 @@ from app.services.chat.prompt import (
     load_cached_answer,
     save_cached_answer,
 )
+from app.services.chat.runtime import (
+    SessionLocal,
+    embed_query,
+    finish_retrieval,
+    hybrid_search,
+    stream_openai,
+)
 from app.services.chat.sessions import (
     get_owned_session,
     get_session_detail,
     list_sessions,
     set_message_feedback,
 )
-from app.services.chat.sse import PERSIST_FAILED, iter_sse_events
+from app.services.chat.sse import PERSIST_FAILED, _persist_turn, iter_sse_events
 from app.services.chat.llm_cache import CACHE_VERSION, cache_key, canonical_allowed_roles, question_hash
 from app.services.retrieval import retrieve
 
@@ -25,16 +32,21 @@ __all__ = [
     "CACHE_VERSION",
     "PERSIST_FAILED",
     "SYSTEM_PROMPT",
+    "SessionLocal",
     "ChatError",
     "ChatPersistError",
     "ChatResult",
     "HistoryTurn",
+    "_persist_turn",
     "build_messages",
     "cache_key",
     "canonical_allowed_roles",
     "citations_from_chunks",
+    "embed_query",
+    "finish_retrieval",
     "get_owned_session",
     "get_session_detail",
+    "hybrid_search",
     "iter_sse_events",
     "list_sessions",
     "load_cached_answer",
@@ -42,4 +54,5 @@ __all__ = [
     "retrieve",
     "save_cached_answer",
     "set_message_feedback",
+    "stream_openai",
 ]
