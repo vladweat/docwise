@@ -12,7 +12,9 @@
 6. [NFR](nfr.md), [Оценка](evaluation.md), [Roadmap](milestones.md) (чекбоксы вех).
 7. [Техдолг](tech-debt.md) — structural backlog после M0–M6 (не инварианты продукта).
 8. [Портфолио](portfolio.md) — закрытие витрины (не вехи продукта).
-9. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
+9. [Уровни портфолио A/B/C](portfolio-levels.md) — interview-ready и abroad (не product roadmap).
+10. [Карьерная KB](career-kb.md) — факты для резюме/интервью (не продуктовая спека).
+11. [Соглашения](conventions.md) и [переиспользование ChainWise](reuse-from-chainwise.md).
 
 ## Инварианты продукта
 

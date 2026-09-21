@@ -82,17 +82,19 @@ WHERE organization_id = :current_org
 
 ## Eval metrics
 
-Last live Ragas run (2026-09-10, 35 cases, employee with no `hr`/`finance` department). Numbers predate independent FTS (migration `012`); ACL gate still applies. Method: [docs/evaluation.md](docs/evaluation.md).
+**How we measure:** `eval/golden_dataset.json` (35 cases) runs through the same hybrid retrieval, rerank, and chat path as production, under `eval-employee@docwise.example.com` (`employee`, no `hr`/`finance` department). Ragas judges (Faithfulness, Context Precision, Answer Relevance) use the same LLM client as chat; release gates are Faithfulness ≥ 0.8 and **zero** Top-4 leaks from `must_not_doc_ids` (every case lists HR/Finance doc ids). ACL negative example: employee asks for the L3 salary band → `acl-l3-band` in the golden set; HR compensation chunks never enter Top-4 (see demo walkthrough below). Details: [docs/evaluation.md](docs/evaluation.md).
+
+Last live Ragas run (**2026-09-21**, post FTS migration `012`; 35 cases). Full per-question table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Default CI does **not** run eval (needs an LLM key and indexed fixtures).
 
 | Metric | Score | Gate |
 | --- | ---: | --- |
 | Faithfulness | 1.000 | ≥ 0.8 |
-| Context Precision | 0.976 | diagnostic |
-| Answer Relevance | 0.789 | diagnostic (two empty-after-rerank refusals) |
+| Context Precision | 0.994 | diagnostic |
+| Answer Relevance | 0.725 | diagnostic |
 | Target page hit | 0.929 | diagnostic |
 | ACL `must_not_doc_ids` | **0 leaks** | **0** |
 
-Full table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Default CI does **not** run eval (needs an LLM key and indexed fixtures).
+Two positives still miss target page after rerank (`hb-security-email`, `eng-python`): empty context → grounded refuse, not an ACL leak.
 
 ## Run the demo
 
@@ -151,7 +153,7 @@ This repo is a portfolio-complete RAG workspace, not a billing company. Intentio
 
 Compose billing is `BILLING_PROVIDER=dev`. Inspect is on in Compose (`ENABLE_SEARCH_INSPECT=true`) and off by default when `ENVIRONMENT=production`.
 
-Portfolio freeze: [docs/portfolio.md](docs/portfolio.md).
+Portfolio: level A done locally; B/C checklist — [docs/portfolio-levels.md](docs/portfolio-levels.md). Repo showcase items — [docs/portfolio.md](docs/portfolio.md).
 
 ## CI
 
@@ -197,4 +199,5 @@ reports/          # rag_benchmark.md
 | [docs/milestones.md](docs/milestones.md) | v1 roadmap |
 | [docs/tech-debt.md](docs/tech-debt.md) | Structural backlog after M0–M6 |
 | [docs/portfolio.md](docs/portfolio.md) | Demo / showcase freeze (not product milestones) |
+| [docs/portfolio-levels.md](docs/portfolio-levels.md) | Portfolio levels A/B/C (interview-ready, abroad) |
 | [AGENTS.md](AGENTS.md) | Agent checklist |
