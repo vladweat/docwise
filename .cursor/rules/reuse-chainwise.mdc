@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Reuse from `../chainwise`
 
-Docwise is an adaptation of ChainWise, not a greenfield app. Canonical inventory: `docs/reuse-from-chainwise.md`.
+Docwise is an adaptation of ChainWise, not a greenfield app. Canonical inventory: `docs/engineering/reuse-from-chainwise.md`.
 
 ## Copy (adapt names/payload)
 

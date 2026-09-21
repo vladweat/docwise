@@ -16,7 +16,7 @@ from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDI
 from app.models.organization import Organization, OrganizationMembership
 from app.models.user import User, UserRole
 from app.services.retrieval import dense_search
-from app.services.sso import SSO_NOT_IN_PLAN, SSO_REQUIRED
+from app.services.org.sso import SSO_NOT_IN_PLAN, SSO_REQUIRED
 from helpers import register_payload, set_org_plan, wipe_app_tables
 
 SSO_JSON = {"X-Requested-With": "Docwise", "Accept": "application/json"}

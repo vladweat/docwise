@@ -9,7 +9,7 @@ from worker.celery_app import process_document_task
 from app.core.database import SessionLocal
 from app.models.document import EMBEDDING_DIM, Document, DocumentChunk, DocumentStatus, make_chunk_id
 from app.models.organization import Organization
-from app.services.embeddings import EmbeddingError
+from app.services.ingestion.embeddings import EmbeddingError
 from app.services.ingestion import (
     IndexResult,
     IngestionError,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.services.chunker import chunk_parsed_document, format_embed_text
-from app.services.pdf_parser import parse_pdf, table_to_gfm
+from app.services.ingestion.chunker import chunk_parsed_document, format_embed_text
+from app.services.ingestion.pdf_parser import parse_pdf, table_to_gfm
 
 from pdf_fixtures import blank_pdf_bytes, policy_pdf_bytes
 

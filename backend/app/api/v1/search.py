@@ -6,7 +6,7 @@ from app.core.deps import get_current_user, get_db
 from app.core.principal import Principal
 from app.models.user import UserRole
 from app.schemas.search import SearchInspectRequest, SearchInspectResponse
-from app.services.search import inspect_search
+from app.services.retrieval.inspect import inspect_search
 from app.services.retrieval import RetrievalError
 
 router = APIRouter(prefix="/search", tags=["search"])

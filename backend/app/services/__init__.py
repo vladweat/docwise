@@ -1,5 +1,6 @@
-"""Domain services. Import from the resource module (`documents`, `chat`, `sso`).
+"""Domain services. Import from the resource package (`documents`, `chat`, `retrieval`, …).
 
-A package is used only when there are multiple implementations (`billing/`).
+Subpackages: `billing/` (ports), `chat/`, `documents/`, `ingestion/`, `retrieval/`, `org/`.
+Shared modules at this level: `storage`, `text`.
 HTTP lives in `app.api.v1`; ORM in `app.models`; process infra in `app.core`.
 """

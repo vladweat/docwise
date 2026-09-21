@@ -17,7 +17,7 @@ from app.models.audit import RagAuditLog
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
 from app.models.organization import Organization, OrganizationPlan
 from app.services.ingestion import IndexResult, run_ingestion
-from app.services.quotas import QUOTA_EXCEEDED
+from app.services.org.quotas import QUOTA_EXCEEDED
 from helpers import make_org, register_payload, wipe_app_tables
 from pdf_fixtures import tagged_pdf_bytes
 

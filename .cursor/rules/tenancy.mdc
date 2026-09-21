@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Tenancy (shared B2B SaaS)
 
-Canonical: `docs/tenancy.md`, ADR-012 in `docs/decisions.md`. Product is **many organizations on one deploy**.
+Canonical: `docs/platform/tenancy.md`, ADR-012 in `docs/engineering/decisions.md`. Product is **many organizations on one deploy**.
 
 Product is **many organizations on one deploy**.
 
@@ -32,7 +32,7 @@ Users are global; `role` and `departments` live on `organization_memberships`. `
 
 ## M6 (plans, SSO, domain)
 
-Canonical: `docs/billing.md`, `docs/tenancy.md`, ADR-013–015.
+Canonical: `docs/platform/billing.md`, `docs/platform/tenancy.md`, ADR-013–015.
 
 - Plan and quotas live on the **current** org row. They do not grant another org’s corpus.
 - If `Host` maps to an org, it must match session `org_id`. Hostname **pins**; it does not replace `WHERE organization_id = :current_org`.

@@ -14,7 +14,7 @@ from app.core.database import SessionLocal
 from app.main import app
 from app.models.document import Document, DocumentStatus
 from app.models.organization import Organization
-from app.services.domains import (
+from app.services.org.domains import (
     DOMAIN_NOT_IN_PLAN,
     HOST_SWITCH_DENIED,
     HOSTNAME_IN_USE,

@@ -1,7 +1,7 @@
 """Non-streaming LLM helper used by eval judges. No live network."""
 
 from app.core.config import get_settings
-from app.services.llm import LLMUsage, OpenAIRequestError, complete_openai
+from app.services.chat.llm import LLMUsage, OpenAIRequestError, complete_openai
 
 
 class _FakeResponse:

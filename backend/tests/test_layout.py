@@ -50,12 +50,14 @@ def test_dockerfile_does_not_ship_tests():
 
 
 def test_service_modules_match_api_resources():
-    assert (ROOT / "app/services/documents.py").is_file()
+    assert (ROOT / "app/services/documents/__init__.py").is_file()
     assert not (ROOT / "app/services/document_service.py").exists()
-    assert (ROOT / "app/services/search.py").is_file()
+    assert (ROOT / "app/services/retrieval/inspect.py").is_file()
     assert not (ROOT / "app/services/inspect.py").exists()
-    assert (ROOT / "app/services/chat.py").is_file()
-    assert (ROOT / "app/services/chat_sessions.py").is_file()
+    assert (ROOT / "app/services/chat/__init__.py").is_file()
+    assert (ROOT / "app/services/chat/sessions.py").is_file()
+    assert (ROOT / "app/services/ingestion/__init__.py").is_file()
+    assert (ROOT / "app/services/org/tenancy.py").is_file()
     assert (ROOT / "app/api/v1/auth").is_dir()
     assert (ROOT / "app/api/v1/auth/password.py").is_file()
     assert (ROOT / "app/api/v1/auth/issue.py").is_file()

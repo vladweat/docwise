@@ -22,8 +22,8 @@ from app.services.chat import (
     list_sessions,
     set_message_feedback,
 )
-from app.services.chat_sessions import delete_session
-from app.services.llm import OpenAINotConfiguredError, OpenAIRequestError
+from app.services.chat.sessions import delete_session
+from app.services.chat.llm import OpenAINotConfiguredError, OpenAIRequestError
 from app.services.retrieval import RetrievalError
 
 router = APIRouter(prefix="/chat", tags=["chat"])

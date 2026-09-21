@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.csrf import enforce_csrf
-from app.services.domains import origin_allowed
+from app.services.org.domains import origin_allowed
 
 
 class TenantCORSMiddleware(CORSMiddleware):
