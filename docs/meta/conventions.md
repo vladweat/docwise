@@ -26,6 +26,7 @@ docwise/
   eval/
   docs/                  # README.md + product/, platform/, pipeline/, engineering/, portfolio/, meta/
   reports/               # gitignore кроме rag_benchmark.md — по желанию
+  scripts/               # repo-level tooling (portfolio screenshots + Playwright)
   .cursor/rules/
   docker-compose.yml
   AGENTS.md
@@ -41,6 +42,8 @@ docwise/
 | `api/v1/` | Парсинг запроса, auth deps, вызов сервиса. Имя модуля = ресурс URL. Auth — пакет `auth/` (password / Google / session; `issue.py` — Set-Cookie, не маршрут) | Тяжёлый парсинг PDF |
 | `models/` | Один агрегат на файл (`organization`, `sso`, `domain`, `billing`, `audit`, `chat`, `document`, `user`) | Схемы HTTP |
 | `worker/` | Celery-обёртка задачи. Домен — в `services.ingestion` | Копировать `tests/` в прод-образ |
+
+**Scripts:** корень `scripts/` — витрина и прочие repo-утилиты; `backend/scripts/` — venv/embeddings; `frontend/scripts/` — prepare-deps (часть в `.gitignore`). Не смешивать без причины.
 
 `utils/` нет: Redis и rate limit — `core/`. Сервис документа — `services/documents/` (как `api/v1/documents.py`). Inspect — `services/retrieval/inspect.py` (как `api/v1/search.py`); гибридный поиск чата — `services/retrieval/` (sparse — Postgres FTS; `bm25_scores` только для unit-тестов). Выдача cookie-сессии — `api/v1/auth/issue.py`, не отдельный HTTP-ресурс. Общие строки: `services/text.py` (`ingest_tokens` для бюджета чанка, `lexical_tokens` для лексики/тестов, `normalize_role_tags` для ACL и departments).
 

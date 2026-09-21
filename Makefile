@@ -37,8 +37,12 @@ logs-frontend:
 	docker compose logs -f frontend
 
 # pytest ходит в docwise_test, не в рабочую БД. Без coverage-гейтов ChainWise.
+# -u: line-buffered stdout (видно прогресс сразу). test-quick: короче лог + top slow tests.
 test:
-	docker compose exec backend python -m pytest tests/ -v
+	docker compose exec backend python -u -m pytest tests/ -v
+
+test-quick:
+	docker compose exec backend python -u -m pytest tests/ -q --durations=15
 
 lint:
 	cd backend && .venv/bin/ruff check app tests scripts worker
