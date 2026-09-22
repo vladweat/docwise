@@ -11,7 +11,7 @@ Supplements [srs.md](srs.md). Performance thresholds below are guidelines for lo
 - Do not confirm existence of foreign file (“document X is hidden”), including another organization’s file.
 - LLM cache key includes `org_id`, index generation, and caller’s `allowed_roles` (otherwise cache is ACL hole, cross-tenant, or stale after corpus change).
 - Secrets only in env. Do not commit `.env`, keys, NDA dumps. Stripe keys not required for Compose (`BILLING_PROVIDER=dev`).
-- Audit: `rag_audit_logs` without chunk body (UUIDs after reranker only). Inspect in production behind `ENABLE_SEARCH_INSPECT` (off by default); foreign file not confirmed.
+- Audit: `rag_audit_logs` without chunk body (UUIDs after reranker only). Inspect in production behind `ENABLE_SEARCH_INSPECT` (off by default); foreign file not confirmed. Retention and erasure policy: [data-retention.md](../platform/data-retention.md) ([ADR-017](../engineering/decisions.md#adr-017-data-retention-and-erasure-eu-pilot-policy)).
 - Upload: size limit (guideline 50 MB), PDF and DOCX, SHA-256, rate limit by IP/user. Org quota: PDF pages or DOCX logical sections → `402` (not `429`).
 - Chat: period token quota → refusal before retrieval. Chat rate limit → `429`.
 - XSS: do not render HTML from PDF/LLM as `dangerouslySetInnerHTML` without sanitization. Answer markdown — safe renderer.
@@ -61,7 +61,7 @@ FTS (GIN on `tsvector`) scales with filtered row count per org; still no full-ta
 
 - Faithfulness: answer only from Top-4. Otherwise fixed refusal phrase.
 - Every factual clause — citation `{doc_id, page}`.
-- Eval: [evaluation.md](evaluation.md) (release discipline for fusion/FTS/rerank/prompt). Release on golden set: Faithfulness ≥ 0.8, Answer Relevance ≥ 0.75, target page hit ≥ 0.95, and **zero** ACL leaks on `must_not_doc_ids`. Latest live run **2026-09-22** (35 cases): Faithfulness 1.000, Context Precision 0.994, Answer Relevance 0.776, page hit 1.000, ACL PASS — [reports/rag_benchmark.md](../../reports/rag_benchmark.md). Zero leaks of `must_not` documents from **another** org, even with tag `all`. After metric-changing retrieval or prompt PRs, update benchmark + this date line per evaluation.md.
+- Release gates, how to run, and live scores: [evaluation.md](evaluation.md) and [reports/rag_benchmark.md](../../reports/rag_benchmark.md). Zero leaks of `must_not` documents from **another** org, even with tag `all`.
 
 ## Compatibility and i18n
 

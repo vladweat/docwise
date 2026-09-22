@@ -1,12 +1,10 @@
-# SRS: Docwise (Enterprise Doc AI)
+# SRS: Docwise
 
 **Repository:** `docwise`  
-**Name:** Docwise / Enterprise RAG Workspace  
+**Name:** Docwise  
 **Type:** shared B2B SaaS document search and Q&A (many organizations on one deploy). Private cloud / on-prem uses the same code with a single organization; see [tenancy.md](../platform/tenancy.md).
 
-This is the canonical product specification. Implementation details that differ from the draft spec (asyncpg → sync Session, SSE format) are recorded in [decisions.md](../engineering/decisions.md). PKs are UUID, as in the spec.
-
-**Positioning:** *Production-grade Enterprise RAG system built with FastAPI, PostgreSQL/pgvector, Celery, and Next.js, featuring permission-aware retrieval, hybrid search with reranking, and exact PDF page citations.*
+Canonical product specification. Implementation details that differ from the draft spec (asyncpg → sync Session, SSE format) are recorded in [decisions.md](../engineering/decisions.md). PKs are UUID, as in the spec.
 
 ---
 
