@@ -20,7 +20,12 @@ cd .. && node scripts/capture-portfolio-screenshots.mjs
 
 **Manual:** same clicks as the demo walkthrough in README. On `/inspect`, use the **working hours** question (salary leaves `reranked` empty for admin without `hr`).
 
+## Walkthrough script
+
+Scene order and spoken beats: [interview walkthrough](../../../docs/_private/portfolio/interview-walkthrough.md) (private; same steps as README ACL demo).
+
 ## Status
 
 - [x] Gallery in root README
-- [x] Files `01`–`04` present (refresh after major UI changes)
+- [x] Files `01`–`04` present
+- [x] Synced with README + interview walkthrough (**2026-09-22**; refresh PNGs after major UI changes)

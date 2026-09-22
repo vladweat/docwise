@@ -21,7 +21,7 @@ Internal materials (roadmap, tech debt, deploy notes) live in `docs/_private/` (
 3. [Tenancy](platform/tenancy.md), [Auth](platform/auth.md), [Data model](platform/data-model.md), [Billing](platform/billing.md).
 4. [Ingestion](pipeline/ingestion.md), [Retrieval](pipeline/retrieval.md).
 5. [API](engineering/api.md), [Python style](engineering/python-style.md), [Frontend](product/frontend.md).
-6. [NFR](product/nfr.md), [Evaluation](product/evaluation.md).
+6. [NFR](product/nfr.md) (capacity, performance), [Evaluation](product/evaluation.md).
 
 ## Invariants
 

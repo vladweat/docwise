@@ -59,7 +59,7 @@ def clean_tables():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.upload.enqueue_ingestion", lambda document_id: None)
 
 
 def _unique_email(prefix: str = "bill") -> str:
@@ -96,7 +96,7 @@ def _sign(payload: bytes, secret: str = WHSEC, ts: int | None = None) -> str:
 
 
 def test_quotas_module_does_not_call_billing_provider():
-    from app.services import quotas
+    from app.services.org import quotas
 
     source = inspect.getsource(quotas)
     assert "get_billing_port" not in source

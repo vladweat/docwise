@@ -1,4 +1,4 @@
-.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend restart-worker demo-fresh demo-fresh-volumes test test-quick test-smoke test-frontend lint typecheck health migrate eval eval-retrieval demo
+.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend restart-worker demo-fresh demo-fresh-volumes backup-pilot restore-pilot restore-drill reconcile-minio check-pilot-alerts load-baseline test test-quick test-smoke test-frontend lint typecheck health weekly-rhythm migrate eval eval-retrieval demo
 
 # Шаг 1 (нужен интернет): скачать зависимости backend + frontend
 deps: venv embeddings deps-frontend
@@ -82,6 +82,39 @@ migrate:
 
 health:
 	curl -s http://localhost:8001/health | python3 -m json.tool
+
+# Post-reboot / weekly: stack must be up (`make up-fast`). ACL demo steps — improvements-checklist § Быстрый ритм.
+weekly-rhythm: health test-smoke
+	@echo "Manual: ACL smoke (employee salary refuse → HR answer); RAG eval if you changed retrieval/prompt this week."
+
+# Pilot backup/restore — see ops/README.md and docs/_private/operations/pilot-runbook.md
+backup-pilot:
+	bash ops/backup-pilot.sh
+
+restore-pilot:
+	@test -n "$(BACKUP_DIR)" || (echo "Usage: make restore-pilot BACKUP_DIR=backups/pilot-latest" && exit 1)
+	bash ops/restore-pilot.sh "$(BACKUP_DIR)"
+
+# Local acceptance: backup → wipe volumes → restore → health (destructive)
+restore-drill:
+	bash ops/backup-pilot.sh
+	bash ops/restore-pilot.sh backups/pilot-latest --wipe-volumes
+	$(MAKE) health
+
+reconcile-minio:
+ifeq ($(DELETE),1)
+	bash ops/reconcile-minio.sh --delete
+else
+	bash ops/reconcile-minio.sh
+endif
+
+# Pilot probes: /ready, Celery depth, failed documents, p95 audit latency (see ops/check-pilot-alerts.sh)
+check-pilot-alerts:
+	bash ops/check-pilot-alerts.sh
+
+# Hybrid retrieve latency on indexed corpus → reports/load_baseline.md (LOAD_ROUNDS, LOAD_CONCURRENCY)
+load-baseline:
+	docker compose exec -T -e PYTHONPATH=/app:/eval backend python /eval/load_baseline.py
 
 # Live RAG eval (not default CI): LLM key + fixture PDFs. Writes reports/rag_benchmark.md
 eval:

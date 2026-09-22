@@ -26,7 +26,7 @@ def test_celery_lives_in_worker():
     assert process_document_task.max_retries == 3
 
 
-def test_compose_uses_minio_latest():
+def test_compose_pins_minio_image():
     here = Path(__file__).resolve()
     compose = next(
         (
@@ -42,7 +42,9 @@ def test_compose_uses_minio_latest():
     if compose is None:
         pytest.skip("docker-compose.yml is not mounted in this environment")
     text = compose.read_text()
-    assert "image: minio/minio:latest" in text
+    assert "image: quay.io/minio/minio:RELEASE." in text
+    line = next(l for l in text.splitlines() if "minio/minio" in l)
+    assert ":latest" not in line
 
 
 def test_dockerfile_does_not_ship_tests():

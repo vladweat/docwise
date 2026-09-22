@@ -109,17 +109,15 @@ WHERE organization_id = :current_org
 
 **How we measure:** `eval/golden_dataset.json` (35 cases) runs through the same hybrid retrieval, rerank, and chat path as production, under `eval-employee@docwise.example.com` (`employee`, no `hr`/`finance` department). Ragas judges (Faithfulness, Context Precision, Answer Relevance) use the same LLM client as chat; release gates are Faithfulness ≥ 0.8 and **zero** Top-4 leaks from `must_not_doc_ids` (every case lists HR/Finance doc ids). ACL negative example: employee asks for the L3 salary band → `acl-l3-band` in the golden set; HR compensation chunks never enter Top-4 (see demo walkthrough below). Details: [docs/product/evaluation.md](docs/product/evaluation.md).
 
-Last live Ragas run (**2026-09-21**, post FTS migration `012`; 35 cases). Full per-question table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Default CI does **not** run eval (needs an LLM key and indexed fixtures).
+Last live Ragas run (**2026-09-22**; 35 cases). Full per-question table: [reports/rag_benchmark.md](reports/rag_benchmark.md). Default CI does **not** run eval; optional manual job: [`.github/workflows/eval.yml`](.github/workflows/eval.yml) (`workflow_dispatch`).
 
 | Metric | Score | Gate |
 | --- | ---: | --- |
 | Faithfulness | 1.000 | ≥ 0.8 |
 | Context Precision | 0.994 | diagnostic |
-| Answer Relevance | 0.725 | diagnostic |
-| Target page hit | 0.929 | diagnostic |
+| Answer Relevance | 0.776 | ≥ 0.75 |
+| Target page hit | 1.000 | ≥ 0.95 |
 | ACL `must_not_doc_ids` | **0 leaks** | **0** |
-
-Two positives still miss target page after rerank (`hb-security-email`, `eng-python`): empty context → grounded refuse, not an ACL leak.
 
 ## Run the demo
 
@@ -212,6 +210,7 @@ GitHub Actions on every push/PR:
 - **ruff** + **mypy** on `backend/app` and `worker` (ruff also `tests`, `scripts`)
 - **pytest** (parser, FTS/RRF `k=60`, ACL) against pgvector + Redis — no GPU, no live LLM, no eval runner
 - **frontend** `tsc --noEmit`, Vitest, `next lint`, `next build`
+- **supply-chain-advisory** — `pip-audit` + `npm audit` (non-blocking); weekly **Dependabot** PRs for `backend/`, `frontend/`, and GitHub Actions
 
 CI does not require GPU, a live LLM, or the Ragas eval runner.
 
