@@ -41,7 +41,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 
 ## Шаг 3. Cross-encoder rerank
 
-Модель: `BAAI/bge-reranker-base` (fastembed). Пары `(query, chunk_text)`.
+Модель: `BAAI/bge-reranker-base` (fastembed). Пары `(query, document_chunks.content)` — тот же текст, что уходит в промпт LLM (без мета-заголовка `[Document: …]`, он только в dense-эмбеддинге при ingest).
 
 - Отбросить score **< 0.25** (порог конфигурируемый, `RERANK_THRESHOLD`, дефолт 0.25). Сырой логит bge-reranker пропускается через sigmoid в `(0, 1)`.
 - В контекст LLM: **Top-4**.

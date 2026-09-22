@@ -38,11 +38,11 @@ DOCX: `python-docx`, логические разделы (Heading) → отде�
 
 Это часть эмбеддинга, не колонка в Postgres. Правило v1 (не смешивать):
 
-- `document_chunks.content` — чистый фрагмент для UI, LLM и цитат (без служебной строки).
-- `embed_text` = мета-заголовок + `\n` + `content` (считается в `chunker.format_embed_text` перед FastEmbed).
+- `document_chunks.content` — чистый фрагмент для UI, LLM, cross-encoder rerank и цитат (без служебной строки).
+- `embed_text` = мета-заголовок + `\n` + `content` (считается в `chunker.format_embed_text` только перед FastEmbed; в Postgres не хранится).
 - Сниппет цитаты берётся из `content` (`citation_snippet`); если в текст случайно попал заголовок `[Document:`, он отбрасывается.
 
-Реранкер в M2 получает `embed_text`, не сырой `content` без мета.
+Мета-заголовок влияет на dense через эмбеддинг; rerank и промпт LLM используют `content` (см. [retrieval.md](retrieval.md)).
 
 ## 3. Embed & upsert
 

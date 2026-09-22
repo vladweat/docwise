@@ -88,6 +88,8 @@
 
 ## Low
 
+- [ ] **PATCH ACL в UI.** `PATCH /api/v1/documents/{id}` и копирование `access_roles` на чанки реализованы в API; frontend v1 меняет теги только при upload.
+
 - [x] **Статус M6 в таблице roadmap.** [milestones.md](../product/milestones.md): строка сводки «готово», чекбоксы и критерий вехи — `[x]`.
 
 - [x] **Celery: `time_limit` / `acks_late` / prefetch.** `acks_late`, `worker_prefetch_multiplier=1`, soft 20 мин / hard 25 мин, до 3 ретраев с backoff; `SoftTimeLimitExceeded` / `TimeLimitExceeded` не ретраятся (`worker/celery_app.py`).
