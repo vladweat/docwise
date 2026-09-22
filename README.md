@@ -170,7 +170,7 @@ After edits under `backend/app/services/ingestion/` or `worker/`, run `make rest
 
 Optional git hook (ruff on staged `backend/` only): `pip install pre-commit && pre-commit install` (see `.pre-commit-config.yaml`; CI unchanged).
 
-**Sample files (upload tests):** regenerate with `backend/.venv/bin/python samples/export-sample-documents.py` → [samples/documents/](samples/documents/) (12 demo PDFs + `Travel-Policy-Test.docx`). DOCX has no in-browser Word preview in the KB modal — chat pane shows the cited snippet and download.
+**Sample files (upload tests):** regenerate with `backend/.venv/bin/python samples/export-sample-documents.py` → [samples/documents/](samples/documents/) (12 demo PDFs + `Travel-Policy-Test.docx`). DOCX in the KB modal shows an indexing excerpt plus download (not full Word layout); chat citations use the same snippet + download pattern.
 
 ## Screenshots
 

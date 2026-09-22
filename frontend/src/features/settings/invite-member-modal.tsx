@@ -17,16 +17,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/locale-provider";
-import { ACCESS_ROLE_OPTIONS } from "@/lib/access-roles";
+import { ACCESS_ROLE_OPTIONS, accessRoleMessageKey } from "@/lib/access-roles";
 import { ApiRequestError, createOrganizationInvite } from "@/lib/api";
 import { userFacingApiMessage } from "@/lib/quota";
 import { useToastStore } from "@/stores/toast-store";
 
 const INVITE_ROLES = [
-  { value: "employee", label: "Employee" },
-  { value: "manager", label: "Manager (knowledge base)" },
-  { value: "admin", label: "Admin" },
-] as const;
+  { value: "employee", messageKey: "settings.inviteRoleEmployee" as const },
+  { value: "manager", messageKey: "settings.inviteRoleManager" as const },
+  { value: "admin", messageKey: "settings.inviteRoleAdmin" as const },
+];
 
 const DEPARTMENT_OPTIONS = ACCESS_ROLE_OPTIONS.filter(
   (item) => !["all", "admin", "manager", "employee"].includes(item.value),
@@ -131,7 +131,7 @@ export function InviteMemberModal({
                 <SelectContent>
                   {INVITE_ROLES.map((item) => (
                     <SelectItem key={item.value} value={item.value}>
-                      {item.label}
+                      {t(item.messageKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -154,7 +154,7 @@ export function InviteMemberModal({
                           );
                         }}
                       />
-                      {item.label}
+                      {t(accessRoleMessageKey(item.value))}
                     </label>
                   );
                 })}

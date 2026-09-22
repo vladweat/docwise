@@ -52,6 +52,7 @@ export {
   deleteDocument,
   fetchDocumentStatus,
   fetchDocuments,
+  patchDocumentAccess,
   uploadDocument,
 } from "@/lib/api/documents";
 

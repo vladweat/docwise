@@ -15,7 +15,7 @@ import { Upload } from "lucide-react";
 import { useAuth } from "@/features/auth/auth-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { AccessRolesField } from "@/features/documents/access-roles-field";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { useI18n } from "@/i18n/locale-provider";
-import {
-  ACCESS_ROLE_OPTIONS,
-  allowedRolesForUser,
-  rolesOverlap,
-} from "@/lib/access-roles";
+import { allowedRolesForUser, rolesOverlap } from "@/lib/access-roles";
 import { ApiRequestError, uploadDocument } from "@/lib/api";
 import { userFacingApiMessage } from "@/lib/quota";
 import { cn } from "@/lib/utils";
@@ -119,12 +114,6 @@ export function DocumentUploadModal({
     takeFile(event.dataTransfer.files[0]);
   }
 
-  function toggleRole(value: string, checked: boolean) {
-    setRoles((current) =>
-      checked ? [...current, value] : current.filter((item) => item !== value),
-    );
-  }
-
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!file || roles.length === 0 || mutation.isPending) return;
@@ -177,35 +166,11 @@ export function DocumentUploadModal({
             />
           </div>
 
-          <fieldset>
-            <Label className="mb-2">{t("documents.accessTags")}</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {ACCESS_ROLE_OPTIONS.map((option) => {
-                const checked = roles.includes(option.value);
-                return (
-                  <label
-                    key={option.value}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm",
-                      checked
-                        ? "border-blue-500/60 bg-blue-500/10 text-slate-100"
-                        : "border-slate-700 text-slate-300",
-                    )}
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(value) => toggleRole(option.value, value === true)}
-                    />
-                    {option.label}
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          {!visibleAfterUpload && roles.length > 0 ? (
-            <Alert variant="warning">{t("documents.aclWarning")}</Alert>
-          ) : null}
+          <AccessRolesField
+            roles={roles}
+            onChange={setRoles}
+            showOverlapWarning={!visibleAfterUpload && roles.length > 0}
+          />
 
           {error ? <Alert variant="destructive">{error}</Alert> : null}
 

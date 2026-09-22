@@ -1,3 +1,4 @@
+import type { MessageKey } from "@/i18n/messages";
 import type { UserResponse } from "@/types/auth";
 
 export const ACCESS_ROLE_OPTIONS = [
@@ -31,4 +32,9 @@ export function rolesOverlap(selected: string[], allowed: string[]): boolean {
 
 export function formatAccessRole(role: string): string {
   return ROLE_LABELS.get(role) ?? role;
+}
+
+export function accessRoleMessageKey(role: string): MessageKey {
+  if (ROLE_LABELS.has(role)) return `accessRoles.${role}` as MessageKey;
+  return `accessRoles.${role}` as MessageKey;
 }

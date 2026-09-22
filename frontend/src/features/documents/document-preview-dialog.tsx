@@ -1,5 +1,7 @@
 "use client";
 
+import { isDocxDocument } from "@/features/documents/document-format";
+import { DocumentDocxPreview } from "@/features/documents/document-docx-preview";
 import { DocumentPdfPreview } from "@/features/documents/document-pdf-preview";
 import {
   Dialog,
@@ -19,6 +21,7 @@ export function DocumentPreviewDialog({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const docx = document ? isDocxDocument(document) : false;
   return (
     <Dialog
       open={document !== null}
@@ -31,16 +34,12 @@ export function DocumentPreviewDialog({
           <DialogHeader className="border-b border-slate-800 px-4 py-3 pr-12">
             <DialogTitle>{document?.title}</DialogTitle>
             <DialogDescription>
-              {document?.content_format === "docx" || document?.title.toLowerCase().endsWith(".docx")
-                ? t("documents.previewDocxHint")
-                : t("documents.previewPdfHint")}
+              {docx ? t("documents.previewDocxHint") : t("documents.previewPdfHint")}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-            {document &&
-            (document.content_format === "docx" ||
-              document.title.toLowerCase().endsWith(".docx")) ? (
-              <p className="p-6 text-sm text-slate-400">{t("documents.previewDocxUnsupported")}</p>
+            {document && docx ? (
+              <DocumentDocxPreview document={document} />
             ) : document ? (
               <DocumentPdfPreview documentId={document.id} />
             ) : null}

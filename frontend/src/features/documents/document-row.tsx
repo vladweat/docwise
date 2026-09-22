@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { isDocxDocument } from "@/features/documents/document-format";
 import { IngestionSteps } from "@/features/documents/ingestion-steps";
 import { stashPendingQuestion } from "@/features/chat/lib/pending-question";
 import { Alert } from "@/components/ui/alert";
@@ -13,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { useI18n } from "@/i18n/locale-provider";
-import { formatAccessRole } from "@/lib/access-roles";
+import { accessRoleMessageKey } from "@/lib/access-roles";
 import { fetchDocumentStatus } from "@/lib/api";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { useToastStore } from "@/stores/toast-store";
@@ -36,11 +37,13 @@ export function DocumentRow({
   doc,
   canManage,
   onPreview,
+  onEditAcl,
   onAskDelete,
 }: {
   doc: DocumentResponse;
   canManage: boolean;
   onPreview: (doc: DocumentResponse) => void;
+  onEditAcl: (doc: DocumentResponse) => void;
   onAskDelete: (doc: DocumentResponse) => void;
 }) {
   const { t } = useI18n();
@@ -94,18 +97,30 @@ export function DocumentRow({
           className="mt-1 h-auto p-0 text-xs text-blue-300 hover:text-blue-200"
           onClick={() => onPreview(doc)}
         >
-          {t("documents.openPdf")}
+          {isDocxDocument(doc) ? t("documents.openDocx") : t("documents.openPdf")}
         </Button>
       </TableCell>
       <TableCell className="text-slate-400">{formatBytes(doc.file_size_bytes)}</TableCell>
       <TableCell className="text-slate-400">{doc.total_pages ?? "—"}</TableCell>
       <TableCell>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {doc.access_roles.map((role) => (
             <Badge key={role} variant="outline">
-              {formatAccessRole(role)}
+              {t(accessRoleMessageKey(role))}
             </Badge>
           ))}
+          {canManage ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label={t("documents.editAccessAria", { title: doc.title })}
+              onClick={() => onEditAcl(doc)}
+            >
+              <Pencil className="size-3.5 text-slate-400" />
+            </Button>
+          ) : null}
         </div>
       </TableCell>
       <TableCell>
