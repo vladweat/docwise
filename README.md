@@ -8,7 +8,7 @@ Target deploy is **shared B2B SaaS** (many organizations on one stack). Isolatio
 
 | | |
 | --- | --- |
-| **Live demo** | TBD — [deploy guide](docs/portfolio/deploy-public-demo.md) |
+| **Live demo** | TBD |
 | **Walkthrough video** | TBD (60–90 s) |
 
 Replace `OWNER/REPO` in the CI badge after you publish the GitHub remote.
@@ -39,7 +39,7 @@ Shared B2B SaaS (`organization_id` + document `access_roles`), hybrid retrieval 
 | **Problem** | Company handbooks and policies live in PDFs; naive RAG leaks restricted rows and hallucinates without page-level trust. |
 | **Approach** | Hybrid retrieval in PostgreSQL (pgvector + FTS → RRF → rerank) with **two SQL filters** (`organization_id` + `access_roles`) before fusion, rerank, or the LLM. Page-bounded chunks; SSE answers cite `{doc_id, page}`. |
 | **Proof** | Demo ACL: employee salary question refuses; HR gets `72000`–`88000` USD from `HR-Compensation.pdf`. Eval: **0** `must_not_doc_ids` leaks, Faithfulness **1.000** (2026-09-21) — [reports/rag_benchmark.md](reports/rag_benchmark.md). |
-| **Commercial envelope** | M6 plans/quotas/SSO/domain in product code; portfolio runs `BILLING_PROVIDER=dev` and `SSO_PROVIDER=dev` (dev simulate + fixture SSO, no live Stripe or Okta). Pytest covers quotas and cross-org SSO isolation. |
+| **Commercial envelope** | Plans, quotas, SSO, and custom domain in product code; portfolio runs `BILLING_PROVIDER=dev` and `SSO_PROVIDER=dev` (dev simulate + fixture SSO, no live Stripe or Okta). Pytest covers quotas and cross-org SSO isolation. |
 
 ## Architecture
 
@@ -210,7 +210,7 @@ make test-frontend   # vitest
 backend/          # FastAPI + Celery worker
 frontend/         # Next.js 15 App Router
 eval/             # golden set, Ragas runner, demo seed
-docs/             # product, platform, pipeline, engineering, portfolio (see docs/README.md)
+docs/             # product, platform, pipeline, engineering, portfolio/screenshots (see docs/README.md)
 reports/          # rag_benchmark.md
 .github/workflows/ci.yml
 ```
@@ -228,7 +228,3 @@ reports/          # rag_benchmark.md
 | [docs/platform/auth.md](docs/platform/auth.md) | Session, roles, ACL assembly |
 | [docs/pipeline/retrieval.md](docs/pipeline/retrieval.md) | Hybrid search (dense + FTS), SSE, inspect |
 | [docs/engineering/api.md](docs/engineering/api.md) | HTTP contract |
-| [docs/product/milestones.md](docs/product/milestones.md) | v1 roadmap |
-| [docs/engineering/tech-debt.md](docs/engineering/tech-debt.md) | Structural backlog after M0–M6 |
-| [docs/portfolio/deploy-public-demo.md](docs/portfolio/deploy-public-demo.md) | Optional HTTPS demo on a VPS |
-| [AGENTS.md](AGENTS.md) | Agent checklist |

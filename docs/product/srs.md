@@ -1,137 +1,155 @@
 # SRS: Docwise (Enterprise Doc AI)
 
-**Репозиторий:** `docwise`  
-**Название:** Docwise / Enterprise RAG Workspace  
-**Тип:** shared B2B SaaS умного поиска и Q&A по документам (много организаций на одном деплое). Private cloud / on-prem — тот же код с одной организацией, см. [tenancy.md](../platform/tenancy.md).
+**Repository:** `docwise`  
+**Name:** Docwise / Enterprise RAG Workspace  
+**Type:** shared B2B SaaS document search and Q&A (many organizations on one deploy). Private cloud / on-prem uses the same code with a single organization; see [tenancy.md](../platform/tenancy.md).
 
-Это каноническое продуктовое ТЗ. Детали реализации, отличающиеся от черновика (asyncpg → sync Session, формат SSE), зафиксированы в [decisions.md](../engineering/decisions.md). PK — UUID, как в ТЗ.
+This is the canonical product specification. Implementation details that differ from the draft spec (asyncpg → sync Session, SSE format) are recorded in [decisions.md](../engineering/decisions.md). PKs are UUID, as in the spec.
 
-**Позиционирование:** *Production-grade Enterprise RAG system built with FastAPI, PostgreSQL/pgvector, Celery, and Next.js, featuring permission-aware retrieval, hybrid search with reranking, and exact PDF page citations.*
+**Positioning:** *Production-grade Enterprise RAG system built with FastAPI, PostgreSQL/pgvector, Celery, and Next.js, featuring permission-aware retrieval, hybrid search with reranking, and exact PDF page citations.*
 
 ---
 
-## 1. Проблема
+## 1. Problem
 
-В компаниях копятся тысячи PDF/DOCX (регламенты, политики, NDA, отчёты, договоры).
+Companies accumulate thousands of PDF/DOCX files (policies, NDAs, reports, contracts).
 
-| Боль | Почему наивный подход ломается |
+| Pain | Why a naive approach fails |
 | --- | --- |
-| Семантика | Keyword-поиск не понимает формулировку вопроса |
-| Структура PDF | Нарезка по N символам рвёт таблицы и теряет заголовки |
-| Утечка ACL | Общий чат без фильтра векторов отдаёт стажёру финансы C-level |
-| Доверие | Без точной страницы в оригинале ответ модели нельзя проверить |
+| Semantics | Keyword search does not match how people ask questions |
+| PDF structure | Fixed-size splits break tables and lose headings |
+| ACL leakage | A shared chat without vector filtering exposes C-level finance to interns |
+| Trust | Without an exact page in the source, model answers cannot be verified |
 
-Docwise закрывает это связкой: **изоляция организаций**, **RBAC на retrieval**, **structure-aware chunking**, **hybrid search + rerank**, **цитаты в PDF-вьюере**.
-
----
-
-## 2. Цели продукта (v1)
-
-1. Загрузить PDF, проиндексировать структуру (страницы, секции, таблицы) и отвечать на вопросы только по этому корпусу.
-2. Не отдать в LLM ни одного чанка, к которому у пользователя нет права.
-3. Каждый факт в ответе цитируется как `{document, page}`; клик открывает оригинал на этой странице.
-4. Если в разрешённом контексте ответа нет — явный отказ, без догадок.
-5. Качество retrieval измеримо (Ragas + ACL-негативы), а не «кажется, отвечает».
-
-Слои доступа: **организация** (`org_id`) снаружи, роли/отделы внутри. Shared SaaS — SQL `organization_id` плюс внутренняя ACL; см. [tenancy.md](../platform/tenancy.md) и [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
-
-После M5 — коммерческая оболочка ([M6](milestones.md#milestone-6--commercial-saas)): планы и квоты, SSO/SAML, custom domain; биллинг за портом (`dev` по умолчанию, Stripe не обязателен).
-
-Вне скоупа до отдельных вех: консоль оператора платформы, SCIM, боевой эквайринг как критерий, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение своих эмбеддингов, DOCX как обязательный формат (желателен, не блокер).
+Docwise addresses this with: **organization isolation**, **RBAC on retrieval**, **structure-aware chunking**, **hybrid search + rerank**, **citations in the PDF viewer**.
 
 ---
 
-## 3. Стек (целевой)
+## 2. Product goals
 
-| Слой | Технологии |
+1. Upload PDFs, index structure (pages, sections, tables), and answer questions only from that corpus.
+2. Never send the LLM a chunk the user is not allowed to read.
+3. Every factual claim cites `{document, page}`; clicking opens the original on that page.
+4. If the allowed context does not contain an answer — explicit refusal, no guessing.
+5. Retrieval quality is measurable (Ragas + ACL negatives), not “seems fine.”
+
+Access layers: **organization** (`org_id`) on the outside, roles/departments inside. Shared SaaS uses SQL `organization_id` plus inner ACL; see [tenancy.md](../platform/tenancy.md).
+
+Commercial envelope: plans and quotas, SSO/SAML, custom domain; billing behind a port (`dev` by default, Stripe not required). Spec: [billing.md](../platform/billing.md).
+
+Out of product scope — see [§7](#7-out-of-scope).
+
+---
+
+## 3. Stack (target)
+
+| Layer | Technologies |
 | --- | --- |
 | Backend | Python 3.12, FastAPI, Uvicorn, Pydantic v2, SQLAlchemy 2 **sync Session** |
-| Очереди | Redis 7, Celery 5 |
-| Данные | PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`), dense 384d cosine + FTS (`tsvector` + GIN) независимо от dense |
-| Парсинг | PyMuPDF (`fitz`), pdfplumber (таблицы → Markdown) |
-| ML | fastembed `BAAI/bge-small-en-v1.5`, `BAAI/bge-reranker-base`; LLM `gpt-4o-mini` / Anthropic через `httpx` |
+| Queues | Redis 7, Celery 5 |
+| Data | PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`), dense 384d cosine + FTS (`tsvector` + GIN) independent of dense |
+| Parsing | PyMuPDF (`fitz`), pdfplumber (tables → Markdown) |
+| ML | fastembed `BAAI/bge-small-en-v1.5`, `BAAI/bge-reranker-base`; LLM `gpt-4o-mini` / Anthropic via `httpx` |
 | Frontend | Next.js 15 App Router, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
-| Инфра | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend tsc + vitest + lint + build) |
+| Infra | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend tsc + vitest + lint + build) |
 
-Не подменять стек (LangChain как ядро, отдельный vector-only сервис вместо pgvector) без явной просьбы.
+Do not substitute the stack (LangChain as core, a separate vector-only service instead of pgvector) without an explicit request.
 
 ---
 
-## 4. Функциональные требования
+## 4. Functional requirements
 
 ### FR-1. Knowledge base
 
-- Авторизованный пользователь с правом manage KB загружает PDF и назначает `access_roles[]`.
-- Система считает SHA-256, кладёт байты в MinIO, строку в `documents` (`pending`) и ставит Celery-задачу.
-- Статусы: `pending → processing → ready | failed`. Failed сохраняет `last_error`.
-- Список документов с пагинацией и статусами; удаление каскадно (Postgres + MinIO).
-- Отдача оригинала только при том же ACL, что и у строки документа. Публичный URL ведра запрещён.
+- An authorized user with KB manage rights uploads PDFs and assigns `access_roles[]`.
+- The system computes SHA-256, stores bytes in MinIO, a row in `documents` (`pending`), and enqueues a Celery task.
+- Statuses: `pending → processing → ready | failed`. Failed retains `last_error`.
+- Paginated document list with statuses; delete cascades (Postgres + MinIO).
+- Original file delivery only under the same ACL as the document row. Public bucket URLs are forbidden.
 
 ### FR-2. Ingestion
 
-- Парсинг по физическим страницам; таблицы — GitHub-flavored Markdown; координаты блоков сохранять, если доступны.
-- Чанк не пересекает границу страницы; 400–600 токенов, overlap 50 только внутри страницы/секции.
-- Перед эмбеддингом — мета-заголовок `[Document: … | Section: … | Page: N]`.
-- Payload чанка содержит `access_roles` документа. Re-ingest идемпотентен (delete by `document_id`).
+- Parse by physical pages; tables as GitHub-flavored Markdown; store block coordinates when available.
+- A chunk must not cross a page boundary; 400–600 tokens, overlap 50 only within the same page/section.
+- Before embedding — meta header `[Document: … | Section: … | Page: N]`.
+- Chunk payload includes the document’s `access_roles`. Re-ingest is idempotent (delete by `document_id`).
 
 ### FR-3. Retrieval + chat
 
-- Фильтр SQL `access_roles && allowed_roles` на **каждый** dense и sparse/FTS запрос.
-- Hybrid: dense Top-25 + FTS Top-25 (независимо) → RRF `k=60` → Top-15 → cross-encoder → порог 0.25 → Top-4.
-- Генерация строго по Top-4. Пустой список после порога → фиксированный отказ без вызова «творчества».
-- SSE: сначала цитаты, затем токены, затем метрики. Протокол — JSON-конверты `data:` (см. [api.md](../engineering/api.md)).
+- SQL filter `access_roles && allowed_roles` on **every** dense and sparse/FTS query.
+- Hybrid: dense Top-25 + FTS Top-25 (independent) → RRF `k=60` → Top-15 → cross-encoder → threshold 0.25 → Top-4.
+- Generation strictly from Top-4. Empty list after threshold → fixed refusal without creative completion.
+- SSE: citations first, then tokens, then metrics. Protocol — JSON envelopes on `data:` (see [api.md](../engineering/api.md)).
 
 ### FR-4. UI
 
-- Split-pane: сессии (скрываемые) / чат с min-width / PDF ~55% остатка. Сноска — интерактивный тег `Doc.pdf (стр. N)`. Левую и правую панели можно полностью скрыть; клик по сноске открывает PDF.
-- Клик: открыть файл, перейти на страницу, подсветить фрагмент.
-- Админка KB: таблица + drag-and-drop + теги доступа + поллинг статуса.
+- Split-pane: sessions (hideable) / chat with min-width / PDF ~55% remainder. Footnotes — interactive tags `Doc.pdf (page N)`. Left and right panes can be fully hidden; footnote click opens PDF.
+- Click: open file, go to page, highlight fragment.
+- KB admin: table + drag-and-drop + access tags + status polling.
 
-### FR-5. Оценка и аудит
+### FR-5. Evaluation and audit
 
-- Каждый retrieval (чат и inspect) пишется в `rag_audit_logs`: query, user, UUID чанков после реранкера, latency_ms, tokens_used, feedback.
-- В аудит не писать полный текст чанков (в т.ч. restricted).
-- Feedback `+1 / -1` на своё assistant-сообщение (`POST /api/v1/chat/feedback`).
-- `eval/` с golden set ≥ 30 вопросов и отчётом Ragas.
+- Every retrieval (chat and inspect) writes to `rag_audit_logs`: query, user, chunk UUIDs after reranker, latency_ms, tokens_used, feedback.
+- Do not write full chunk text to audit (including restricted).
+- Feedback `+1 / -1` on own assistant messages (`POST /api/v1/chat/feedback`).
+- `eval/` with golden set ≥ 30 questions and Ragas report.
 
-### FR-6. Инспекция (admin)
+### FR-6. Inspect (admin)
 
-- `POST /api/v1/search/inspect` — списки `dense` / `sparse` / `rrf` / `reranked` со скорами. Тот же SQL ACL, что у чата; роли не из тела запроса.
-- Только `admin`. `ENABLE_SEARCH_INSPECT`: в production по умолчанию выкл (`404`), иначе вкл. Явное `true`/`false` перекрывает дефолт.
-- Нет admin-override: HR-only чанк не виден admin без `hr` в `allowed_roles`. Пользователь без роли не видит чанк и не узнаёт, что файл есть.
+- `POST /api/v1/search/inspect` — lists `dense` / `sparse` / `rrf` / `reranked` with scores. Same SQL ACL as chat; roles not from request body.
+- `admin` only. `ENABLE_SEARCH_INSPECT`: off by default in production (`404`), otherwise on. Explicit `true`/`false` overrides default.
+- No admin override: HR-only chunk invisible to admin without `hr` in `allowed_roles`. User without role does not see the chunk and must not learn the file exists.
 
-### FR-7. Организации (shared SaaS)
+### FR-7. Organizations (shared SaaS)
 
-- Документы, чанки, чат и аудит принадлежат `organizations`. Поиск никогда не ходит по чужому `org_id`.
-- Пользователь глобальный; роль и отделы — на членстве в org. Текущая org только из сессии.
-- `all` значит «все в этой организации», не «все залогиненные в SaaS».
-- Self-serve: регистрация создаёт организацию; дальше — инвайты org-admin.
-- Спека: [tenancy.md](../platform/tenancy.md). Приёмка — критерии M5, не §6 v1.
+- Documents, chunks, chat, and audit belong to `organizations`. Search never crosses another org’s `org_id`.
+- User is global; role and departments live on org membership. Current org only from session.
+- `all` means everyone **in this organization**, not every logged-in SaaS user.
+- Self-serve: registration creates an organization; org-admin invites follow.
+- Spec: [tenancy.md](../platform/tenancy.md). Acceptance criteria — §8 below.
 
-### FR-8. Планы, SSO, домен (после M5)
+### FR-8. Plans, SSO, domain
 
-- У организации есть план (`starter` \| `team` \| `enterprise`) и квоты seats / страниц / токенов чата за период. Исчерпание → `402` на upload / инвайт / chat **до** retrieval. Rate limit по-прежнему `429`.
-- SSO/SAML и custom domain — entitlement Enterprise. Org SSO берётся из коннектора, не из assertion. Hostname пинит org; SQL `organization_id` не отменяется.
-- Провайдер оплаты не источник ACL. Compose закрывает приёмку на `BILLING_PROVIDER=dev`. Спека: [billing.md](../platform/billing.md). Приёмка — [M6](milestones.md#milestone-6--commercial-saas).
-
----
-
-## 5. Нефункциональные требования
-
-См. [nfr.md](nfr.md). Кратко: нулевые утечки ACL; отказ без галлюцинаций; парсинг не в HTTP-запросе; секреты только в env.
+- Organization has plan (`starter` \| `team` \| `enterprise`) and quotas for seats / pages / chat tokens per period. Exhaustion → `402` on upload / invite / chat **before** retrieval. Rate limit remains `429`.
+- SSO/SAML and custom domain — Enterprise entitlement. Org SSO comes from the connector, not the assertion. Hostname pins org; SQL `organization_id` is not waived.
+- Payment provider is not the ACL source. Compose acceptance uses `BILLING_PROVIDER=dev`. Spec: [billing.md](../platform/billing.md).
 
 ---
 
-## 6. Критерии приёмки v1
+## 5. Non-functional requirements
 
-- [x] Upload сложного PDF с таблицей → `ready`, чанки с одной `page_number`, таблица в Markdown.
-- [x] Вопрос находит верную страницу; клик в UI открывает её.
-- [x] Пользователь без роли не видит чанк в inspect, chat и `/raw`.
-- [x] Нехватка контекста → отказ «в документах нет информации», без выдуманных фактов.
-- [x] Повторный ingest того же `document_id` не плодит дубли в `document_chunks`.
-- [x] Ragas-прогон пишет `reports/rag_benchmark.md`; ACL-негативы — ноль утечек.
-- [x] CI: ruff + pytest (парсер, RRF) без GPU и без живого LLM в unit-тестах.
+See [nfr.md](nfr.md). Briefly: zero ACL leaks; refusal without hallucination; parsing not in HTTP request; secrets only in env.
 
-Shared SaaS (после v1): нулевые утечки **между организациями**, в том числе на документах с `access_roles = ['all']`. Критерии — [M5](milestones.md#milestone-5--shared-tenancy-b2b-saas).
+---
 
-Коммерческая оболочка (после M5): квоты и SSO/домен не пересекают org; приёмка на `dev`-биллинге без живого Stripe. Критерии — [M6](milestones.md#milestone-6--commercial-saas).
+## 6. Acceptance criteria
+
+- [x] Upload complex PDF with table → `ready`, chunks with single `page_number`, table in Markdown.
+- [x] Question finds correct page; UI click opens it.
+- [x] User without role does not see chunk in inspect, chat, or `/raw`.
+- [x] Insufficient context → refusal “no information in documents”, no invented facts.
+- [x] Re-ingest same `document_id` does not duplicate rows in `document_chunks`.
+- [x] Ragas run writes `reports/rag_benchmark.md`; ACL negatives — zero leaks.
+- [x] CI: ruff + pytest (parser, RRF) without GPU and without live LLM in unit tests.
+
+---
+
+## 7. Out of scope
+
+Not in product scope (separate decisions or later releases):
+
+- platform operator console with access to other tenants’ corpora
+- SCIM / directory sync; mapping IdP groups directly to document `access_roles`
+- live payment processing as acceptance criterion (Stripe adapter and `BILLING_PROVIDER=dev` — see [billing.md](../platform/billing.md))
+- online file editing
+- tool-calling agents outside the corpus
+- training custom embeddings
+- Solidity audit domain, Slither/solc, Qdrant as separate vector store
+
+---
+
+## 8. Shared SaaS and commercial envelope
+
+Shared SaaS: zero leaks **between organizations**, including documents with `access_roles = ['all']`. Criteria — [tenancy.md](../platform/tenancy.md).
+
+Commercial envelope: quotas and SSO/domain do not cross org boundaries; local and CI runs use `BILLING_PROVIDER=dev` without live Stripe. Criteria — [billing.md](../platform/billing.md) and FR-8 above.

@@ -1,198 +1,198 @@
-# Модель данных
+# Data model
 
-Два слоя в одном Postgres: таблицы пользователей/организаций/файлов/чатов и индекс чанков с pgvector. Изоляция компаний — `org_id` ([tenancy.md](tenancy.md)). ACL чанка дублирует `documents.access_roles`; `org_id` чанка дублирует документ. Первичные ключи — **UUID** (`gen_random_uuid()` / SQLAlchemy `uuid4`). Роли и фильтр: [auth.md](auth.md).
+Two layers in one Postgres: user/org/file/chat tables and chunk index with pgvector. Company isolation — `org_id` ([tenancy.md](tenancy.md)). Chunk ACL mirrors `documents.access_roles`; chunk `org_id` mirrors document. Primary keys — **UUID** (`gen_random_uuid()` / SQLAlchemy `uuid4`). Roles and filter: [auth.md](auth.md).
 
-До M5 таблиц организаций не было. Ниже — модель SaaS; миграция `007` переносит роли на membership и создаёт bootstrap-org для уже существующих строк. Колонки `users.role` / `users.departments` удалены.
+Shared SaaS model: users are global; roles and departments on membership. Alembic migration `007` moved legacy `users.role` / `users.departments` to `organization_memberships`.
 
 ## PostgreSQL
 
-### `organizations` (M5)
+### `organizations`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
-| `name` | String | Отображаемое имя компании |
-| `slug` | String unique | Стабильный ключ URL (`{slug}.localhost`); не ACL |
-| `status` | `active` \| `suspended` | Suspended — логин в эту org отклоняется; M6: ещё `past_due` / cancel биллинга |
-| `plan` | `starter` \| `team` \| `enterprise` | M6; новая org — `starter`. Не источник `org_id` |
-| `billing_status` | `active` \| `past_due` \| `canceled` | M6; `past_due`/`canceled` → `status = suspended` |
-| `current_period_start` / `current_period_end` | DateTime nullable | Окно квоты токенов |
-| `sso_enforced` | Boolean | M6; default false |
-| `llm_index_generation` | Integer | Поколение корпуса для LLM-кэша; bump при PATCH ACL / DELETE / ready ingest |
-| `stripe_customer_id` / `stripe_subscription_id` | String nullable | Только адаптер Stripe; не JWT |
+| `name` | String | Display company name |
+| `slug` | String unique | Stable URL key (`{slug}.localhost`); not ACL |
+| `status` | `active` \| `suspended` | Suspended — login to this org rejected; also billing `past_due` / cancel |
+| `plan` | `starter` \| `team` \| `enterprise` | New org — `starter`. Not source of `org_id` |
+| `billing_status` | `active` \| `past_due` \| `canceled` | `past_due`/`canceled` → `status = suspended` |
+| `current_period_start` / `current_period_end` | DateTime nullable | Token quota window |
+| `sso_enforced` | Boolean | default false |
+| `llm_index_generation` | Integer | Corpus generation for LLM cache; bump on PATCH ACL / DELETE / ready ingest |
+| `stripe_customer_id` / `stripe_subscription_id` | String nullable | Stripe adapter only; not JWT |
 | `created_at` | DateTime | |
 
-### `organization_memberships` (M5)
+### `organization_memberships`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
-| `organization_id` | UUID FK → organizations | Каскад при удалении org (отдельная процедура, не случайный DELETE) |
+| `organization_id` | UUID FK → organizations | Cascade on org delete (dedicated procedure, not accidental DELETE) |
 | `user_id` | UUID FK → users | |
-| `role` | `admin` \| `manager` \| `employee` | CHECK; **не** колонка `users` |
-| `departments` | `ARRAY(String)` | Например `['engineering', 'hr']` |
+| `role` | `admin` \| `manager` \| `employee` | CHECK; **not** on `users` |
+| `departments` | `ARRAY(String)` | e.g. `['engineering', 'hr']` |
 | `created_at` | DateTime | |
 
-Unique `(organization_id, user_id)`. `allowed_roles` для поиска = `{membership.role}` ∪ `membership.departments` ∪ `{all}` — только этой org.
+Unique `(organization_id, user_id)`. `allowed_roles` for search = `{membership.role}` ∪ `membership.departments` ∪ `{all}` — this org only.
 
 ### `organization_invites`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
 | `organization_id` | UUID FK | |
-| `email` | String | Нормализованный lower-case |
-| `role` | `admin` \| `manager` \| `employee` | Роль будущего membership |
+| `email` | String | Normalized lower-case |
+| `role` | `admin` \| `manager` \| `employee` | Future membership role |
 | `departments` | `ARRAY(String)` | |
-| `token_hash` | String unique | SHA-256 токена; сырой токен отдаётся org-admin один раз |
+| `token_hash` | String unique | SHA-256 of token; raw token shown to org-admin once |
 | `invited_by_user_id` | UUID FK nullable | |
-| `expires_at` | DateTime | По умолчанию 14 дней |
+| `expires_at` | DateTime | Default 14 days |
 | `accepted_at` | DateTime nullable | |
 | `created_at` | DateTime | |
 
-Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Существующий пользователь при инвайте получает membership сразу, без токена. Инвайт сверх seats-квоты плана → `402` (M6).
+Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Existing user on invite gets membership immediately, no token. Invite over plan seats quota → `402`.
 
-### `organization_sso_connections` (M6)
+### `organization_sso_connections`
 
-Один коннектор на org в v1. Org для ACS — FK, не атрибут IdP.
+One connector per org. Org for ACS — FK, not IdP attribute.
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
 | `organization_id` | UUID FK unique | |
 | `protocol` | `saml` \| `oidc` | |
-| `idp_entity_id` / metadata | Text / JSONB | Сертификат IdP, ACS URL строится из slug |
-| `attribute_map` | JSONB | группы IdP → `role` / `departments` |
+| `idp_entity_id` / metadata | Text / JSONB | IdP cert, ACS URL from slug |
+| `attribute_map` | JSONB | IdP groups → `role` / `departments` |
 | `jit_enabled` | Boolean | default false |
 | `created_at`, `updated_at` | DateTime | |
 
-### `organization_domains` (M6)
+### `organization_domains`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
 | `organization_id` | UUID FK | |
-| `hostname` | String unique | lower-case; `{slug}.localhost` или CNAME клиента |
+| `hostname` | String unique | lower-case; `{slug}.localhost` or customer CNAME |
 | `kind` | `platform` \| `custom` | |
-| `verified_at` | DateTime nullable | custom без verify не пинит Host |
+| `verified_at` | DateTime nullable | custom without verify does not pin Host |
 | `created_at` | DateTime | |
 
-Неподтверждённый custom не участвует в резолве. Unique hostname глобально.
+Unverified custom does not participate in resolve. Hostname unique globally.
 
-### `billing_events` (M6)
+### `billing_events`
 
-Идемпотентность вебхука и `dev/simulate`.
+Webhook and `dev/simulate` idempotency.
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
-| `organization_id` | UUID FK | всегда текущая org события; simulate чужой org не создаёт строку |
+| `organization_id` | UUID FK | always event’s org; simulate foreign org creates no row |
 | `provider` | `dev` \| `stripe` | |
-| `external_id` | String | unique вместе с `provider` |
+| `external_id` | String | unique with `provider` |
 | `event_type` | String | |
-| `payload` | JSONB | без chunk text, без PDF |
+| `payload` | JSONB | no chunk text, no PDF |
 | `processed_at` | DateTime | |
 
 ### `users`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | `gen_random_uuid()` |
-| `email` | String unique | Логин |
-| `hashed_password` | String nullable | Пусто у Google-only / SSO-only аккаунта |
-| `google_id` | String unique nullable | `sub` из ID token |
+| `email` | String unique | Login |
+| `hashed_password` | String nullable | Empty for Google-only / SSO-only |
+| `google_id` | String unique nullable | `sub` from ID token |
 | `is_active` | Boolean | |
 | `created_at` | DateTime | |
 
-Роли membership: `admin` | `manager` | `employee` плюс `departments[]` **на членстве в организации** (не путать с `access_roles` на документе).  
-`allowed_roles` для фильтра поиска = `{role}` ∪ `departments` ∪ `{all}` текущей org (сборка — в [retrieval](../pipeline/retrieval.md)). Email уникален глобально: один человек — несколько org.
+Membership roles: `admin` | `manager` | `employee` plus `departments[]` **on organization membership** (not to be confused with document `access_roles`).  
+`allowed_roles` for search filter = `{role}` ∪ `departments` ∪ `{all}` for current org (assembly — [retrieval](../pipeline/retrieval.md)). Email unique globally: one person — multiple orgs.
 
 ### `documents`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
-| `organization_id` | UUID FK → organizations | M5; NOT NULL. Источник — сессия upload, не тело |
-| `title` | String | Имя для UI |
-| `file_path` | String | Ключ в MinIO (`orgs/{org_id}/…`) |
-| `file_hash` | String | SHA-256; unique **вместе с** `organization_id` |
+| `organization_id` | UUID FK → organizations | NOT NULL. Source — session on upload, not body |
+| `title` | String | UI name |
+| `file_path` | String | MinIO key (`orgs/{org_id}/…`) |
+| `file_hash` | String | SHA-256; unique **with** `organization_id` |
 | `file_size_bytes` | Integer | |
-| `total_pages` | Integer | Резерв квоты на upload (`page_count`); ingest может уточнить |
-| `access_roles` | `ARRAY(String)` | Например `['admin', 'hr']` — внутри org, не id компании |
-| `status` | Enum `pending` \| `processing` \| `ready` \| `failed` | Ingest в работе — `processing` |
-| `last_error` | Text nullable | Текст последней ошибки ingest |
-| `ingestion_stage` | String nullable | `parse` \| `chunk` \| `embed`; для поллинга `GET .../status` |
+| `total_pages` | Integer | Quota reserve on upload (`page_count`); ingest may refine |
+| `access_roles` | `ARRAY(String)` | e.g. `['admin', 'hr']` — inside org, not company id |
+| `status` | Enum `pending` \| `processing` \| `ready` \| `failed` | Ingest in progress — `processing` |
+| `last_error` | Text nullable | Last ingest error text |
+| `ingestion_stage` | String nullable | `parse` \| `chunk` \| `embed`; for `GET .../status` polling |
 | `created_at`, `updated_at` | DateTime | |
 
-Индексы: unique `(organization_id, file_hash)`, unique `(id, organization_id)` (цель составного FK чанков), `status`, `(organization_id)`, GIN по `access_roles`.
+Indexes: unique `(organization_id, file_hash)`, unique `(id, organization_id)` (composite FK target for chunks), `status`, `(organization_id)`, GIN on `access_roles`.
 
 ### `chat_sessions`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
-| `organization_id` | UUID FK | M5; копия с пользователя на момент создания, сессии не пересекают org |
+| `organization_id` | UUID FK | Copied at creation; sessions do not cross org |
 | `user_id` | UUID FK → users | |
-| `title` | String nullable | Можно заполнять по первому вопросу |
+| `title` | String nullable | May fill from first question |
 | `created_at`, `updated_at` | DateTime | |
 
 ### `chat_messages`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
-| `session_id` | UUID FK → chat_sessions | Каскад |
+| `session_id` | UUID FK → chat_sessions | Cascade |
 | `role` | Enum `user` \| `assistant` | |
 | `content` | Text | |
-| `sources` | JSONB | Список цитат: `doc_id` (UUID), `title`, `page` (PDF), `section` (DOCX), `snippet` |
+| `sources` | JSONB | Citations: `doc_id` (UUID), `title`, `page` (PDF), `section` (DOCX), `snippet` |
 | `created_at` | DateTime | |
 
 ### `rag_audit_logs`
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
 | `id` | UUID PK | |
-| `organization_id` | UUID FK | M5; та же org, что у retrieval |
+| `organization_id` | UUID FK | Same org as retrieval |
 | `user_id` | UUID FK | |
-| `session_id` / `message_id` | UUID nullable | Связь с чатом |
+| `session_id` / `message_id` | UUID nullable | Chat link |
 | `query` | Text | |
-| `retrieved_chunk_ids` | JSONB, список UUID-строк | PK `document_chunks.id` после реранкера; не `chunk_id`, не текст |
+| `retrieved_chunk_ids` | JSONB, list of UUID strings | PK `document_chunks.id` after reranker; not `chunk_id`, not text |
 | `latency_ms` | Integer | |
-| `tokens_used` | Integer nullable | Чат; у inspect — null |
-| `feedback` | SmallInt nullable | `1` / `-1` с `POST /chat/feedback`; только свои assistant-сообщения |
+| `tokens_used` | Integer nullable | Chat; inspect — null |
+| `feedback` | SmallInt nullable | `1` / `-1` via `POST /chat/feedback`; own assistant messages only |
 | `created_at` | DateTime | |
 
-Пишут чат и inspect. Inspect: `session_id` / `message_id` null. Колонок `content` / `snippet` нет. Не-UUID в `retrieved_chunk_ids` отбрасываются. Не писать полный текст чанков (в т.ч. restricted), если лог может увидеть тот же пользователь через API.
+Written by chat and inspect. Inspect: `session_id` / `message_id` null. No `content` / `snippet` columns. Non-UUID in `retrieved_chunk_ids` dropped. Do not write full chunk text (including restricted) if log may be visible to same user via API.
 
-## Postgres: таблица `document_chunks`
+## Postgres: `document_chunks` table
 
-Расширение `vector`. Dense: `embedding vector(384)`, cosine (`BAAI/bge-small-en-v1.5`). Индекс HNSW. ACL, `document_id` и (M5) `organization_id` — обычные колонки + GIN по `access_roles` + btree/hash по `organization_id`.
+`vector` extension. Dense: `embedding vector(384)`, cosine (`BAAI/bge-small-en-v1.5`). HNSW index. ACL, `document_id` and `organization_id` — regular columns + GIN on `access_roles` + btree/hash on `organization_id`.
 
-Sparse: колонка `search_vector` (`tsvector`, `to_tsvector('simple', content)`, GIN). Каждый поиск: `organization_id = :current_org` **и** GIN ACL. Dense Top-25 и FTS Top-25 независимы, затем RRF.
+Sparse: `search_vector` column (`tsvector`, `to_tsvector('simple', content)`, GIN). Every search: `organization_id = :current_org` **and** GIN ACL. Dense Top-25 and FTS Top-25 independent, then RRF.
 
-| Поле | Тип | Заметки |
+| Field | Type | Notes |
 | --- | --- | --- |
-| `id` | UUID PK | стабильный ключ чанка в API |
-| `document_id` | UUID | FK только в составе пары с `organization_id` |
-| `organization_id` | UUID | M5; копия с документа. Единственный FK на документ: `(document_id, organization_id) → documents(id, organization_id)` |
-| `chunk_id` | String unique | стабильный ключ для re-upsert (`{document_id}:{page}:{n}`) |
+| `id` | UUID PK | stable chunk key in API |
+| `document_id` | UUID | FK only as pair with `organization_id` |
+| `organization_id` | UUID | Copy from document. Sole document FK: `(document_id, organization_id) → documents(id, organization_id)` |
+| `chunk_id` | String unique | stable re-upsert key (`{document_id}:{page}:{n}`) |
 | `page_number` | Integer | |
 | `section_title` | String nullable | |
 | `is_table` | Boolean | |
-| `access_roles` | `ARRAY(String)` | копия с документа |
-| `content` | Text | фрагмент **без** мета-заголовка `[Document: …]` (он только в `embed_text` перед FastEmbed) |
-| `search_vector` | `tsvector` generated | `to_tsvector('simple', content)`, GIN; не писать из приложения |
+| `access_roles` | `ARRAY(String)` | copy from document |
+| `content` | Text | fragment **without** meta header `[Document: …]` (header only in `embed_text` before FastEmbed) |
+| `search_vector` | `tsvector` generated | `to_tsvector('simple', content)`, GIN; not written from app |
 | `token_count` | Integer | |
 | `embedding` | `vector(384)` | cosine |
-| `doc_title` | String nullable | для цитат |
-| `bbox` / `highlight_rects` | JSONB nullable | подсветка во вьюере |
+| `doc_title` | String nullable | for citations |
+| `bbox` / `highlight_rects` | JSONB nullable | viewer highlight |
 
-При переиндексации удалять строки по `document_id`, затем вставлять заново. `organization_id` чанка всегда равен документу (составной FK, не только приложение).
+On reindex delete rows by `document_id`, then insert fresh. Chunk `organization_id` always equals document (composite FK, not app-only).
 
 ## MinIO
 
-Bucket `documents` — приватный (без anonymous `s3:GetObject`). `documents.file_path` — ключ объекта. Префикс `orgs/{organization_id}/…`. Байты отдаются только через API (`GET /documents/{id}/raw`). Публичные URL и вечные pre-signed ссылки запрещены.
+Bucket `documents` — private (no anonymous `s3:GetObject`). `documents.file_path` — object key. Prefix `orgs/{organization_id}/…`. Bytes served only via API (`GET /documents/{id}/raw`). Public URLs and eternal pre-signed links forbidden.
 
-## Согласованность ACL
+## ACL consistency
 
-`documents.access_roles` — источник истины для **внутренней** ACL. `documents.organization_id` — источник истины для тенанта. Обе колонки чанка обязаны совпадать с документом. Смена ролей: `PATCH /api/v1/documents/{id}` обновляет документ **и** все его чанки (без re-embed). `organization_id` с клиента не принимается. Поиск никогда не доверяет ролям и org, присланным в теле запроса.
+`documents.access_roles` — source of truth for **inner** ACL. `documents.organization_id` — source of truth for tenant. Both chunk columns must match document. Role change: `PATCH /api/v1/documents/{id}` updates document **and** all its chunks (no re-embed). `organization_id` not accepted from client. Search never trusts roles and org sent in request body.

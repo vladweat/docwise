@@ -54,5 +54,7 @@ frontend/scripts/*
 scripts/node_modules/
 scripts
 
-# Workspace-only docs (career KB, port map, owner checklists) — not for GitHub
+# Internal docs: roadmap, tech-debt, deploy runbook, interview prep (see docs/PRIVATE.md)
 docs/_private/
+AGENTS.md
+.cursor/

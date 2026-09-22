@@ -1,129 +1,129 @@
-# Решения (ADR)
+# Decisions (ADR)
 
-Черновик ТЗ местами расходится с реализацией v1. Ниже — зафиксированные отклонения. Продуктовые инварианты (RBAC **до** LLM, page-bounded chunking, hybrid + rerank, цитаты страниц) **не** ослабляются.
+The draft spec sometimes diverges from v1 implementation. Deviations are recorded below. Product invariants (RBAC **before** LLM, page-bounded chunking, hybrid + rerank, page citations) are **not** weakened.
 
-## ADR-001. Каркас приложения, не greenfield
+## ADR-001. Application skeleton, not greenfield
 
-**Решение:** старт с готового стека (FastAPI, Celery, cookie auth, Compose, SSE-клиент), доменный ingest и retrieval — свои.
+**Decision:** Start from an existing stack (FastAPI, Celery, cookie auth, Compose, SSE client); domain ingest and retrieval are custom.
 
-**Почему:** auth, очереди, health и фронтовый API-клиент уже согласованы. Оценка «80% готово» верна для обвязки и **неверна** для корпусного RAG (поиск по одному артефакту в RAM не переносится). Векторный индекс — pgvector в Postgres, не отдельный Qdrant-only путь.
+**Why:** Auth, queues, health, and frontend API client were already aligned. “80% ready” is true for plumbing and **false** for corpus RAG (single-artifact in-RAM search does not transfer). Vector index — pgvector in Postgres, not separate Qdrant-only path.
 
-**Следствие:** веха M0 — скелет; продуктовые вехи — [milestones.md](../product/milestones.md).
+**Consequence:** plumbing reused; corpus RAG is custom. Internal roadmap — `docs/_private/` (not in public repo).
 
-## ADR-002. Sync SQLAlchemy Session, не asyncpg
+## ADR-002. Sync SQLAlchemy Session, not asyncpg
 
-**ТЗ:** SQLAlchemy 2 + asyncpg.  
-**Решение v1:** sync `Session`. FastAPI-хендлеры могут быть sync. Тяжёлая работа — в Celery.
+**Spec:** SQLAlchemy 2 + asyncpg.  
+**v1 decision:** sync `Session`. FastAPI handlers may be sync. Heavy work — in Celery.
 
-**Почему:** переписывать весь backend на async «заодно» с доменом — риск, не ценность. asyncpg можно взять отдельной вехой.
+**Why:** Rewriting entire backend async “alongside” domain — risk, not value. asyncpg remains a possible future migration.
 
 ## ADR-003. UUID PK
 
-**ТЗ:** UUID.  
-**Решение v1:** UUID PK на всех сущностях (`users`, `documents`, `document_chunks`, чаты, аудит). `chunk_id` — отдельная стабильная строка для re-upsert. Celery `document_id` и Redis `indexing_lock:{document_id}` — UUID-строка.
+**Spec:** UUID.  
+**v1 decision:** UUID PK on all entities (`users`, `documents`, `document_chunks`, chats, audit). `chunk_id` — separate stable string for re-upsert. Celery `document_id` and Redis `indexing_lock:{document_id}` — UUID string.
 
-**Почему:** совпадает с ТЗ, не светит sequential id, проще когда объекты живут в MinIO/кэше/SSE. Существующие integer-строки `users` мигрирует alembic `003`.
+**Why:** Matches spec, does not expose sequential ids, simpler when objects live in MinIO/cache/SSE. Existing integer `users` strings migrated by alembic `003`.
 
-## ADR-004. SSE JSON-конверты `data:`, не именованные `event:`
+## ADR-004. SSE JSON envelopes `data:`, not named `event:`
 
-**ТЗ:** `event: citations` / `event: message` / `event: done`.  
-**Решение:** строки `data: {json}\n\n` с полем `type`: `citations` → `token` → `meta` → `data: [DONE]`. Ошибки: `type: error`.
+**Spec:** `event: citations` / `event: message` / `event: done`.  
+**Decision:** lines `data: {json}\n\n` with field `type`: `citations` → `token` → `meta` → `data: [DONE]`. Errors: `type: error`.
 
-**Почему:** фронт уже парсит этот протокол (`lib/api.ts`, SSE reader). Смысл ТЗ (цитаты до токенов) сохраняется.
+**Why:** Frontend already parses this protocol (`lib/api.ts`, SSE reader). Spec intent (citations before tokens) preserved.
 
-## ADR-005. Hybrid search без scroll корпуса
+## ADR-005. Hybrid search without corpus scroll
 
-**ТЗ (черновик):** native dense + BM25 в отдельном vector store.
+**Spec (draft):** native dense + BM25 in separate vector store.
 
-**Решение:** формулу `reciprocal_rank_fusion` (`k=60`) использовать как есть. `bm25_scores` — unit-тесты формулы RRF. In-memory BM25 по всему корпусу — нет. Индекс — Postgres + pgvector + FTS.
+**Decision:** use `reciprocal_rank_fusion` formula (`k=60`) as-is. `bm25_scores` — unit tests for RRF formula. In-memory BM25 over full corpus — no. Index — Postgres + pgvector + FTS.
 
-1. pgvector cosine Top-25 + FTS (`document_chunks.search_vector`, `simple` + GIN) Top-25, оба с ACL `organization_id` и `access_roles && allowed_roles`, затем RRF.
-2. Запрещено `SELECT` всех чанков корпуса в RAM (в том числе для BM25).
+1. pgvector cosine Top-25 + FTS (`document_chunks.search_vector`, `simple` + GIN) Top-25, both with ACL `organization_id` and `access_roles && allowed_roles`, then RRF.
+2. Forbidden `SELECT` all corpus chunks into RAM (including for BM25).
 
-Промежуточный шаг «BM25 только по dense Top-50» снят миграцией `012`.
+Intermediate “BM25 only on dense Top-50” removed by migration `012`.
 
-## ADR-006. `last_error`, статус `processing`
+## ADR-006. `last_error`, status `processing`
 
-**ТЗ:** `error_message`, статус `processing`.  
-**Решение:** поле `last_error` на документе. Статус ingest — `processing` (не `indexing`).
+**Spec:** `error_message`, status `processing`.  
+**Decision:** field `last_error` on document. Ingest status — `processing` (not `indexing`).
 
-## ADR-007. Cookie-session
+## ADR-007. Cookie session
 
-**ТЗ:** JWT в теле ответа login.  
-**Решение v1:** только httpOnly cookies `dw_access` / `dw_refresh`. Login/register/google/refresh отдают `UserResponse`, не `access_token` в JSON. `Authorization: Bearer` игнорируется. `role` / `departments` всегда с сервера (membership), не из JWT. Access JWT ~15 мин, без claim `role`.
+**Spec:** JWT in login response body.  
+**v1 decision:** httpOnly cookies `dw_access` / `dw_refresh` only. Login/register/google/refresh return `UserResponse`, not `access_token` in JSON. `Authorization: Bearer` ignored. `role` / `departments` always from server (membership), not JWT. Access JWT ~15 min, no `role` claim.
 
-При `COOKIE_SAMESITE=none` (SPA на другом origin) мутации `/api/v1` требуют `Origin` из `CORS_ORIGINS` **или** заголовок `X-Requested-With: Docwise`. При `lax`/`strict` проверка не нужна. Refresh в Redis: SET fail-closed (503), GET fail-closed. Первая регистрация в пустой БД получает `admin`, остальные — `employee`. Google ID token без `email_verified=true` отклоняется.
+With `COOKIE_SAMESITE=none` (SPA on different origin) mutations on `/api/v1` require `Origin` from `CORS_ORIGINS` **or** header `X-Requested-With: Docwise`. With `lax`/`strict` check not needed. Refresh in Redis: SET fail-closed (503), GET fail-closed. First registration on empty DB gets `admin`, others — `employee`. Google ID token without `email_verified=true` rejected.
 
-## ADR-008. Эмбеддинги bge-small
+## ADR-008. Embeddings bge-small
 
-**Решение:** FastEmbed, модель `BAAI/bge-small-en-v1.5` (384d cosine), реранкер `BAAI/bge-reranker-base`.
+**Decision:** FastEmbed, model `BAAI/bge-small-en-v1.5` (384d cosine), reranker `BAAI/bge-reranker-base`.
 
 ## ADR-009. Postgres 15 + pgvector + MinIO
 
-**ТЗ (черновик):** Postgres 16 без pgvector, векторы вне SQL.  
-**Решение v1:** образ `pgvector/pgvector:pg15`. Расширение `vector` включено миграцией. Файлы — MinIO, не диск API-контейнера (локальный fallback допустим только за флагом для тестов).
+**Spec (draft):** Postgres 16 without pgvector, vectors outside SQL.  
+**v1 decision:** image `pgvector/pgvector:pg15`. Extension `vector` enabled by migration. Files — MinIO, not API container disk (local fallback only behind flag for tests).
 
-## ADR-010. pgvector вместо отдельного Qdrant
+## ADR-010. pgvector instead of separate Qdrant
 
-**Решение:** чанки и dense-векторы живут в Postgres (`document_chunks.embedding vector(384)`, cosine / HNSW). ACL — SQL `access_roles && allowed_roles` на каждый dense и sparse запрос. Сервиса Qdrant в Compose нет.
+**Decision:** chunks and dense vectors live in Postgres (`document_chunks.embedding vector(384)`, cosine / HNSW). ACL — SQL `access_roles && allowed_roles` on every dense and sparse query. No Qdrant service in Compose.
 
-**Почему:** один datastore для метаданных и векторов; pgvector — явный инструмент стека. Инварианты RBAC и hybrid+RRF сохраняются.
+**Why:** One datastore for metadata and vectors; pgvector is explicit stack tool. RBAC and hybrid+RRF invariants preserved.
 
-## ADR-011. Дубликат `file_hash` → 409
+## ADR-011. Duplicate `file_hash` → 409
 
-**ТЗ / api.md:** `409` или вернуть существующую запись.  
-**Решение v1:** `POST /documents/upload` при совпадении SHA-256 байтов отвечает `409` с фиксированным `detail`, без `id`/`title`/ACL существующего документа.
+**Spec / api.md:** `409` or return existing record.  
+**v1 decision:** `POST /documents/upload` on matching SHA-256 bytes responds `409` with fixed `detail`, without `id`/`title`/ACL of existing document.
 
-**Почему:** unique-индекс `file_hash` — источник истины; возврат существующей строки раскрыл бы метаданные файла, который текущий пользователь не должен видеть в `GET /documents` (например admin залил HR-only PDF). Повторная загрузка того же файла не меняет `access_roles`.
+**Why:** unique `file_hash` is source of truth; returning existing row would leak metadata of file user must not see in `GET /documents` (e.g. admin uploaded HR-only PDF). Re-upload same file does not change `access_roles`.
 
-После [ADR-012](#adr-012-shared-b2b-saas-org_id-как-внешняя-стена) уникальность — `(org_id, file_hash)`. `409` только если дубль **в текущей** организации; совпадение байтов у другого клиента не подтверждается.
+After [ADR-012](#adr-012-shared-b2b-saas-org_id-as-outer-wall) uniqueness — `(org_id, file_hash)`. `409` only if duplicate **in current** organization; byte match at another customer not confirmed.
 
-## ADR-012. Shared B2B SaaS: `org_id` как внешняя стена
+## ADR-012. Shared B2B SaaS: `org_id` as outer wall
 
-**ТЗ (черновик) / v1:** один тенант; мультитеннант вне скоупа.  
-**Решение:** целевой продукт — **shared B2B SaaS** (много организаций на одном деплое). Изоляция компаний — колонка `org_id` в SQL, не промпт и не тег в `access_roles`. Роли/отделы остаются **внутренней** ACL внутри org. Канон: [tenancy.md](../platform/tenancy.md).
+**Spec (draft) / v1:** single tenant; multi-tenant out of scope.  
+**Decision:** target product — **shared B2B SaaS** (many orgs on one deploy). Company isolation — `org_id` column in SQL, not prompt and not tag in `access_roles`. Roles/departments remain **inner** ACL inside org. Canonical: [tenancy.md](../platform/tenancy.md).
 
-**Почему:** `all` и `hr` — общие литералы. Без `org_id` сотрудник Globex видит General/HR Acme; LLM-кэш по одним ролям отдаёт чужой ответ; глобальный unique `file_hash` ломает одинаковые типовые PDF у двух клиентов.
+**Why:** `all` and `hr` are shared literals. Without `org_id` Globex employee sees Acme General/HR; LLM cache by roles alone serves foreign answer; global unique `file_hash` breaks identical template PDFs for two customers.
 
-**Следствие:**
+**Consequence:**
 
-- Пользователь глобальный (email); `role` и `departments` живут на `organization_memberships`.
-- Текущая org — в сессии, не в теле chat/upload.
-- Чанки, документы, чат-сессии, аудит, ключ MinIO и ключ LLM-кэша несут `org_id`.
-- `require_admin` — admin **текущей** org. Оператора платформы с доступом к чужим корпусам нет.
-- Реализация — [M5](../product/milestones.md#milestone-5--shared-tenancy-b2b-saas).
+- User is global (email); `role` and `departments` on `organization_memberships`.
+- Current org — in session, not chat/upload body.
+- Chunks, documents, chat sessions, audit, MinIO key, and LLM cache key carry `org_id`.
+- `require_admin` — admin of **current** org. No platform operator with foreign corpus access.
+- Implementation — [tenancy.md](../platform/tenancy.md) (shared SaaS).
 
-## ADR-013. Биллинг за портом; квоты в БД; default `dev`
+## ADR-013. Billing behind port; quotas in DB; default `dev`
 
-**ТЗ / «вне M5»:** Stripe, биллинг, квоты как продукт.  
-**Решение:** план, `billing_status` и квоты — колонки организации. Провайдер оплаты (`BILLING_PROVIDER=dev` \| `stripe`) только пишет эти поля. Хендлеры upload/chat/инвайтов читают Postgres, не API эквайринга.
+**Product:** Stripe, billing, quotas as first-class org fields.  
+**Decision:** plan, `billing_status`, quotas — organization columns. Payment provider (`BILLING_PROVIDER=dev` \| `stripe`) only writes these fields. Upload/chat/invite handlers read Postgres, not acquirer API.
 
-`dev` — дефолт Compose и не-`production`: org-admin меняет план без денег (бейдж Dev billing). Stripe test keys **не** заменяют `dev` (нужны аккаунт и сеть до `api.stripe.com`; с РФ это часто недоступно). Живой Stripe не критерий [M6](../product/milestones.md#milestone-6--commercial-saas). Адаптер `stripe` в коде допустим; CI без сети. ЮKassa — отдельный провайдер тем же портом, не M6.
+`dev` — Compose default and non-`production`: org-admin changes plan without money (**Dev billing** badge). Stripe test keys **do not** replace `dev` (need account and network to `api.stripe.com`; often unavailable from some regions). Live Stripe is not required for local/portfolio acceptance. `stripe` adapter in code OK; CI without network. YooKassa — separate provider on the same port.
 
-Коды: квота → `402`; фича не в плане → `403`; антиабьюз → `429`. Свою квоту не маскировать под `404`. `POST /billing/dev/simulate` только текущая org + `require_admin`; иначе `404`.
+Codes: quota → `402`; feature not in plan → `403`; anti-abuse → `429`. Do not mask own quota as `404`. `POST /billing/dev/simulate` current org + `require_admin` only; else `404`.
 
-Канон: [billing.md](../platform/billing.md).
+Canonical: [billing.md](../platform/billing.md).
 
-## ADR-014. SSO: org из коннектора, не из assertion
+## ADR-014. SSO: org from connector, not assertion
 
-**Решение:** SAML 2.0 SP (OIDC IdP — тем же коннектором). Org определяется коннектором (`/auth/sso/{slug}/…`), не атрибутом assertion и не телом запроса. Успех ставит `dw_*` cookies (ADR-007); Bearer игнорируется.
+**Decision:** SAML 2.0 SP (OIDC IdP — same connector). Org determined by connector (`/auth/sso/{slug}/…`), not assertion attribute or request body. Success sets `dw_*` cookies (ADR-007); Bearer ignored.
 
-JIT создаёт membership **только этой** org. `sso_enforced`: пароль, Google и `switch-organization` без свежего SSO в эту org — отказ. Группы IdP → `role` / `departments` по таблице org-admin; не в `access_roles` документов и не вместо `org_id`.
+JIT creates membership **only in that org**. `sso_enforced`: password, Google, and `switch-organization` without fresh SSO into this org — denied. IdP groups → `role` / `departments` per org-admin table; not in document `access_roles` and not instead of `org_id`.
 
-Compose: `SSO_PROVIDER=dev` (фикстурная assertion). Живой Okta/WorkOS не критерий M6. SCIM — вне скоупа.
+Compose: `SSO_PROVIDER=dev` (fixture assertion). Live Okta/WorkOS not required for local/portfolio acceptance. SCIM — out of scope.
 
-## ADR-015. Custom domain: host-only cookie, hostname пинит org
+## ADR-015. Custom domain: host-only cookie, hostname pins org
 
-**Решение:** `{slug}` уже на `organizations` (не ACL). Платформенный хост `{slug}.localhost` / `{slug}.docwise.app`; verified customer CNAME — опция Enterprise.
+**Decision:** `{slug}` already on `organizations` (not ACL). Platform host `{slug}.localhost` / `{slug}.docwise.app`; verified customer CNAME — Enterprise option.
 
-Сессионные куки **host-only** (без `Domain` на родительский суффикс). Если `Host` привязан к org, он **должен** совпасть с `org_id` сессии. Hostname — дополнительный конъюнкт, не замена SQL `organization_id`. На хосте Acme нельзя переключить сессию в Globex.
+Session cookies **host-only** (no `Domain` on parent suffix). If `Host` bound to org, it **must** match session `org_id`. Hostname — additional conjunct, not replacement for SQL `organization_id`. On Acme host cannot switch session to Globex.
 
-Неподтверждённый домен не биндится; один hostname — одна org. CORS/CSRF allowlist — из проверенного домена, не из тела. Compose: `/etc/hosts`, без Let's Encrypt в CI.
+Unverified domain not bound; one hostname — one org. CORS/CSRF allowlist — from verified domain, not body. Compose: `/etc/hosts`, no Let's Encrypt in CI.
 
-## ADR-016. Postgres RLS только на корпусе
+## ADR-016. Postgres RLS only on corpus
 
-**Решение:** `FORCE ROW LEVEL SECURITY` на `documents` и `document_chunks`. GUC `app.organization_id`; Celery — `fetch_document_for_ingestion` (bypass только на `get` по id). `bind_session_rls` после resolve principal и на SSE-путях, где идёт retrieval.
+**Decision:** `FORCE ROW LEVEL SECURITY` on `documents` and `document_chunks`. GUC `app.organization_id`; Celery — `fetch_document_for_ingestion` (bypass only on `get` by id). `bind_session_rls` after resolve principal and on SSE paths where retrieval runs.
 
-**Почему:** именно эти таблицы питают dense/FTS; одна забытая привязка org в SQL — кросс-тенантный текст в RRF. Чат и аудит уже всегда с `organization_id` (и `user_id`) в запросах; RLS на `chat_messages` без колонки org — лишняя сложность.
+**Why:** these tables feed dense/FTS; one forgotten org bind in SQL — cross-tenant text in RRF. Chat and audit already always filter `organization_id` (and `user_id`); RLS on `chat_messages` without org column — unnecessary complexity.
 
-**Следствие:** миграция `015`. Внутренняя ACL (`access_roles`) не в RLS. Pytest: `RLS_TEST_FIXTURE_BYPASS` только для прямых ORM-фикстур корпуса.
+**Consequence:** migration `015`. Inner ACL (`access_roles`) not in RLS. Pytest: `RLS_TEST_FIXTURE_BYPASS` only for direct ORM corpus fixtures.

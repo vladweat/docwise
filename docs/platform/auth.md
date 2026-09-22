@@ -1,80 +1,78 @@
-# Auth и ACL
+# Auth and ACL
 
-Связано: [security-rbac rule](../../.cursor/rules/security-rbac.mdc), [tenancy.md](tenancy.md), [retrieval.md](../pipeline/retrieval.md), [data-model.md](data-model.md).
+Related: [tenancy.md](tenancy.md), [retrieval.md](../pipeline/retrieval.md), [data-model.md](data-model.md).
 
-Два слоя: **организация** (`org_id` сессии) и **роли/отделы** внутри неё. Роли не изолируют компании.
+Two layers: **organization** (session `org_id`) and **roles/departments** inside it. Roles do not isolate companies.
 
-## Сессия
+## Session
 
-v1 — cookie-session, куки `dw_access` / `dw_refresh` (см. [decisions.md](../engineering/decisions.md) ADR-007).
+v1 — cookie session, cookies `dw_access` / `dw_refresh` (see [decisions.md](../engineering/decisions.md) ADR-007).
 
-- Login / register / Google отдают пользователя в JSON и ставят куки; `access_token` в теле нет. SSO ACS ставит те же куки, без токена в JSON.
-- Access JWT живёт **15 минут** (`ACCESS_TOKEN_EXPIRE_MINUTES`); refresh — 7 дней. Клиент при `401` один раз зовёт `POST /auth/refresh` и повторяет запрос.
-- В access/refresh JWT: `sub`, `org_id` текущего членства, `exp`, `typ`; refresh ещё `jti`. **`role` в токене нет** — источник истины `organization_memberships`, `GET /auth/me` читает членство из БД.
-- В access-токене есть `org_id` текущего членства; `GET /auth/me` отдаёт org + роль membership. Смена org — `POST /auth/switch-organization` (только своё membership), новые куки. На hostname, привязанном к org, смена на другую org запрещена ([ADR-015](../engineering/decisions.md)).
-- `GET /health` и `GET /ready` без auth. Остальной `/api/v1/*` — `get_current_user` (только cookie).
-- CSRF: при cross-site cookies (`SameSite=None`) мутации требуют allowlisted `Origin` или `X-Requested-With: Docwise`. Origin allowlist после M6 — канонический фронт **и** verified hostname текущей org.
-- Manage KB (upload, delete, смена `access_roles`): `require_kb_admin` — `admin` или `manager` **текущей org**. При отказе employee HTTP `403` с `detail: "Admin access required"` (то же сообщение, что у `require_admin`; роль в теле не раскрывается). Инвайты, биллинг, SSO, домен, inspect — только `require_admin`. Retrieval / list / status / raw **всё равно** фильтруются `org_id` + ACL документа, без admin-override и без чтения чужой org.
+- Login / register / Google return user JSON and set cookies; no `access_token` in body. SSO ACS sets the same cookies, no token in JSON.
+- Access JWT lives **15 minutes** (`ACCESS_TOKEN_EXPIRE_MINUTES`); refresh — 7 days. Client on `401` calls `POST /auth/refresh` once and retries.
+- Access/refresh JWT: `sub`, current membership `org_id`, `exp`, `typ`; refresh also `jti`. **No `role` in token** — source of truth is `organization_memberships`, `GET /auth/me` reads membership from DB.
+- Access token includes current membership `org_id`; `GET /auth/me` returns org + membership role. Org switch — `POST /auth/switch-organization` (own membership only), new cookies. On hostname bound to an org, switching to another org is forbidden ([ADR-015](../engineering/decisions.md)).
+- `GET /health` and `GET /ready` without auth. Rest of `/api/v1/*` — `get_current_user` (cookie only).
+- CSRF: with cross-site cookies (`SameSite=None`) mutations require allowlisted `Origin` or `X-Requested-With: Docwise`. Origin allowlist includes canonical frontend **and** verified hostname of current org.
+- Manage KB (upload, delete, change `access_roles`): `require_kb_admin` — `admin` or `manager` of **current org**. Employee denial HTTP `403` with `detail: "Admin access required"` (same message as `require_admin`; role not revealed in body). Invites, billing, SSO, domain, inspect — `require_admin` only. Retrieval / list / status / raw **still** filter by `org_id` + document ACL, no admin override and no cross-org read.
 
-Не принимать `access_roles`, `user_id`, `document_ids`, `org_id` / `organization_id` из тела как источник прав.
+Do not accept `access_roles`, `user_id`, `document_ids`, `org_id` / `organization_id` from the body as authority.
 
-## Роли пользователя
+## User roles
 
-До M5 колонки жили на `users`. Сейчас — на `organization_memberships` (один человек — разные роли в разных org).
+Roles and departments live on `organization_memberships` (one person, different roles per org).
 
-| Роль членства | Смысл |
+| Membership role | Meaning |
 | --- | --- |
-| `admin` | Управление KB, инвайтами, биллингом, SSO и доменом **этой** org; `POST /search/inspect` при `ENABLE_SEARCH_INSPECT` (retrieval всё равно по `org_id` + ACL документа, без override) |
-| `manager` | KB этой org: upload, delete, смена ACL. Инвайты / биллинг / SSO / домен / inspect — `403` |
-| `employee` | Базовый сотрудник. KB write и inspect — `403` |
+| `admin` | Manage KB, invites, billing, SSO and domain **for this org**; `POST /search/inspect` when `ENABLE_SEARCH_INSPECT` (retrieval still `org_id` + document ACL, no override) |
+| `manager` | KB for this org: upload, delete, change ACL. Invites / billing / SSO / domain / inspect — `403` |
+| `employee` | Base employee. KB write and inspect — `403` |
 
-Плюс `departments: string[]` (`engineering`, `hr`, `finance`, …) на том же членстве.
+Plus `departments: string[]` (`engineering`, `hr`, `finance`, …) on the same membership.
 
-Оператор платформы с доступом к корпусам клиентов в M5/M6 не предусмотрен.
+Platform operator with access to customer corpora is not part of the product.
 
-## SSO / SAML (M6)
+## SSO / SAML
 
-Канон: [ADR-014](../engineering/decisions.md). Гейт плана — [billing.md](billing.md).
+Canonical: [ADR-014](../engineering/decisions.md). Plan gate — [billing.md](billing.md).
 
-- Коннектор (`organization_sso_connections`) принадлежит одной org. Маршруты `/api/v1/auth/sso/{slug}/login` и `…/acs`: `{slug}` → эта org, не атрибут assertion.
-- SP-initiated в v1; ACS принимает IdP-initiated, если метаданные те же. Успех → `dw_access` / `dw_refresh` с `org_id` коннектора.
-- JIT (если включён на коннекторе): создать/найти `users` по email и membership **только этой** org. Глобальный email как в M5: человек уже в Globex может получить Acme; роли Globex не менять. Seats-квота → `402`. Без JIT — только существующее membership или инвайт.
-- `organizations.sso_enforced`: пароль и Google не выбирают эту org как текущую; `POST /auth/switch-organization` без свежего SSO-assertion (флаг в сессии / короткий redis-ключ) → отказ. Иначе SSO обходится через другую фирму.
-- Маппинг групп IdP → `role` / `departments` — JSON/таблица, которую правит org-admin. Не писать группы в `documents.access_roles`. Не подменять `org_id`.
-- Email без verified-эквивалента — отказ, как у Google.
-- Compose: `SSO_PROVIDER=dev`, фикстурная assertion. План без entitlement SSO → `403` на upsert коннектора, не «неверный IdP».
+- Connector (`organization_sso_connections`) belongs to one org. Routes `/api/v1/auth/sso/{slug}/login` and `…/acs`: `{slug}` → that org, not assertion attribute.
+- SP-initiated in v1; ACS accepts IdP-initiated if metadata matches. Success → `dw_access` / `dw_refresh` with connector `org_id`.
+- JIT (if enabled on connector): create/find `users` by email and membership **only in that org**. Email is global: person already in Globex may join Acme; do not change Globex roles. Seats quota → `402`. Without JIT — existing membership or invite only.
+- `organizations.sso_enforced`: password and Google cannot select this org as current; `POST /auth/switch-organization` without fresh SSO assertion (session flag / short redis key) → denied. Otherwise SSO is bypassed via another company.
+- IdP group → `role` / `departments` mapping — JSON/table edited by org-admin. Do not write groups into `documents.access_roles`. Do not replace `org_id`.
+- Email without verified equivalent — denied, same as Google.
+- Compose: `SSO_PROVIDER=dev`, fixture assertion. Plan without SSO entitlement → `403` on connector upsert, not “wrong IdP”.
 
-Google OIDC M0 остаётся consumer-входом для планов без SSO. Это не замена SAML.
+Google OIDC remains consumer login for plans without SSO. Not a SAML replacement.
 
-## Сборка `allowed_roles` для поиска
+## Building `allowed_roles` for search
 
 ```
 allowed_roles = { membership.role } ∪ set(membership.departments) ∪ { "all" }
 ```
 
-До M5 то же собиралось с `users.role` / `users.departments` (один неявный тенант). Сейчас только membership текущей org.
-
-Фильтр (оба конъюнкта):
+Filter (both conjuncts):
 
 ```sql
 WHERE organization_id = :current_org
   AND access_roles && ARRAY['employee', 'hr', 'all']::text[]
 ```
 
-Документ с `access_roles = ["hr"]` виден пользователю **этой org**, у которого `hr` в `role` или `departments`. Документ `["all"]` виден всем членам **этой** организации, не всем залогиненным в SaaS.
+Document with `access_roles = ["hr"]` is visible to a user **in this org** who has `hr` in `role` or `departments`. Document `["all"]` is visible to all members **of this organization**, not all logged-in SaaS users.
 
-Литералы ролей документа (теги админки): `admin`, `manager`, `employee`, отделы (`hr`, `finance`, …), плюс `all` / UI-лейбл **General**.
+Document role literals (admin UI tags): `admin`, `manager`, `employee`, departments (`hr`, `finance`, …), plus `all` / UI label **General**.
 
-## Поверхности с одним правилом
+## Surfaces with one rule
 
-| Поверхность | Проверка |
+| Surface | Check |
 | --- | --- |
-| `GET /documents` | `organization_id` сессии **и** `access_roles` пересекается с `allowed_roles` |
-| `GET /documents/{id}/raw` | то же; иначе 404 (не 403 с названием файла; чужая org неотличима) |
-| chat / search / inspect | `organization_id` **и** `&&` на `document_chunks`; не полагаться на промпт |
-| `POST /search/inspect` | cookie; флаг выкл → `404`; не org-admin → `403`; затем тот же фильтр, что у чата |
-| KB: `PATCH /documents/{id}` | `require_kb_admin` (admin или manager текущей org); пишет `access_roles` документа **и** всех чанков; `org_id` не меняется |
-| Billing / SSO / domain | `require_admin` текущей org; чужая org неотличима (`404` на simulate и чужой slug) |
-| LLM cache | ключ включает `org_id`, поколение индекса и канонический набор `allowed_roles` |
+| `GET /documents` | session `organization_id` **and** `access_roles` intersects `allowed_roles` |
+| `GET /documents/{id}/raw` | same; else 404 (not 403 with filename; foreign org indistinguishable) |
+| chat / search / inspect | `organization_id` **and** `&&` on `document_chunks`; do not rely on prompt |
+| `POST /search/inspect` | cookie; flag off → `404`; not org-admin → `403`; then same filter as chat |
+| KB: `PATCH /documents/{id}` | `require_kb_admin` (admin or manager of current org); writes document `access_roles` **and** all chunks; `org_id` unchanged |
+| Billing / SSO / domain | `require_admin` of current org; foreign org indistinguishable (`404` on simulate and foreign slug) |
+| LLM cache | key includes `org_id`, index generation, and canonical `allowed_roles` set |
 
-Смена ACL файла: обновить `documents` **и** все строки `document_chunks` этого файла (или полный re-upsert). Иначе индекс врёт.
+ACL change on a file: update `documents` **and** all `document_chunks` rows for that file (or full re-upsert). Otherwise the index lies.
