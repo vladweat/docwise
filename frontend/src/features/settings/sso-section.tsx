@@ -61,24 +61,24 @@ export function SsoSection({
         {enabled && connection ? (
           <>
             <p className="text-xs text-slate-500">
-              Login: <code className="text-slate-300">{connection.login_path}</code>
+              {t("settings.ssoLoginPath")}: <code className="text-slate-300">{connection.login_path}</code>
               <br />
-              ACS: <code className="text-slate-300">{connection.acs_path}</code>
+              {t("settings.ssoAcsPath")}: <code className="text-slate-300">{connection.acs_path}</code>
               {connection.slug ? (
                 <>
                   <br />
-                  Slug: <code className="text-slate-300">{connection.slug}</code>
+                  {t("settings.ssoSlug")}: <code className="text-slate-300">{connection.slug}</code>
                 </>
               ) : null}
             </p>
             <div>
-              <Label htmlFor="idp-entity">IdP entity ID</Label>
+              <Label htmlFor="idp-entity">{t("settings.idpEntityLabel")}</Label>
               <Input
                 id="idp-entity"
                 className="mt-1"
                 value={idpEntityId}
                 onChange={(event) => onIdpChange(event.target.value)}
-                placeholder="https://idp.example/metadata"
+                placeholder={t("settings.idpEntityPlaceholder")}
                 disabled={busy}
               />
             </div>

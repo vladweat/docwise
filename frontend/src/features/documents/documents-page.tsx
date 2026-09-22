@@ -8,6 +8,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { DocumentsEmptyState } from "@/features/documents/documents-empty-state";
 import { DocumentUploadModal } from "@/features/documents/document-upload-modal";
 import { DocumentDeleteDialog } from "@/features/documents/document-delete-dialog";
+import { DocumentAclDialog } from "@/features/documents/document-acl-dialog";
 import { DocumentPreviewDialog } from "@/features/documents/document-preview-dialog";
 import { DocumentRow, isDocumentInFlight } from "@/features/documents/document-row";
 import { Alert } from "@/components/ui/alert";
@@ -34,6 +35,7 @@ export function DocumentsPage() {
   const [uploadInitialFile, setUploadInitialFile] = useState<File | null>(null);
   const [previewDocument, setPreviewDocument] = useState<DocumentResponse | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DocumentResponse | null>(null);
+  const [aclDocument, setAclDocument] = useState<DocumentResponse | null>(null);
 
   const query = useQuery({
     queryKey: ["documents", user?.id, user?.organization_id],
@@ -113,6 +115,7 @@ export function DocumentsPage() {
                       doc={doc}
                       canManage={canManage}
                       onPreview={setPreviewDocument}
+                      onEditAcl={setAclDocument}
                       onAskDelete={setPendingDelete}
                     />
                   ))}
@@ -131,6 +134,7 @@ export function DocumentsPage() {
         }}
       />
       <DocumentPreviewDialog document={previewDocument} onClose={() => setPreviewDocument(null)} />
+      <DocumentAclDialog document={aclDocument} onClose={() => setAclDocument(null)} />
       <DocumentDeleteDialog document={pendingDelete} onClose={() => setPendingDelete(null)} />
     </AuthGate>
   );

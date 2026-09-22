@@ -10,16 +10,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n/locale-provider";
 import { ApiRequestError } from "@/lib/api";
+import { userFacingApiMessage } from "@/lib/quota";
 import { formatDateTime } from "@/lib/format";
 import type { BillingSubscription, BillingUsage, PlanName, QuotaMeter } from "@/types/billing";
 
-const PLAN_LABEL: Record<PlanName, string> = {
-  starter: "Starter",
-  team: "Team",
-  enterprise: "Enterprise",
+const PLAN_MESSAGE_KEY: Record<PlanName, "settings.planStarter" | "settings.planTeam" | "settings.planEnterprise"> = {
+  starter: "settings.planStarter",
+  team: "settings.planTeam",
+  enterprise: "settings.planEnterprise",
 };
 
 const PLANS: PlanName[] = ["starter", "team", "enterprise"];
+
+export function planDisplayLabel(t: (key: "settings.planStarter" | "settings.planTeam" | "settings.planEnterprise") => string, plan: PlanName): string {
+  return t(PLAN_MESSAGE_KEY[plan]);
+}
 
 export function Meter({ label, meter }: { label: string; meter: QuotaMeter }) {
   const { locale } = useI18n();
@@ -76,15 +81,19 @@ export function BillingSection({
             <CardDescription>{t("settings.billingDescription")}</CardDescription>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {isDev ? <Badge variant="warning">Dev billing</Badge> : null}
-            {sub ? <Badge variant="secondary">{PLAN_LABEL[sub.plan] ?? sub.plan}</Badge> : null}
+            {isDev ? <Badge variant="warning">{t("settings.devBillingBadge")}</Badge> : null}
+            {sub ? (
+              <Badge variant="secondary">{planDisplayLabel(t, sub.plan)}</Badge>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-slate-300">
           {subLoading ? <Skeleton className="h-4 w-40" /> : null}
           {subError ? (
             <Alert variant="destructive">
-              {subError instanceof ApiRequestError ? subError.message : t("errors.loadSubscriptionFailed")}
+              {subError instanceof ApiRequestError
+                ? userFacingApiMessage(subError.status, subError.message)
+                : t("errors.loadSubscriptionFailed")}
             </Alert>
           ) : null}
           {sub ? (
@@ -108,7 +117,7 @@ export function BillingSection({
                   <SelectContent>
                     {PLANS.map((plan) => (
                       <SelectItem key={plan} value={plan}>
-                        {PLAN_LABEL[plan]}
+                        {planDisplayLabel(t, plan)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -144,7 +153,9 @@ export function BillingSection({
           {usageLoading ? <Skeleton className="h-4 w-48" /> : null}
           {usageError ? (
             <Alert variant="destructive">
-              {usageError instanceof ApiRequestError ? usageError.message : t("errors.loadUsageFailed")}
+              {usageError instanceof ApiRequestError
+                ? userFacingApiMessage(usageError.status, usageError.message)
+                : t("errors.loadUsageFailed")}
             </Alert>
           ) : null}
           {usage ? (
@@ -160,4 +171,3 @@ export function BillingSection({
   );
 }
 
-export { PLAN_LABEL };

@@ -25,3 +25,14 @@ export async function uploadDocument(file: File, accessRoles: string[]): Promise
 export async function deleteDocument(documentId: string): Promise<void> {
   await apiFetch<undefined>(`/documents/${documentId}`, { method: "DELETE" });
 }
+
+export async function patchDocumentAccess(
+  documentId: string,
+  accessRoles: string[],
+): Promise<DocumentResponse> {
+  return apiFetch<DocumentResponse>(`/documents/${documentId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_roles: accessRoles }),
+  });
+}

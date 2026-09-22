@@ -39,7 +39,7 @@ export function DomainSection({
           <CardDescription>{t("settings.domainDescription")}</CardDescription>
         </div>
         {domain?.custom_verified ? (
-          <Badge variant="success">Verified</Badge>
+          <Badge variant="success">{t("settings.verified")}</Badge>
         ) : domain?.custom_hostname ? (
           <Badge variant="warning">{t("settings.unverified")}</Badge>
         ) : null}

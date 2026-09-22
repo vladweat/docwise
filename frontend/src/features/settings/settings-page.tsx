@@ -7,7 +7,7 @@ import { AuthGate } from "@/features/auth/auth-gate";
 import { useAuth } from "@/features/auth/auth-provider";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FadeIn } from "@/components/ui/fade-in";
-import { BillingSection, PLAN_LABEL } from "@/features/settings/billing-section";
+import { BillingSection, planDisplayLabel } from "@/features/settings/billing-section";
 import { DomainSection } from "@/features/settings/domain-section";
 import { SsoSection } from "@/features/settings/sso-section";
 import { TeamSection } from "@/features/settings/team-section";
@@ -28,6 +28,7 @@ import {
 import type { PlanName } from "@/types/billing";
 import type { SsoAttributeMap } from "@/types/sso";
 import { useI18n } from "@/i18n/locale-provider";
+import { userFacingApiMessage } from "@/lib/quota";
 import { useToastStore } from "@/stores/toast-store";
 
 const DEFAULT_ATTRIBUTE_MAP: SsoAttributeMap = {
@@ -114,14 +115,19 @@ export function SettingsPage() {
         return;
       }
       pushToast(
-        t("settings.planChanged", { plan: PLAN_LABEL[result.plan ?? selectedPlan] }),
+        t("settings.planChanged", {
+          plan: planDisplayLabel(t, (result.plan ?? selectedPlan) as PlanName),
+        }),
         "info",
       );
       setDraftPlan("");
       await invalidateBilling();
     },
     onError: (err) => {
-      const message = err instanceof ApiRequestError ? err.message : t("errors.changePlanFailed");
+      const message =
+        err instanceof ApiRequestError
+          ? userFacingApiMessage(err.status, err.message)
+          : t("errors.changePlanFailed");
       pushToast(message, "error");
     },
   });
@@ -142,7 +148,10 @@ export function SettingsPage() {
         void refreshUser();
         return;
       }
-      const message = err instanceof ApiRequestError ? err.message : t("errors.billingSimulateFailed");
+      const message =
+        err instanceof ApiRequestError
+          ? userFacingApiMessage(err.status, err.message)
+          : t("errors.billingSimulateFailed");
       pushToast(message, "error");
     },
   });
