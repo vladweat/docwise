@@ -1,3 +1,5 @@
+"""Password hashing and access JWT encode/decode (role lives on membership, not in token)."""
+
 from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt

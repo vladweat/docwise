@@ -1,3 +1,5 @@
+"""Current user and organization summary schemas."""
+
 from datetime import datetime
 from uuid import UUID
 

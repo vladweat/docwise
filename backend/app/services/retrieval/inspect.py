@@ -24,6 +24,7 @@ def inspect_search(
     embedder=None,
     reranker=None,
 ) -> SearchInspectResponse:
+    """Run full hybrid pipeline with stage scores; audit UUIDs only."""
     started = time.perf_counter()
     result = retrieve(db, user, query, embedder=embedder, reranker=reranker)
     payload = SearchInspectResponse(

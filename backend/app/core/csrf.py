@@ -1,3 +1,5 @@
+"""CSRF checks for cookie auth when SameSite=None (custom domains, ADR-015)."""
+
 from __future__ import annotations
 
 from urllib.parse import urlparse

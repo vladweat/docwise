@@ -1,3 +1,5 @@
+"""Documents API: upload, ACL, delete, raw download."""
+
 from __future__ import annotations
 
 import hashlib

@@ -31,6 +31,7 @@ def bind_session_rls(
 
 
 def clear_session_rls(db: Session) -> None:
+    """Drop tenant GUC state when returning the connection to the pool."""
     db.info.pop(_RLS_INFO_ORG, None)
     db.info.pop(_RLS_INFO_BYPASS, None)
 

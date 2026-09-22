@@ -1,3 +1,5 @@
+"""Per-org SSO connector configuration."""
+
 from __future__ import annotations
 
 import enum

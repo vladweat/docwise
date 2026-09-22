@@ -1,3 +1,5 @@
+"""Authenticated user bound to one organization membership."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -49,4 +51,5 @@ class Principal:
         return self.organization.name
 
     def allowed_roles(self) -> list[str]:
+        """Document ACL intersection set: role ∪ departments ∪ `all` for this org."""
         return self.membership.allowed_roles()

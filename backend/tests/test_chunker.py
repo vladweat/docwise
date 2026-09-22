@@ -1,3 +1,5 @@
+"""Page-bounded chunking and meta headers."""
+
 from __future__ import annotations
 
 from app.services.ingestion.chunker import (

@@ -1,3 +1,5 @@
+"""Celery app and `ingestion.process_document` task."""
+
 import logging
 
 from celery import Celery

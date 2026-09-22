@@ -1,0 +1,2 @@
+"""Docwise FastAPI application package."""
+

@@ -1,3 +1,5 @@
+"""Tenant-aware CORS and CSRF middleware for cookie auth."""
+
 from fastapi import HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -17,6 +19,8 @@ class TenantCORSMiddleware(CORSMiddleware):
 
 
 class CsrfMiddleware(BaseHTTPMiddleware):
+    """Run CSRF checks before `/api/v1` mutating handlers."""
+
     async def dispatch(self, request: Request, call_next):
         try:
             enforce_csrf(request)

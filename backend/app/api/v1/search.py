@@ -1,3 +1,5 @@
+"""Org-admin search inspect when `ENABLE_SEARCH_INSPECT` is on."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 

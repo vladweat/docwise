@@ -1,3 +1,5 @@
+"""FastAPI entry: middleware, `/api/v1` router, health, error handlers."""
+
 from fastapi import FastAPI
 
 from app.core.proxy import apply_internal_no_proxy

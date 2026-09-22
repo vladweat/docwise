@@ -1,3 +1,5 @@
+"""Organizations, memberships, invites, and plan fields."""
+
 from __future__ import annotations
 
 import enum

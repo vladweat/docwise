@@ -1,3 +1,5 @@
+"""Document/chunk ORM constraints and ACL columns."""
+
 from pathlib import Path
 from uuid import uuid4
 

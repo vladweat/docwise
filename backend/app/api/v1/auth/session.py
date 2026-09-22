@@ -1,3 +1,5 @@
+"""Refresh, logout, org switch — cookies stay host-only (ADR-015)."""
+
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, Response, status

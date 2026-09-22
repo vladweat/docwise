@@ -228,3 +228,4 @@ reports/          # rag_benchmark.md
 | [docs/platform/auth.md](docs/platform/auth.md) | Session, roles, ACL assembly |
 | [docs/pipeline/retrieval.md](docs/pipeline/retrieval.md) | Hybrid search (dense + FTS), SSE, inspect |
 | [docs/engineering/api.md](docs/engineering/api.md) | HTTP contract |
+| [docs/engineering/python-style.md](docs/engineering/python-style.md) | PEP 257 docstrings, no Google/NumPy |

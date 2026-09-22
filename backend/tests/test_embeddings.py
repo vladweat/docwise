@@ -1,3 +1,5 @@
+"""FastEmbed embedding shape and ONNX cache."""
+
 from __future__ import annotations
 
 from pathlib import Path

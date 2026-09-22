@@ -93,6 +93,7 @@ def load_cached_answer(
     organization_id: UUID,
     index_generation: int = 0,
 ) -> ChatResult | None:
+    """Return a prior answer only when org, generation, and roles hash match."""
     payload = redis_get(
         cache_key(
             question,
@@ -114,6 +115,7 @@ def save_cached_answer(
     organization_id: UUID,
     index_generation: int = 0,
 ) -> None:
+    """Store answer under the same scoped key as `load_cached_answer`."""
     redis_set(
         cache_key(
             question,

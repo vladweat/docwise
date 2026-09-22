@@ -1,3 +1,5 @@
+"""`NO_PROXY` for Docker-internal HTTP."""
+
 import os
 
 from app.core.proxy import apply_internal_no_proxy

@@ -1,3 +1,5 @@
+"""PDF parse: tables, pages, and blocks."""
+
 from __future__ import annotations
 
 from app.services.ingestion.chunker import chunk_parsed_document, format_embed_text

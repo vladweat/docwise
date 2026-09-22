@@ -1,3 +1,5 @@
+"""Host-only `dw_*` cookie params and refresh rotation."""
+
 import uuid
 
 from jose import jwt

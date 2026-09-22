@@ -1,3 +1,5 @@
+"""Mount `/api/v1` resource routers (auth, corpus, chat, billing, SSO)."""
+
 from fastapi import APIRouter
 
 from app.api import API_V1

@@ -15,6 +15,7 @@ MESSAGE_NOT_FOUND_DETAIL = "Chat message not found"
 
 
 def get_owned_session(db: Session, user: Principal, session_id: UUID) -> ChatSession:
+    """Session must belong to the caller and the current org."""
     session = (
         db.query(ChatSession)
         .filter(

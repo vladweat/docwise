@@ -1,3 +1,5 @@
+"""Global user identity (role lives on membership)."""
+
 from __future__ import annotations
 
 import enum

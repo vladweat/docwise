@@ -49,6 +49,7 @@ def record_retrieval_audit(
     organization_id: UUID,
     commit: bool = True,
 ) -> RagAuditLog:
+    """Append audit row with chunk UUIDs only (no excerpt text)."""
     log = RagAuditLog(
         organization_id=organization_id,
         user_id=user_id,

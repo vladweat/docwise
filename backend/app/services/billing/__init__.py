@@ -1,3 +1,5 @@
+"""Billing port facade (`dev` or Stripe)."""
+
 from app.services.billing.port import (
     BILLING_UNAVAILABLE,
     NOT_FOUND,

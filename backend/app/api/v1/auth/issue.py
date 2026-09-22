@@ -9,6 +9,7 @@ from app.services.org.sso import mark_sso_fresh
 
 
 def issue_session(principal: Principal, response: Response, *, sso: bool = False) -> Principal:
+    """Set host-only `dw_*` cookies for the resolved Principal org."""
     org_id = str(principal.organization_id)
     access = create_access_token(principal.email, org_id=org_id, sso=sso)
     refresh = create_refresh_token(principal.email, org_id=org_id, sso=sso)

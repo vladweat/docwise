@@ -1,3 +1,5 @@
+"""Startup: secret key guard, Alembic upgrade, MinIO bucket."""
+
 import logging
 from contextlib import asynccontextmanager
 
@@ -12,6 +14,7 @@ settings = get_settings()
 
 
 def assert_secret_key() -> None:
+    """Refuse production boot with the default `SECRET_KEY`."""
     if settings.secret_key != DEFAULT_SECRET_KEY:
         return
     if settings.environment == "production":

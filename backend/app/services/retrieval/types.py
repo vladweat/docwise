@@ -173,6 +173,7 @@ def reciprocal_rank_fusion(
     *,
     k: int = RRF_K,
 ) -> list[tuple[T, float]]:
+    """Fuse dense and sparse rank lists with RRF (default k=60, ADR-005)."""
     scores: dict[T, float] = {}
     for ranking in ranked_lists:
         for rank, doc_id in enumerate(ranking, start=1):
@@ -181,4 +182,5 @@ def reciprocal_rank_fusion(
 
 
 def chunk_acl_filter(allowed_roles: list[str]):
+    """SQL overlap predicate for retrieval; apply with organization_id on every search path."""
     return DocumentChunk.access_roles.overlap(cast(list(allowed_roles), ARRAY(String)))

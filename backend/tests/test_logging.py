@@ -1,3 +1,5 @@
+"""JSON log redaction of sensitive fields."""
+
 import io
 import json
 import logging

@@ -56,6 +56,7 @@ def list_documents(
     offset: int,
     status_filter: DocumentStatus | None = None,
 ) -> DocumentListResponse:
+    """Paginated KB list for the session org after document ACL filter."""
     query = visible_documents_query(db, user)
     if status_filter is not None:
         query = query.filter(Document.status == status_filter.value)
@@ -93,6 +94,7 @@ def document_raw_bytes(
     document_id: UUID,
     storage: ObjectStorage | None = None,
 ) -> tuple[bytes, str, str]:
+    """Fetch object bytes only after the same org + ACL check as search."""
     document = get_visible_document(db, user, document_id)
     storage = storage or get_object_storage()
     try:
@@ -141,6 +143,7 @@ def delete_document(
     document_id: UUID,
     storage: ObjectStorage | None = None,
 ) -> None:
+    """Cascade delete document row, chunks, object storage, and invalidate LLM cache for the org."""
     document = get_managed_document(db, user, document_id)
 
     storage = storage or get_object_storage()

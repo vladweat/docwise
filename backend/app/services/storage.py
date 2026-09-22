@@ -32,6 +32,7 @@ def s3_endpoint_parts(url: str) -> tuple[str, bool]:
 
 
 def object_key_for_document(document_id: UUID, filename: str, *, organization_id: UUID) -> str:
+    """S3 key prefix includes org id so objects never share a flat global namespace."""
     safe_name = Path(filename).name or "document.pdf"
     return f"orgs/{organization_id}/{document_id}/{safe_name}"
 

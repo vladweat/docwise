@@ -67,6 +67,7 @@ def has_sso_fresh(user_id: UUID, organization_id: UUID) -> bool:
 
 
 def session_allowed_for_org(organization: Organization, *, sso_claim: bool) -> bool:
+    """Block password/Google sessions when `sso_enforced` without a fresh SSO access token."""
     if not organization.sso_enforced:
         return True
     return sso_claim is True
@@ -152,6 +153,7 @@ def complete_sso_login(
     email: str,
     groups: list[str],
 ) -> Principal:
+    """Provision or update membership for the connector org (slug-bound, not IdP org attribute)."""
     normalized = email.strip().lower()
     user = db.query(User).filter(User.email == normalized).first()
     role, departments, matched = map_idp_groups(connection.attribute_map, groups)

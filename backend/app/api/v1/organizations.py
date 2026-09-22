@@ -1,3 +1,5 @@
+"""Org members and invites (`require_admin` of current org)."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 

@@ -122,8 +122,11 @@ def _paragraph_text(paragraph: Paragraph) -> str:
 
 
 def _is_heading(paragraph: Paragraph) -> bool:
+    name = ""
     try:
-        name = (paragraph.style.name or "").strip()
+        style = paragraph.style
+        if style is not None:
+            name = (style.name or "").strip()
     except Exception:
         name = ""
     if _HEADING_STYLE_RE.match(name):

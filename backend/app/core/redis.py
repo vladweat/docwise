@@ -1,6 +1,7 @@
 """Redis client, session store, and indexing lock. Infra, not a domain service."""
 
 from functools import lru_cache
+from typing import cast
 from uuid import UUID
 
 import redis
@@ -25,6 +26,7 @@ def get_redis_client() -> redis.Redis:
 
 
 def acquire_indexing_lock(document_id: str | UUID, ttl: int = DEFAULT_LOCK_TTL_SECONDS) -> bool:
+    """NX lock per document UUID so only one worker indexes at a time."""
     client = get_redis_client()
     return bool(client.set(lock_key(document_id), "1", nx=True, ex=ttl))
 
@@ -36,4 +38,4 @@ def release_indexing_lock(document_id: str | UUID) -> None:
 
 def is_indexing_locked(document_id: str | UUID) -> bool:
     client = get_redis_client()
-    return client.exists(lock_key(document_id)) > 0
+    return int(cast(int, client.exists(lock_key(document_id)))) > 0
