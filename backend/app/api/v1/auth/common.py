@@ -1,3 +1,5 @@
+"""Auth handler helpers (principal resolution, error mapping)."""
+
 from uuid import UUID
 
 from fastapi import HTTPException, status

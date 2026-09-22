@@ -1,3 +1,5 @@
+"""Sentry scrubbing before send."""
+
 from app.core.sentry import before_send, capture_pipeline_error, init_sentry
 
 

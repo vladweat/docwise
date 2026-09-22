@@ -59,6 +59,7 @@ class UnavailableError(AppError):
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    """Map `AppError` subclasses to JSON `{detail}` responses."""
     @app.exception_handler(AppError)
     async def _app_error(_request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})

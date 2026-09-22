@@ -236,11 +236,13 @@ class StripeBillingPort:
 
     def _plan_from_subscription(self, obj: dict) -> str | None:
         settings = get_settings()
-        metadata = obj.get("metadata") if isinstance(obj.get("metadata"), dict) else {}
+        raw_meta = obj.get("metadata")
+        metadata: dict = raw_meta if isinstance(raw_meta, dict) else {}
         from_meta = parse_plan(str(metadata.get("plan") or "") or None)
         if from_meta:
             return from_meta
-        items = obj.get("items") if isinstance(obj.get("items"), dict) else {}
+        raw_items = obj.get("items")
+        items: dict = raw_items if isinstance(raw_items, dict) else {}
         records = items.get("data") or []
         if not records or not isinstance(records[0], dict):
             return None

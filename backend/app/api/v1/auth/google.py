@@ -1,3 +1,5 @@
+"""Google OAuth login and registration (session org from membership)."""
+
 import logging
 
 from fastapi import Depends, HTTPException, Request, Response, status

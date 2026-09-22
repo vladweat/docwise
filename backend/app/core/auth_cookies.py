@@ -1,3 +1,5 @@
+"""Issue and revoke `dw_*` session cookies (host-only, ADR-015)."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -38,6 +40,7 @@ def create_refresh_token(
     org_id: str | None = None,
     sso: bool = False,
 ) -> str:
+    """Rotate refresh JWT; store jti in Redis. Optional org_id and SSO claim mirror access token."""
     settings = get_settings()
     jti = uuid4().hex
     expire = datetime.now(UTC) + timedelta(minutes=settings.refresh_token_expire_minutes)
@@ -59,6 +62,7 @@ def create_refresh_token(
 
 
 def decode_refresh_token(token: str) -> dict:
+    """Verify refresh JWT and Redis jti binding."""
     settings = get_settings()
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
@@ -91,6 +95,7 @@ def revoke_refresh_token(token: str) -> None:
 
 
 def set_auth_cookies(response: Response, *, access_token: str, refresh_token: str) -> None:
+    """Apply `cookie_params()` (host-only, no `Domain=`)."""
     settings = get_settings()
     params = cookie_params()
     response.set_cookie(
@@ -108,6 +113,7 @@ def set_auth_cookies(response: Response, *, access_token: str, refresh_token: st
 
 
 def clear_auth_cookies(response: Response) -> None:
+    """Delete `dw_access` and `dw_refresh` with the same flags used at issue time."""
     params = cookie_params()
     for name in (ACCESS_COOKIE, REFRESH_COOKIE):
         response.delete_cookie(

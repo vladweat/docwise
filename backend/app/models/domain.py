@@ -1,3 +1,5 @@
+"""Custom and platform hostnames bound to one organization."""
+
 from __future__ import annotations
 
 import enum

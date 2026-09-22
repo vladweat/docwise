@@ -1,3 +1,5 @@
+"""FastAPI dependencies: DB session, authenticated Principal, org-scoped RLS."""
+
 from collections.abc import Generator
 from uuid import UUID
 
@@ -16,6 +18,7 @@ from app.services.org.tenancy import resolve_principal
 
 
 def get_db() -> Generator[Session, None, None]:
+    """Yield a request-scoped Session; clear RLS GUCs on close."""
     db = SessionLocal()
     try:
         yield db
@@ -35,6 +38,7 @@ def _org_id_from_payload(payload: dict) -> UUID | None:
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Principal:
+    """Load membership for JWT org_id, enforce SSO and host pin (ADR-015), bind RLS."""
     token = request.cookies.get(ACCESS_COOKIE)
     if not token:
         raise HTTPException(
@@ -84,6 +88,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> Princip
 
 
 def require_admin(current_user: Principal = Depends(get_current_user)) -> Principal:
+    """Current-org admin only (billing, SSO, domain, inspect). No corpus bypass."""
     if current_user.role != UserRole.admin.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,3 +1,5 @@
+"""SQLAlchemy engine, `SessionLocal`, Postgres/pgvector health checks."""
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 

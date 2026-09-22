@@ -1,3 +1,5 @@
+"""Chat SSE stream and sessions; retrieval uses session org + ACL."""
+
 from typing import Annotated
 from uuid import UUID
 

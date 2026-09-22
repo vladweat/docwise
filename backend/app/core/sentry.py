@@ -33,7 +33,7 @@ def _scrub(value: Any, key: str | None = None) -> Any:
     return value
 
 
-def before_send(event: dict[str, Any], _hint: dict[str, Any] | None = None) -> dict[str, Any]:
+def before_send(event: Any, _hint: Any = None) -> Any:
     """Drop document text and LLM payloads from Sentry."""
     request = event.get("request")
     if isinstance(request, dict):

@@ -1,3 +1,5 @@
+"""Password auth, registration, and session cookies."""
+
 import uuid
 
 import pytest

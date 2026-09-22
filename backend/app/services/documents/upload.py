@@ -33,6 +33,7 @@ DUPLICATE_HASH_DETAIL = "Document with this file hash already exists"
 
 
 def enqueue_ingestion(document_id: UUID) -> None:
+    """Dispatch Celery `ingestion.process_document` for one UUID."""
     from worker.celery_app import process_document_task
 
     process_document_task.delay(str(document_id))
@@ -98,6 +99,7 @@ def create_document_from_upload(
     access_roles_raw: list[str] | str | None,
     storage: ObjectStorage | None = None,
 ) -> Document:
+    """Persist upload in session org, reserve page quota, enqueue ingest (no parse in the handler)."""
     settings = get_settings()
     file_kind = validate_document_upload(filename, content, content_type, settings.upload_max_bytes)
     access_roles = parse_access_roles(access_roles_raw)

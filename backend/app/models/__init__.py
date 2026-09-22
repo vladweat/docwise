@@ -1,3 +1,5 @@
+"""ORM model exports for the app and migrations."""
+
 from app.models.audit import RagAuditLog
 from app.models.billing import BillingEvent, BillingProvider, BillingStatus
 from app.models.chat import ChatMessage, ChatMessageRole, ChatSession

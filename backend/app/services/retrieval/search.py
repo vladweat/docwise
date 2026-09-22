@@ -111,6 +111,7 @@ def _chunk_record(row: DocumentChunk, dense_distance: float | None = None) -> Ch
 
 
 def _corpus_query(db: Session, allowed_roles: list[str], organization_id: UUID):
+    """Ready chunks in one org that pass inner ACL (dense, sparse, and hybrid must use this)."""
     return (
         db.query(DocumentChunk)
         .join(Document, Document.id == DocumentChunk.document_id)

@@ -1,3 +1,5 @@
+"""Billing provider enums and idempotent billing events."""
+
 from __future__ import annotations
 
 import enum

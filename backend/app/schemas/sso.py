@@ -1,3 +1,5 @@
+"""SSO admin and ACS payload schemas."""
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.models.sso import SsoProtocol

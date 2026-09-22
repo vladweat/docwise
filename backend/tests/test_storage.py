@@ -1,3 +1,5 @@
+"""MinIO object storage upload and delete."""
+
 from unittest.mock import MagicMock
 from uuid import uuid4
 

@@ -1,3 +1,5 @@
+"""Billing and plan entitlement API schemas."""
+
 from datetime import datetime
 from enum import Enum
 

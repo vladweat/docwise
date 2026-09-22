@@ -1,10 +1,13 @@
+"""Plans, usage, and dev simulate for the current org only."""
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.deps import get_current_user, get_db, require_admin
 from app.core.principal import Principal
-from app.models.billing import BillingProvider
+from app.models.billing import BillingProvider, BillingStatus
+from app.models.organization import OrganizationPlan
 from app.models.user import UserRole
 from app.schemas.billing import (
     BillingSubscriptionResponse,
@@ -105,8 +108,8 @@ def change_plan(
         return ChangePlanResponse(provider=provider, checkout_url=result.checkout_url)
     return ChangePlanResponse(
         provider=provider,
-        plan=org.plan,
-        billing_status=org.billing_status,
+        plan=OrganizationPlan(org.plan),
+        billing_status=BillingStatus(org.billing_status),
         current_period_start=org.current_period_start,
         current_period_end=org.current_period_end,
         entitlements=_subscription_payload(org, provider).entitlements,

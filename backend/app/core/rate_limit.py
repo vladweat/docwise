@@ -1,6 +1,7 @@
 """Fixed-window Redis rate limits. Infra, not a domain service."""
 
 import logging
+from typing import cast
 
 import redis
 from fastapi import HTTPException, Request, status
@@ -30,10 +31,10 @@ def enforce_rate_limit(scope: str, key: str | int, limit: int) -> None:
     redis_key = f"rl:{scope}:{key}"
     try:
         client = get_redis_client()
-        count = int(client.incr(redis_key))
+        count = int(cast(int, client.incr(redis_key)))
         if count == 1:
             client.expire(redis_key, WINDOW_SECONDS)
-        ttl = int(client.ttl(redis_key) or WINDOW_SECONDS)
+        ttl = int(cast(int, client.ttl(redis_key) or WINDOW_SECONDS))
     except redis.RedisError as exc:
         logger.warning("Rate limit Redis failed, allowing request: %s", exc)
         return

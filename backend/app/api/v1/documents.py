@@ -1,3 +1,5 @@
+"""KB upload, ACL patch, list, and raw bytes (org + document ACL)."""
+
 from typing import Annotated
 from uuid import UUID
 

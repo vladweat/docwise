@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import NoReturn
 from datetime import timedelta
 from uuid import UUID
 
@@ -63,7 +64,7 @@ def plan_limits(plan: str | None) -> PlanLimits:
     )
 
 
-def raise_quota_exceeded() -> None:
+def raise_quota_exceeded() -> NoReturn:
     raise PaymentRequiredError(QUOTA_EXCEEDED)
 
 
@@ -149,6 +150,7 @@ def enforce_page_quota_for_upload(
     organization_id: UUID,
     incoming_pages: int,
 ) -> Organization:
+    """Raise 402 when indexed pages + incoming would exceed the current org plan."""
     org = lock_organization(db, organization_id)
     if org is None:
         raise NotFoundError("Organization not found")
@@ -185,5 +187,6 @@ def enforce_seat_quota(db: Session, organization_id: UUID) -> None:
 
 
 def has_chat_token_quota(db: Session, org: Organization) -> bool:
+    """True when the org billing period still has chat token headroom."""
     limits = plan_limits(org.plan)
     return period_token_count(db, org) < limits.chat_tokens

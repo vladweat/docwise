@@ -1,3 +1,5 @@
+"""Email/password register and login with host pin and SSO rules."""
+
 from fastapi import Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 

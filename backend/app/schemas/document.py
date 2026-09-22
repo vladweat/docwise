@@ -1,3 +1,5 @@
+"""Document upload, list, and ACL patch schemas."""
+
 from datetime import datetime
 from uuid import UUID
 

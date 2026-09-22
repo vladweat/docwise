@@ -1,3 +1,5 @@
+"""Alembic migration runtime (sync SQLAlchemy URL from settings)."""
+
 from logging.config import fileConfig
 
 from alembic import context

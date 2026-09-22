@@ -1,3 +1,5 @@
+"""Cross-org isolation in list, raw, and retrieval paths."""
+
 from app.core.config import get_settings
 
 

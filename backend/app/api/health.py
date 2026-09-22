@@ -1,3 +1,5 @@
+"""Liveness (`/health`) and readiness (`/ready`) dependency checks."""
+
 import logging
 
 import httpx

@@ -1,3 +1,5 @@
+"""Repo layout: `core/` infra, services split, no legacy `utils/` package."""
+
 from pathlib import Path
 
 import pytest

@@ -223,6 +223,7 @@ def enforce_host_pin(
     *,
     mode: str = "session",
 ) -> None:
+    """Reject session/login when Host maps to a different org (ADR-015); SQL org filter still required."""
     pinned = resolve_bound_organization(db, request_hostname(request))
     if pinned is None or pinned.id == organization_id:
         return

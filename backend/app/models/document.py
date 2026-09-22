@@ -1,3 +1,5 @@
+"""Documents and chunks with org id, ACL, vectors, and FTS."""
+
 import enum
 from datetime import datetime
 from uuid import UUID, uuid4

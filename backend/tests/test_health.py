@@ -1,3 +1,5 @@
+"""Health and readiness endpoints."""
+
 from fastapi.testclient import TestClient
 
 from app.api import API_V1

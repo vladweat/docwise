@@ -1,3 +1,5 @@
+"""Redis fixed-window rate limits."""
+
 import uuid
 
 import pytest

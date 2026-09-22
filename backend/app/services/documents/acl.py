@@ -18,10 +18,12 @@ NOT_FOUND_DETAIL = "Document not found"
 
 
 def acl_overlap(user: Principal):
+    """SQL `access_roles && allowed_roles` for the current membership."""
     return Document.access_roles.overlap(cast(list(user.allowed_roles()), ARRAY(String)))
 
 
 def visible_documents_query(db: Session, user: Principal):
+    """Documents in session org the caller may list or download (org + inner ACL)."""
     return (
         db.query(Document)
         .filter(Document.organization_id == user.organization_id)
@@ -46,6 +48,7 @@ def preview_snippet_for_document(db: Session, document: Document) -> str | None:
 
 
 def get_visible_document(db: Session, user: Principal, document_id: UUID) -> Document:
+    """Single document or NotFound — same 404 for missing, foreign org, or ACL deny."""
     document = visible_documents_query(db, user).filter(Document.id == document_id).first()
     if document is None:
         raise NotFoundError(NOT_FOUND_DETAIL)
@@ -65,6 +68,7 @@ def get_managed_document(db: Session, user: Principal, document_id: UUID) -> Doc
 
 
 def parse_access_roles(raw: list[str] | str | None) -> list[str]:
+    """Normalize upload/form ACL tags; reject empty or invalid role tokens."""
     if raw is None:
         values: list[str] = []
     elif isinstance(raw, str):

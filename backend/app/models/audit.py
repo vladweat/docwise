@@ -1,3 +1,5 @@
+"""RAG audit rows (chunk UUIDs only — never chunk body text)."""
+
 from datetime import datetime
 from uuid import UUID, uuid4
 

@@ -159,6 +159,7 @@ def resolve_principal(
     user: User,
     organization_id: UUID | None,
 ) -> Principal | None:
+    """Map JWT org_id (or first membership) to Principal; org id never taken from request body."""
     if not user.is_active:
         return None
     membership: OrganizationMembership | None
@@ -311,10 +312,11 @@ def accept_invite(db: Session, invite: OrganizationInvite, user: User) -> Organi
 
 
 def list_members(db: Session, organization_id: UUID) -> list[tuple[OrganizationMembership, User]]:
-    return (
+    rows = (
         db.query(OrganizationMembership, User)
         .join(User, User.id == OrganizationMembership.user_id)
         .filter(OrganizationMembership.organization_id == organization_id)
         .order_by(OrganizationMembership.created_at.asc(), User.email.asc())
         .all()
     )
+    return [(membership, user) for membership, user in rows]

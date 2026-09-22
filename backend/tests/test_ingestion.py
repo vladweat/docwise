@@ -1,3 +1,5 @@
+"""Celery ingestion pipeline and idempotent re-index."""
+
 from __future__ import annotations
 
 from uuid import uuid4

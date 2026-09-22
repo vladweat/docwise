@@ -1,3 +1,5 @@
+"""Per-document indexing lock in Redis."""
+
 from uuid import uuid4
 
 from app.core.redis import acquire_indexing_lock, is_indexing_locked, lock_key, release_indexing_lock

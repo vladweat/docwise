@@ -10,7 +10,7 @@ import hashlib
 import json
 import logging
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -41,6 +41,7 @@ def cache_key(
     organization_id: UUID,
     index_generation: int = 0,
 ) -> str:
+    """Redis key scoped by org, corpus generation, and membership roles — never share across tenants."""
     roles = canonical_allowed_roles(allowed_roles)
     roles_hash = hashlib.sha256(",".join(roles).encode("utf-8")).hexdigest()[:16]
     return (
@@ -62,7 +63,7 @@ def redis_get(key: str) -> dict | None:
     if not value:
         return None
     try:
-        parsed = json.loads(value)
+        parsed = json.loads(cast(str, value))
     except json.JSONDecodeError:
         return None
     return parsed if isinstance(parsed, dict) else None
@@ -81,7 +82,10 @@ def delete_org_cache_keys(organization_id: UUID) -> None:
         client = get_redis_client()
         cursor = 0
         while True:
-            cursor, keys = client.scan(cursor=cursor, match=pattern, count=SCAN_COUNT)
+            cursor, keys = cast(
+                tuple[int, list[str]],
+                client.scan(cursor=cursor, match=pattern, count=SCAN_COUNT),
+            )
             if keys:
                 client.delete(*keys)
             if cursor == 0:
