@@ -1,0 +1,59 @@
+# Manual RAG eval (golden set + Ragas). Not on every PR — needs LLM key and ONNX models in the image.
+name: Eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      retrieval_only:
+        description: "Skip generation and Ragas (ACL + page hits only)"
+        type: boolean
+        default: false
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Backend venv + FastEmbed ONNX
+        run: |
+          bash backend/scripts/prepare-venv.sh
+          backend/.venv/bin/python backend/scripts/prepare_embeddings.py
+
+      - name: Build backend image (includes .models)
+        run: docker compose build backend
+
+      - name: Start stack
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ -z "$OPENAI_API_KEY" ]] && [[ "${{ inputs.retrieval_only }}" != "true" ]]; then
+            echo "OPENAI_API_KEY secret is required unless retrieval_only=true"
+            exit 1
+          fi
+          cp .env.example .env
+          echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env
+          docker compose up -d postgres redis minio backend celery-worker
+          docker compose exec -T backend python -m alembic upgrade head
+
+      - name: Run eval
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ "${{ inputs.retrieval_only }}" == "true" ]]; then
+            docker compose exec -T -e PYTHONPATH=/app backend python /eval/run_eval.py --seed --retrieval-only
+          else
+            docker compose exec -T -e PYTHONPATH=/app backend python /eval/run_eval.py --seed
+          fi
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rag-benchmark
+          path: reports/rag_benchmark.md

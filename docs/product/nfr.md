@@ -35,6 +35,22 @@ Supplements [srs.md](srs.md). Performance thresholds below are guidelines for lo
 
 Forbidden: `scroll` all corpus points into RAM for BM25.
 
+## Capacity and scaling (v1 guidelines)
+
+Not a cloud SLA. Shared B2B deploy: one Postgres holds **all tenants’** `document_chunks`; dense search uses a **global** HNSW on `embedding`, with `organization_id` and `access_roles` applied in SQL on every query ([retrieval.md](../pipeline/retrieval.md)).
+
+| Topic | v1 behavior | Pilot guidance |
+| --- | --- | --- |
+| Dense index | Global HNSW + per-query ACL filter | Before each dense query: `SET LOCAL hnsw.iterative_scan` (`HNSW_ITERATIVE_SCAN`, default `relaxed_order`) and `hnsw.max_scan_tuples` (`HNSW_MAX_SCAN_TUPLES`, default **20000**) so filtered neighbors are not truncated |
+| Corpus size | ~one chunk per PDF page / DOCX section (typical) | **Per org:** plan page quotas (Starter 200 / Team 2000 / Enterprise 20000 pages) bound ingest; expect **roughly similar order of chunks** unless many sections per page |
+| Comfort zone (single deploy) | Compose / one Postgres 15 + pgvector, CPU rerank | **Validated in dev:** demo + eval corpora (hundreds of chunks total). **Pilot target:** up to **~10k–50k chunks total** across all orgs on one instance with default `HNSW_MAX_SCAN_TUPLES`; Team-scale **per-org** corpus is the design center |
+| Degradation signs | Rising dense latency, empty dense after filter, inspect shows weak dense stage | Raise `HNSW_MAX_SCAN_TUPLES` temporarily; measure p95 retrieval (`rag_audit_logs.latency_ms`, see pilot `make check-pilot-alerts`); long-term — org-partitioned ANN (see engineering backlog / ADR when corpus forces it) |
+| Load baseline (pilot) | Not a SLA | **2026-09-22 (Compose dev, 135 chunks / 4 orgs):** hybrid `retrieve` p95 **2051 ms** (28×2 sequential, no LLM) — [reports/load_baseline.md](../../reports/load_baseline.md). `HNSW_MAX_SCAN_TUPLES=20000` unchanged. Re-run `make load-baseline` after corpus growth; chat soak → p95 in `rag_audit_logs` via `make check-pilot-alerts` |
+| Redis | Broker, result backend, rate limits, indexing locks, refresh tokens | **Single instance in Compose — SPOF** for queue and sessions; no HA in v1. Postgres + MinIO are the durable stores; rebuild Redis loses in-flight queue work, not the corpus |
+| Celery workers | Horizontal scale possible; one worker common on pilot | Ingest throughput scales with workers; embedding CPU is the bottleneck |
+
+FTS (GIN on `tsvector`) scales with filtered row count per org; still no full-table scroll into RAM.
+
 ## Observability
 
 - JSON logs with redaction (tokens, passwords, long PDF text).
@@ -45,7 +61,7 @@ Forbidden: `scroll` all corpus points into RAM for BM25.
 
 - Faithfulness: answer only from Top-4. Otherwise fixed refusal phrase.
 - Every factual clause — citation `{doc_id, page}`.
-- Eval: [evaluation.md](evaluation.md). Release: Faithfulness ≥ 0.8 and **zero** ACL leaks on `must_not_doc_ids`. Latest live run **2026-09-21** (FTS migration `012`, 35 cases): Faithfulness 1.000, Context Precision 0.994, Answer Relevance 0.725, page hit 0.929, ACL PASS — [reports/rag_benchmark.md](../../reports/rag_benchmark.md). Zero leaks of `must_not` documents from **another** org, even with tag `all`.
+- Eval: [evaluation.md](evaluation.md) (release discipline for fusion/FTS/rerank/prompt). Release on golden set: Faithfulness ≥ 0.8, Answer Relevance ≥ 0.75, target page hit ≥ 0.95, and **zero** ACL leaks on `must_not_doc_ids`. Latest live run **2026-09-22** (35 cases): Faithfulness 1.000, Context Precision 0.994, Answer Relevance 0.776, page hit 1.000, ACL PASS — [reports/rag_benchmark.md](../../reports/rag_benchmark.md). Zero leaks of `must_not` documents from **another** org, even with tag `all`. After metric-changing retrieval or prompt PRs, update benchmark + this date line per evaluation.md.
 
 ## Compatibility and i18n
 

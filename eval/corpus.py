@@ -441,32 +441,45 @@ def _keep_only_demo_membership(db, user_id, organization_id) -> None:
 
 
 def _handbook_pdf() -> bytes:
-    return _multi_page(
+    doc = fitz.open()
+    _add_page(
+        doc,
+        "Work schedule",
+        "Core working hours at Docwise are 09:00 to 18:00 Europe/Moscow. "
+        "The unpaid lunch break is 13:00 to 14:00. "
+        "The hybrid policy requires office attendance on Tuesday, Wednesday, and Thursday; "
+        "Monday and Friday are remote days. "
+        "A desk must be booked in the Places portal before 17:00 on the previous day.",
+    )
+    _add_page_sections(
+        doc,
         [
             (
-                "Work schedule",
-                "Core working hours at Docwise are 09:00 to 18:00 Europe/Moscow. "
-                "The unpaid lunch break is 13:00 to 14:00. "
-                "The hybrid policy requires office attendance on Tuesday, Wednesday, and Thursday; "
-                "Monday and Friday are remote days. "
-                "A desk must be booked in the Places portal before 17:00 on the previous day.",
+                "Device policy",
+                "Employees must not store client personal data on personal devices.",
             ),
             (
-                "Code of conduct",
-                "Employees must not store client personal data on personal devices. "
-                "Security incidents must be emailed to security@docwise.example within one hour. "
+                "Security reporting",
+                "Security incidents must be emailed to security@docwise.example within one hour.",
+            ),
+            (
+                "Gifts and publishing",
                 "External blog posts about the product require legal review before publishing. "
                 "Gifts from vendors over 50 USD must be declined.",
             ),
-            (
-                "Equipment",
-                "The standard laptop warranty is 36 months. "
-                "A lost badge replacement fee is 15 USD after the first free replacement. "
-                "Hardware requests go through Service Desk category IT / Hardware. "
-                "Docking stations are issued only to employees with an assigned office desk.",
-            ),
-        ]
+        ],
     )
+    _add_page(
+        doc,
+        "Equipment",
+        "The standard laptop warranty is 36 months. "
+        "A lost badge replacement fee is 15 USD after the first free replacement. "
+        "Hardware requests go through Service Desk category IT / Hardware. "
+        "Docking stations are issued only to employees with an assigned office desk.",
+    )
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
 
 
 def _leave_pdf() -> bytes:
@@ -524,24 +537,36 @@ def _expense_pdf() -> bytes:
 
 
 def _engineering_pdf() -> bytes:
-    return _multi_page(
+    doc = fitz.open()
+    _add_page(
+        doc,
+        "First week",
+        "On day one, enable GitHub SSO via Okta and collect a laptop from the IT cage on floor 4. "
+        "Each new hire is assigned a buddy for 30 days. "
+        "Required reading is the employee handbook and the leave policy. "
+        "The first pull request must be opened within five working days.",
+    )
+    _add_page_sections(
+        doc,
         [
-            (
-                "First week",
-                "On day one, enable GitHub SSO via Okta and collect a laptop from the IT cage on floor 4. "
-                "Each new hire is assigned a buddy for 30 days. "
-                "Required reading is the employee handbook and the leave policy. "
-                "The first pull request must be opened within five working days.",
-            ),
             (
                 "Delivery",
                 "Staging deploys use make up on the staging cluster. "
-                "Production deploys need two approvers from the on-call rotation. "
-                "The default Python version is 3.12. "
+                "Production deploys need two approvers from the on-call rotation.",
+            ),
+            (
+                "Toolchain",
+                "The default Python version for engineering services is 3.12.",
+            ),
+            (
+                "On-call rotation",
                 "The on-call starter rotation begins after 90 days.",
             ),
-        ]
+        ],
     )
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
 
 
 def _hr_comp_pdf() -> bytes:
@@ -816,6 +841,19 @@ def _add_page(doc: fitz.Document, title: str, body: str) -> fitz.Page:
     page = doc.new_page(width=A4[0], height=A4[1])
     page.insert_text((72, 72), title, fontsize=18, fontname="helv")
     page.insert_textbox(fitz.Rect(72, 100, 523, 420), body, fontsize=11, fontname="helv")
+    return page
+
+
+def _add_page_sections(doc: fitz.Document, sections: list[tuple[str, str]]) -> fitz.Page:
+    """Multiple section headings on one physical page (chunker splits on headings)."""
+    page = doc.new_page(width=A4[0], height=A4[1])
+    y = 72.0
+    for title, body in sections:
+        page.insert_text((72, y), title, fontsize=18, fontname="helv")
+        y += 30.0
+        box = fitz.Rect(72, y, 523, min(y + 120.0, 780.0))
+        page.insert_textbox(box, body, fontsize=11, fontname="helv")
+        y = box.y1 + 28.0
     return page
 
 

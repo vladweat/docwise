@@ -73,7 +73,7 @@ def storage():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.upload.enqueue_ingestion", lambda document_id: None)
 
 
 def _tight_starter_pages(monkeypatch, pages: int) -> None:
@@ -217,7 +217,7 @@ def test_page_quota_402_only_hits_capped_org(storage: FakeStorage, monkeypatch):
 
     queued: list[str] = []
     monkeypatch.setattr(
-        "app.services.documents.enqueue_ingestion",
+        "app.services.documents.upload.enqueue_ingestion",
         lambda document_id: queued.append(str(document_id)),
     )
 
@@ -375,8 +375,8 @@ def test_ingest_over_page_cap_fails_without_ready(storage: FakeStorage, monkeypa
         )
         return IndexResult(chunk_count=1, total_pages=4)
 
-    monkeypatch.setattr("app.services.ingestion.acquire_indexing_lock", lambda *_a, **_k: True)
-    monkeypatch.setattr("app.services.ingestion.release_indexing_lock", lambda *_a, **_k: None)
+    monkeypatch.setattr("app.services.ingestion.worker.acquire_indexing_lock", lambda *_a, **_k: True)
+    monkeypatch.setattr("app.services.ingestion.worker.release_indexing_lock", lambda *_a, **_k: None)
 
     result = run_ingestion(db, document_id, storage=storage, index_fn=index_too_many)
     assert result["status"] == "failed"

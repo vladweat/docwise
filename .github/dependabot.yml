@@ -1,0 +1,19 @@
+# Advisory dependency PRs; merge after CI. Does not replace pip/npm audit job in ci.yml.
+# Runs on GitHub only (Dependabot cloud) — not on an offline local VM; keep file for when remote is wired.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5

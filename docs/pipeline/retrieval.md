@@ -29,7 +29,7 @@ Original download (`GET .../raw`) uses same semantics on `documents` row, not �
 
 Do not load full corpus into RAM for BM25. Search — SQL Top-K with ACL on every query.
 
-Dense: query embedding, Top-25, cosine (`embedding <=> query`), ACL filter. HNSW index is global; before query `SET LOCAL hnsw.iterative_scan` (`relaxed_order`) and `hnsw.max_scan_tuples` (`HNSW_MAX_SCAN_TUPLES`, default 20000) so org/ACL filter does not truncate neighbors.
+Dense: query embedding, Top-25, cosine (`embedding <=> query`), ACL filter. HNSW index is global; before query `SET LOCAL hnsw.iterative_scan` (`relaxed_order`) and `hnsw.max_scan_tuples` (`HNSW_MAX_SCAN_TUPLES`, default 20000) so org/ACL filter does not truncate neighbors. Capacity and Redis SPOF — [nfr.md](../product/nfr.md#capacity-and-scaling-v1-guidelines).
 2. **Sparse / FTS:** Top-25 independent of dense, Postgres `tsvector` (`simple`) + GIN, same `organization_id` and `access_roles && allowed_roles`.
 3. **RRF** (`k = 60`) — `reciprocal_rank_fusion` without formula change:
 

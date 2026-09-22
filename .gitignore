@@ -42,6 +42,9 @@ Thumbs.db
 # Docker
 *.log
 
+# Pilot backups (ops/backup-pilot.sh)
+backups/
+
 # Embedding weights (downloaded by make embeddings)
 backend/.models/*
 !backend/.models/.gitkeep
