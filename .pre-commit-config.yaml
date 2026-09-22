@@ -1,0 +1,7 @@
+# Optional local hook (not run in CI). Install: pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.9
+    hooks:
+      - id: ruff
+        files: ^backend/(app|tests|scripts|worker)/

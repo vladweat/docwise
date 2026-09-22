@@ -1,4 +1,4 @@
-.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend test test-frontend lint typecheck health migrate eval eval-retrieval demo
+.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend restart-worker demo-fresh demo-fresh-volumes test test-quick test-smoke test-frontend lint typecheck health migrate eval eval-retrieval demo
 
 # Шаг 1 (нужен интернет): скачать зависимости backend + frontend
 deps: venv embeddings deps-frontend
@@ -30,6 +30,20 @@ build:
 down:
 	docker compose down
 
+# После правок ingestion/Celery (worker без uvicorn --reload)
+restart-worker:
+	docker compose restart celery-worker
+
+# Миграции + повторный seed Demo org (тома Postgres/MinIO не трогаем)
+demo-fresh: migrate demo
+
+# Удаляет postgres_data и minio_data, поднимает стек, migrate, demo — только для локалки
+demo-fresh-volumes:
+	docker compose down -v
+	$(MAKE) up-fast
+	$(MAKE) migrate
+	$(MAKE) demo
+
 logs:
 	docker compose logs -f backend frontend
 
@@ -39,10 +53,19 @@ logs-frontend:
 # pytest ходит в docwise_test, не в рабочую БД. Без лишних coverage-гейтов.
 # -u: line-buffered stdout (видно прогресс сразу). test-quick: короче лог + top slow tests.
 test:
-	docker compose exec backend python -u -m pytest tests/ -v
+	docker compose exec -T backend python -u -m pytest tests/ -v
 
 test-quick:
-	docker compose exec backend python -u -m pytest tests/ -q --durations=15
+	docker compose exec -T backend python -u -m pytest tests/ -q --durations=15
+
+# ~3 min: parsers, layout, auth cookies, rate limit, golden JSON — no full ingest/chat/retrieval matrix
+test-smoke:
+	docker compose exec -T backend python -u -m pytest \
+		tests/test_layout.py tests/test_text.py tests/test_logging.py tests/test_proxy.py \
+		tests/test_auth_cookies.py tests/test_rate_limit.py tests/test_health.py \
+		tests/test_redis_lock.py tests/test_sentry.py tests/test_billing_port.py \
+		tests/test_eval_golden_dataset.py tests/test_chunker.py tests/test_pdf_parser.py \
+		-q --tb=line
 
 lint:
 	cd backend && .venv/bin/ruff check app tests scripts worker

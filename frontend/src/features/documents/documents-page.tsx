@@ -7,7 +7,6 @@ import { AuthGate } from "@/features/auth/auth-gate";
 import { useAuth } from "@/features/auth/auth-provider";
 import { DocumentsEmptyState } from "@/features/documents/documents-empty-state";
 import { DocumentUploadModal } from "@/features/documents/document-upload-modal";
-import { InviteMemberModal } from "@/features/documents/invite-member-modal";
 import { DocumentDeleteDialog } from "@/features/documents/document-delete-dialog";
 import { DocumentPreviewDialog } from "@/features/documents/document-preview-dialog";
 import { DocumentRow, isDocumentInFlight } from "@/features/documents/document-row";
@@ -33,7 +32,6 @@ export function DocumentsPage() {
   const canManage = canManageKnowledgeBase(user);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadInitialFile, setUploadInitialFile] = useState<File | null>(null);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<DocumentResponse | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DocumentResponse | null>(null);
 
@@ -61,14 +59,9 @@ export function DocumentsPage() {
               </p>
             </div>
             {canManage ? (
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={() => setInviteOpen(true)}>
-                  {t("documents.invite")}
-                </Button>
-                <Button type="button" onClick={() => setUploadOpen(true)}>
-                  {t("documents.uploadPdf")}
-                </Button>
-              </div>
+              <Button type="button" onClick={() => setUploadOpen(true)}>
+                {t("documents.uploadPdf")}
+              </Button>
             ) : (
               <p className="text-xs text-slate-500">{t("documents.adminOnlyHint")}</p>
             )}
@@ -137,7 +130,6 @@ export function DocumentsPage() {
           setUploadInitialFile(null);
         }}
       />
-      <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
       <DocumentPreviewDialog document={previewDocument} onClose={() => setPreviewDocument(null)} />
       <DocumentDeleteDialog document={pendingDelete} onClose={() => setPendingDelete(null)} />
     </AuthGate>
