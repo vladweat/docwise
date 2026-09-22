@@ -14,7 +14,7 @@ v1 — cookie-session, куки `dw_access` / `dw_refresh` (см. [decisions.md]
 - В access-токене есть `org_id` текущего членства; `GET /auth/me` отдаёт org + роль membership. Смена org — `POST /auth/switch-organization` (только своё membership), новые куки. На hostname, привязанном к org, смена на другую org запрещена ([ADR-015](../engineering/decisions.md)).
 - `GET /health` и `GET /ready` без auth. Остальной `/api/v1/*` — `get_current_user` (только cookie).
 - CSRF: при cross-site cookies (`SameSite=None`) мутации требуют allowlisted `Origin` или `X-Requested-With: Docwise`. Origin allowlist после M6 — канонический фронт **и** verified hostname текущей org.
-- Manage KB (upload, delete, смена `access_roles`): `require_kb_admin` — `admin` или `manager` **текущей org**. Инвайты, биллинг, SSO, домен, inspect — только `require_admin`. Retrieval / list / status / raw **всё равно** фильтруются `org_id` + ACL документа, без admin-override и без чтения чужой org.
+- Manage KB (upload, delete, смена `access_roles`): `require_kb_admin` — `admin` или `manager` **текущей org**. При отказе employee HTTP `403` с `detail: "Admin access required"` (то же сообщение, что у `require_admin`; роль в теле не раскрывается). Инвайты, биллинг, SSO, домен, inspect — только `require_admin`. Retrieval / list / status / raw **всё равно** фильтруются `org_id` + ACL документа, без admin-override и без чтения чужой org.
 
 Не принимать `access_roles`, `user_id`, `document_ids`, `org_id` / `organization_id` из тела как источник прав.
 

@@ -43,7 +43,7 @@ SSE: сначала отрисовать chips цитат, затем наращ
 
 Загрузка: drag-and-drop модалка, выбор ролей (`HR`, `Finance`, `General` / `all` и т.д. — маппинг на `access_roles`). После upload — поллинг `GET .../status` до терминального статуса; в статусе поле `stage`: `parse` → `chunk` → `embed`.
 
-Удаление — с подтверждением; только роли с правом manage KB (`admin` текущей org). Список не показывает документы вне ACL и вне текущей организации.
+Upload и удаление — с подтверждением где нужно; manage KB: `admin` или `manager` текущей org (`canManageKnowledgeBase`). Смена `access_roles` после upload — только через `PATCH /api/v1/documents/{id}` (UI v1 не реализует). Список не показывает документы вне ACL и вне текущей организации.
 
 В шапке имя текущей org; org-admin — инвайты на `/documents`. Переключение org не шлёт `organization_id` в теле чата. Не подставлять id другой компании в upload.
 

@@ -52,7 +52,7 @@ Content-Type: multipart/form-data
 GET /api/v1/documents
 ```
 
-Пагинация: `limit`, `offset` или cursor. Фильтры: `status`. Только документы **текущей org**, видимые роли пользователя. Поля: `id` (UUID), `title`, `file_size_bytes`, `total_pages`, `access_roles`, `status`, `last_error` (null, если не `failed`), `created_at`.
+Пагинация: `limit` (1…100, по умолчанию 20), `offset`. Фильтры: `status`. Только документы **текущей org**, видимые роли пользователя. Поля: `id` (UUID), `title`, `file_size_bytes`, `total_pages`, `access_roles`, `status`, `last_error` (null, если не `failed`), `created_at`.
 
 ```http
 GET /api/v1/documents/{id}/status
@@ -77,7 +77,7 @@ DELETE /api/v1/documents/{id}
 GET /api/v1/documents/{id}/raw
 ```
 
-Байты файла для PDF-вьюера. Те же ACL, что у строки документа. `Content-Type: application/pdf`. Без публичных URL вечно живущих pre-signed без auth.
+Байты оригинала для viewer (PDF или DOCX). Те же ACL, что у строки документа. `Content-Type`: `application/pdf` или `application/vnd.openxmlformats-officedocument.wordprocessingml.document`. Без публичных URL вечно живущих pre-signed без auth.
 
 ## Поиск и диалог
 

@@ -25,7 +25,7 @@ Entry: Celery `process_document(doc_id)`. Status: `pending → processing → re
 {content}
 ```
 
-- `document_chunks.content` is the fragment **without** that header (UI, LLM, citation snippet). `embed_text` is computed at embed time, not stored as a column.
+- `document_chunks.content` is the fragment **without** that header (UI, LLM, rerank, citation snippet). `embed_text` is computed at embed time for dense vectors only, not stored as a column.
 - Payload must include: `document_id`, `organization_id` (copy from the document row, M5), `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles`, `content`, `token_count`.
 
 ## Embed & upsert
