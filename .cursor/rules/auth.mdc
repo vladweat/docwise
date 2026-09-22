@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Auth
 
-Canonical: `docs/platform/auth.md`, `docs/platform/tenancy.md`. Cookies `dw_*` (renamed from ChainWise `cw_*`). `get_current_user` / `require_admin` stay; `require_admin` is admin of the **current org**. Roles: `admin | manager | employee` plus `departments[]` on the membership.
+Canonical: `docs/platform/auth.md`, `docs/platform/tenancy.md`. Cookies `dw_*` (not legacy `cw_*` names). `get_current_user` / `require_admin` stay; `require_admin` is admin of the **current org**. Roles: `admin | manager | employee` plus `departments[]` on the membership.
 
 ```python
 # ❌ BAD — client chooses visibility or tenant

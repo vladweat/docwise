@@ -16,7 +16,7 @@ Pipeline order is fixed: **org filter (M5) → RBAC filter → dense+sparse → 
 
 Do not skip rerank to “make it faster” on the default path. Do not send Top-25 raw chunks to the LLM.
 
-Do not port ChainWise `scroll_contract_chunks` / in-memory BM25 over a whole document set. Sparse is SQL FTS (or a SQL candidate list), always with the same org + ACL filter. `all` is not SaaS-global.
+Do not load all chunks into RAM for sparse search (`scroll_*` / in-memory BM25 over one artifact). Sparse is SQL FTS (or a SQL candidate list), always with the same org + ACL filter. `all` is not SaaS-global.
 
 Chat SSE must not hold a DB session across FastEmbed or `stream_openai`. Embed the query and rerank with no connection checked out; persist in a new session after the stream.
 
@@ -24,7 +24,7 @@ LLM cache key: `llm_cache:{version}:{org_id}:{generation}:{roles_hash}:{question
 
 ## SSE `POST /api/v1/chat/stream`
 
-Reuse ChainWise envelopes (`data: {json}\n\n`, then `data: [DONE]`):
+SSE JSON envelopes (`data: {json}\n\n`, then `data: [DONE]`):
 
 1. `{type: "citations", citations: [{doc_id, doc_title, page, snippet}, ...]}`
 2. `{type: "token", content: "..."}` (repeated)

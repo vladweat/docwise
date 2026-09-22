@@ -1,11 +1,11 @@
 ---
-description: How to reuse ChainWise — copy the skeleton, do not copy Solidity retrieval topology
+description: Skeleton reuse — copy app wiring, not one-artifact RAM retrieval
 alwaysApply: true
 ---
 
-# Reuse from `../chainwise`
+# Skeleton reuse
 
-Docwise is an adaptation of ChainWise, not a greenfield app. Canonical inventory: `docs/engineering/reuse-from-chainwise.md`.
+Docwise is not a greenfield stack: auth, queues, health, and the frontend SSE client follow an inherited pattern. Optional file map (workspace-only): `docs/_private/reuse-from-chainwise.md`.
 
 ## Copy (adapt names/payload)
 
@@ -17,7 +17,7 @@ Docwise is an adaptation of ChainWise, not a greenfield app. Canonical inventory
 - Frontend `api.ts` cookie fetch + SSE reader (`type: citations | token | meta | error | done`)
 - docker-compose minus `slither` and Qdrant, plus MinIO
 
-Keep **sync** SQLAlchemy `Session` like ChainWise. Do not rewrite the backend to asyncpg in v1.
+Keep **sync** SQLAlchemy `Session`. Do not rewrite the backend to asyncpg in v1.
 
 ## Do not copy
 
