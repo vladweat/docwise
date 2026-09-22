@@ -56,7 +56,7 @@ docwise/
 | `components/ui` | shadcn/Radix-примитивы | Вёрстка страниц |
 | `lib/` | `api.ts`, `sse.ts`, format, quota, ACL helpers | Парсеры SSE внутри экрана чата |
 
-Каркас взят из `../chainwise` ([reuse-from-chainwise.md](../engineering/reuse-from-chainwise.md) — карта порта, не backlog). Не копировать `slither/`, `semantic_splitter.py`, `rag_engine` целиком. Sparse в коде — Postgres FTS (ADR-005), не BM25 по пулу в RAM.
+Не копировать доменные модули аудита контрактов, `semantic_splitter.py`, in-memory BM25 по всему корпусу. Sparse в коде — Postgres FTS (ADR-005), не BM25 по пулу в RAM.
 
 ## Язык
 
@@ -85,5 +85,5 @@ docwise/
 - ACL только в системном промпте.
 - Подмена стека (LangChain как ядро, другой векторный движок) без явной просьбы.
 - Переписывание всего backend на asyncpg «заодно» с портом.
-- Retrieval через `SELECT` всех чанков в RAM (паттерн одного контракта в ChainWise).
+- Retrieval через `SELECT` всех чанков корпуса в RAM для sparse/BM25.
 - Публичные ссылки на PDF без проверки прав.

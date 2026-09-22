@@ -52,3 +52,7 @@ backend/.libs/*
 
 frontend/scripts/*
 scripts/node_modules/
+scripts
+
+# Workspace-only docs (career KB, port map, owner checklists) — not for GitHub
+docs/_private/

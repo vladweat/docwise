@@ -8,12 +8,12 @@ Target deploy is **shared B2B SaaS** (many organizations on one stack). Isolatio
 
 | | |
 | --- | --- |
-| **Live demo** | TBD — [owner checklist](docs/portfolio/portfolio-owner-tasks.md#c1--публичный-https-demo) · [deploy guide](docs/portfolio/deploy-public-demo.md) |
-| **Walkthrough video** | TBD (60–90 s) — [shot list](docs/portfolio/portfolio-owner-tasks.md#c2--видео-6090-с) |
+| **Live demo** | TBD — [deploy guide](docs/portfolio/deploy-public-demo.md) |
+| **Walkthrough video** | TBD (60–90 s) |
 
 Replace `OWNER/REPO` in the CI badge after you publish the GitHub remote.
 
-> Product spec: [docs/product/srs.md](docs/product/srs.md) (Russian). Tenancy: [docs/platform/tenancy.md](docs/platform/tenancy.md). Adapted from sibling [ChainWise](../chainwise) (cookies, Celery, SSE) with a different parser and **SQL RBAC on every search**.
+> Product spec: [docs/product/srs.md](docs/product/srs.md) (Russian). Tenancy: [docs/platform/tenancy.md](docs/platform/tenancy.md). **SQL RBAC on every search** (`organization_id` + `access_roles`) before fusion, rerank, or the LLM.
 
 ## Why not naive RAG
 
@@ -28,10 +28,9 @@ Naive “split every 500 characters, embed, stuff Top-K into a prompt” fails i
 
 Keyword search does not understand the question. A junior employee must never receive an answer derived from a file they cannot open. `all` means everyone **in this org**, not every logged-in SaaS user.
 
-## Not ChatPDF / not ChainWise
+## Not ChatPDF
 
-- **Not ChatPDF** — shared B2B SaaS (`organization_id` + document `access_roles`), hybrid retrieval in SQL (dense + FTS → RRF → rerank), and grounded refuse when Top-4 is empty; not a single-upload consumer chat with prompt-only guardrails.
-- **Not ChainWise** — reuses auth, Celery, and SSE envelopes from the sibling audit app; product is **corpus-wide document RAG** (PDF + DOCX ingest) with pgvector in Postgres, not one Solidity contract with in-memory BM25 over Qdrant scroll.
+Shared B2B SaaS (`organization_id` + document `access_roles`), hybrid retrieval in SQL (dense + FTS → RRF → rerank), and grounded refuse when Top-4 is empty — not a single-upload consumer chat with prompt-only guardrails or a naive character-split index.
 
 ## Portfolio narrative
 
@@ -41,8 +40,6 @@ Keyword search does not understand the question. A junior employee must never re
 | **Approach** | Hybrid retrieval in PostgreSQL (pgvector + FTS → RRF → rerank) with **two SQL filters** (`organization_id` + `access_roles`) before fusion, rerank, or the LLM. Page-bounded chunks; SSE answers cite `{doc_id, page}`. |
 | **Proof** | Demo ACL: employee salary question refuses; HR gets `72000`–`88000` USD from `HR-Compensation.pdf`. Eval: **0** `must_not_doc_ids` leaks, Faithfulness **1.000** (2026-09-21) — [reports/rag_benchmark.md](reports/rag_benchmark.md). |
 | **Commercial envelope** | M6 plans/quotas/SSO/domain in product code; portfolio runs `BILLING_PROVIDER=dev` and `SSO_PROVIDER=dev` (dev simulate + fixture SSO, no live Stripe or Okta). Pytest covers quotas and cross-org SSO isolation. |
-
-Owner-only steps (public URL, video, GitHub pin): [docs/portfolio/portfolio-owner-tasks.md](docs/portfolio/portfolio-owner-tasks.md).
 
 ## Architecture
 
@@ -190,8 +187,6 @@ This repo is a portfolio-complete RAG workspace, not a billing company. Intentio
 
 Compose: `BILLING_PROVIDER=dev` (plan changes without payments) and `SSO_PROVIDER=dev` (fixture assertion, not a customer IdP). Inspect is on in Compose (`ENABLE_SEARCH_INSPECT=true`) and off by default when `ENVIRONMENT=production`.
 
-Portfolio: level **B** closed in-repo; level **C** (live demo URL + video) — [docs/portfolio/portfolio-owner-tasks.md](docs/portfolio/portfolio-owner-tasks.md). Levels A/B/C — [docs/portfolio/portfolio-levels.md](docs/portfolio/portfolio-levels.md). Repo showcase — [docs/portfolio/portfolio.md](docs/portfolio/portfolio.md).
-
 ## CI
 
 GitHub Actions on every push/PR:
@@ -200,7 +195,7 @@ GitHub Actions on every push/PR:
 - **pytest** (parser, FTS/RRF `k=60`, ACL) against pgvector + Redis — no GPU, no live LLM, no eval runner
 - **frontend** `tsc --noEmit`, Vitest, `next lint`, `next build`
 
-No coverage gates on ChainWise `pragma_parser` / `risk_scorer` (those modules are not in this repo).
+CI does not require GPU, a live LLM, or the Ragas eval runner.
 
 ```bash
 make lint            # ruff + mypy
@@ -227,7 +222,7 @@ reports/          # rag_benchmark.md
 | [docs/README.md](docs/README.md) | Index |
 | [docs/product/srs.md](docs/product/srs.md) | Product requirements |
 | [docs/product/architecture.md](docs/product/architecture.md) | System and flows |
-| [docs/engineering/decisions.md](docs/engineering/decisions.md) | ADRs vs ChainWise / the draft TZ |
+| [docs/engineering/decisions.md](docs/engineering/decisions.md) | ADRs vs the draft TZ |
 | [docs/platform/tenancy.md](docs/platform/tenancy.md) | Shared SaaS org isolation |
 | [docs/platform/billing.md](docs/platform/billing.md) | Plans, quotas, billing port |
 | [docs/platform/auth.md](docs/platform/auth.md) | Session, roles, ACL assembly |
@@ -235,8 +230,5 @@ reports/          # rag_benchmark.md
 | [docs/engineering/api.md](docs/engineering/api.md) | HTTP contract |
 | [docs/product/milestones.md](docs/product/milestones.md) | v1 roadmap |
 | [docs/engineering/tech-debt.md](docs/engineering/tech-debt.md) | Structural backlog after M0–M6 |
-| [docs/portfolio/portfolio.md](docs/portfolio/portfolio.md) | Demo / showcase freeze (not product milestones) |
-| [docs/portfolio/portfolio-levels.md](docs/portfolio/portfolio-levels.md) | Portfolio levels A/B/C (interview-ready, abroad) |
-| [docs/portfolio/portfolio-owner-tasks.md](docs/portfolio/portfolio-owner-tasks.md) | Video, public demo, GitHub — owner only |
-| [docs/portfolio/deploy-public-demo.md](docs/portfolio/deploy-public-demo.md) | HTTPS demo VPS checklist (C1) |
+| [docs/portfolio/deploy-public-demo.md](docs/portfolio/deploy-public-demo.md) | Optional HTTPS demo on a VPS |
 | [AGENTS.md](AGENTS.md) | Agent checklist |

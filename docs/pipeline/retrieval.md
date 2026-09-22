@@ -27,11 +27,11 @@ LIMIT 25
 
 ## Шаг 2. Hybrid search
 
-Не копировать ChainWise-путь `scroll_contract_chunks` + BM25 по всем чанкам сущности. Там поиск ограничен одним контрактом; здесь — весь корпус.
+Не загружать весь корпус в RAM для BM25. Поиск — SQL Top-K с ACL на каждом запросе.
 
 Dense: эмбеддинг вопроса, Top-25, cosine (`embedding <=> query`), фильтр ACL. Индекс HNSW глобальный; перед запросом `SET LOCAL hnsw.iterative_scan` (`relaxed_order`) и `hnsw.max_scan_tuples` (`HNSW_MAX_SCAN_TUPLES`, дефолт 20000), чтобы org/ACL-фильтр не обрезал соседей.
 2. **Sparse / FTS:** Top-25 независимо от dense, Postgres `tsvector` (`simple`) + GIN, тот же `organization_id` и `access_roles && allowed_roles`.
-3. **RRF** (`k = 60`) — функция из ChainWise `reciprocal_rank_fusion` без изменений:
+3. **RRF** (`k = 60`) — `reciprocal_rank_fusion` без изменений формулы:
 
 \[
 RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{rank}_m(d)}
@@ -60,7 +60,7 @@ RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{ran
 
 ## Шаг 5. SSE
 
-Эндпоинт: `POST /api/v1/chat/stream`. Протокол как в ChainWise (клиент `streamContractChat` почти 1:1): строки `data: <json>\n\n`, финал `data: [DONE]`.
+Эндпоинт: `POST /api/v1/chat/stream`. Протокол SSE: строки `data: <json>\n\n`, финал `data: [DONE]` (см. [api.md](../engineering/api.md)).
 
 | Порядок | `type` | Данные |
 | --- | --- | --- |

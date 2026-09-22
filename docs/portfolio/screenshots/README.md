@@ -1,6 +1,6 @@
 # README screenshots
 
-PNG set for the root [README](../../README.md) gallery (portfolio level B).
+PNG set for the root [README](../../README.md) gallery.
 
 | File | Scene |
 | --- | --- |

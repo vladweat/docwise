@@ -32,7 +32,7 @@
 
 - [x] **Бочки `__init__.py` врут.** `services/__init__.py` описывает слой. `schemas/__init__.py` не реэкспортирует контракты — import из модуля ресурса.
 
-### Дубли и наследие ChainWise
+### Дубли и ранний каркас
 
 - [x] **Два линтера.** Один ruff: CI и `make lint` — `ruff check app tests scripts worker`. Конфиг `backend/ruff.toml`. flake8 и `.flake8` убраны.
 

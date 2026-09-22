@@ -4,7 +4,7 @@
 
 Маршруты в `app/` — RSC (`metadata` + остров). Интерактив и сторы фичи — `src/features/{chat,documents,settings,auth,inspect,health}`. Общий HTTP — `lib/api.ts`. Примитивы — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
 
-База UI — ChainWise (`frontend/src/components/ui/*`, `lib/api.ts`, чат, auth). Заменить code-viewer на PDF; цитаты `file.sol:L10-20` → `Doc.pdf (стр. 4)`. SSE-ридер оставить: события `citations | token | meta | error | done`.
+База UI — shadcn + `lib/api.ts`, чат, auth. PDF viewer вместо code-viewer; цитаты `Doc.pdf (стр. N)` или раздел DOCX. SSE-ридер: события `citations | token | meta | error | done`.
 
 ## Маршруты
 

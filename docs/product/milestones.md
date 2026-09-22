@@ -1,12 +1,12 @@
 # Roadmap
 
-Ориентир v1: **1–2 недели** после M0, потому что каркас уже в `../chainwise`. Не начинать с пустого Compose. Карта файлов: [reuse-from-chainwise.md](../engineering/reuse-from-chainwise.md). Продукт: [srs.md](srs.md). Отклонения: [decisions.md](../engineering/decisions.md).
+Ориентир v1: **1–2 недели** после M0 при готовом каркасе (Compose, auth, Celery, SSE). Продукт: [srs.md](srs.md). Отклонения: [decisions.md](../engineering/decisions.md).
 
 **Как отмечать.** Закрытый пункт — `- [x]` в том же изменении, что и код. Критерий вехи не ставить, пока не выполнен целиком. Приёмка продукта — в конце файла и в [srs.md](srs.md) §6.
 
 | Веха | Статус | Ориентир |
 | --- | --- | --- |
-| [M0 Скелет](#milestone-0--скелет-из-chainwise) | готово | 0.5–1 день |
+| [M0 Скелет](#milestone-0--скелет-приложения) | готово | 0.5–1 день |
 | [M1 PDF ingest](#milestone-1--pdf-ingest) | готово | 2–3 дня |
 | [M2 Retrieval + RBAC + SSE](#milestone-2--corpus-retrieval--rbac--sse) | готово | 3–4 дня |
 | [M3 Split-screen UI](#milestone-3--split-screen-ui) | готово | 2–3 дня |
@@ -16,7 +16,7 @@
 
 ```mermaid
 flowchart LR
-  M0[M0 fork ChainWise] --> M1[M1 PDF ingest]
+  M0[M0 app skeleton] --> M1[M1 PDF ingest]
   M1 --> M2[M2 retrieval + RBAC]
   M2 --> M3[M3 PDF UI]
   M2 --> M4[M4 eval + CI]
@@ -29,14 +29,14 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ---
 
-## Milestone 0 — Скелет из ChainWise
+## Milestone 0 — Скелет приложения
 
 **Критерий:** `make up` поднимает postgres, redis, minio, backend, worker, frontend. Логин/регистрация работают (cookies, UUID `id`). `/ready` показывает `pgvector: ok`.
 
 ### Каркас
 
-- [x] Скопировать `backend/` без slither / solc / risk / etherscan
-- [x] Скопировать `frontend/` (ui + auth + api client)
+- [x] Каркас `backend/` (FastAPI, Celery, без доменных модулей аудита контрактов)
+- [x] Каркас `frontend/` (ui + auth + api client)
 - [x] `docker-compose.yml`, `Makefile`, GitHub Actions
 - [x] Выкинуть сервис `slither`, пути `SOLCX_*` / `RISK_MODEL_*` / Qdrant
 - [x] Добавить MinIO
@@ -123,7 +123,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ## Milestone 2 — Corpus retrieval + RBAC + SSE
 
-Спеки: [retrieval.md](../pipeline/retrieval.md), [auth.md](../platform/auth.md), [api.md](../engineering/api.md). Запрещено `SELECT` всего корпуса в RAM (путь ChainWise `scroll_contract_chunks`).
+Спеки: [retrieval.md](../pipeline/retrieval.md), [auth.md](../platform/auth.md), [api.md](../engineering/api.md). Запрещено `SELECT` всего корпуса в RAM для sparse/BM25.
 
 **Критерий:** вопрос находит страницу; пользователь без роли не видит чанк в inspect; чужой ACL не протекает через LLM cache.
 
@@ -140,7 +140,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 ### Чат и SSE
 
 - [x] `POST /api/v1/chat/stream` — cookie session, rate limit chat
-- [x] SSE JSON-конверты ChainWise: `citations` → `token` → `meta` → `[DONE]`; ошибки `type: error`
+- [x] SSE JSON-конверты: `citations` → `token` → `meta` → `[DONE]`; ошибки `type: error`
 - [x] Цитаты `{doc_id: UUID, doc_title, page, snippet}` до первого токена
 - [x] Каждый факт в ответе цитируем; иначе отказ фиксированной фразой
 - [x] `session_id` пустой → создать `chat_sessions`; история не обходит ACL
@@ -169,7 +169,7 @@ M3 и M4 после M2 можно вести параллельно, но кли
 
 ## Milestone 3 — Split-screen UI
 
-Спека: [frontend.md](frontend.md). База — ChainWise chat + auth; code-viewer не тащить.
+Спека: [frontend.md](frontend.md). База — существующий чат + auth; code-viewer не тащить.
 
 **Критерий:** end-to-end клик по цитате открывает нужную страницу.
 
@@ -369,4 +369,4 @@ flowchart LR
 - агенты с tool-calling за пределы корпуса
 - обучение своих эмбеддингов
 - DOCX как обязательный формат (желателен, не блокер)
-- из ChainWise: Slither, solc, Etherscan, XGBoost risk, PDF-отчёт аудита, Qdrant
+- доменный аудит Solidity, Slither/solc, Etherscan, risk ML, PDF-отчёты аудита, Qdrant как отдельный vector store
