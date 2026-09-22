@@ -17,7 +17,7 @@ alwaysApply: false
 - Split pane: sessions (collapsible) | chat (min ~440px, never a thin strip) | PDF (collapsible). A citation click reopens the PDF pane.
 - Citations in the answer are interactive tags, e.g. `Expense_Policy.pdf (p. 4)`.
 - Clicking a citation **must**: open that file in the viewer, jump to `page`, and highlight the snippet when coordinates/text exist.
-- Reuse ChainWise `streamContractChat` parser. SSE order: `citations` → `token` → `meta`/`done`. Click citation → `Doc.pdf` page, not `file.sol` lines.
+- Reuse the existing SSE chat parser in `api.ts`. Order: `citations` → `token` → `meta`/`done`. Click citation → `Doc.pdf` page, not line-number contract refs.
 
 ## Knowledge base admin
 

@@ -5,7 +5,7 @@ on:
   pull_request:
 
 # Unit CI: ruff, pytest, frontend tsc + vitest + lint + build.
-# No GPU, no live LLM, no eval runner, no ChainWise coverage gates.
+# No GPU, no live LLM, no eval runner, no unrelated coverage gates.
 
 jobs:
   backend-lint:

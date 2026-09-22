@@ -21,7 +21,7 @@ Canonical spec: `docs/engineering/api.md`. Prefix `/api/v1`. Errors `{ "detail":
 
 ## SSE `POST /api/v1/chat/stream`
 
-ChainWise envelopes (not named `event:` from the draft TZ):
+SSE JSON envelopes (not named `event:` from the draft TZ):
 
 ```
 data: {"type":"citations","citations":[{"doc_id":"<uuid>","doc_title":"Travel.pdf","page":4,"snippet":"..."}]}

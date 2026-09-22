@@ -36,7 +36,7 @@ logs:
 logs-frontend:
 	docker compose logs -f frontend
 
-# pytest ходит в docwise_test, не в рабочую БД. Без coverage-гейтов ChainWise.
+# pytest ходит в docwise_test, не в рабочую БД. Без лишних coverage-гейтов.
 # -u: line-buffered stdout (видно прогресс сразу). test-quick: короче лог + top slow tests.
 test:
 	docker compose exec backend python -u -m pytest tests/ -v
