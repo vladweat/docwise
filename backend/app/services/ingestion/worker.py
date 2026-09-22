@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.redis import acquire_indexing_lock, release_indexing_lock
+from app.core.rls import bind_session_rls
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.services.ingestion.format import detect_format
 from app.services.ingestion.indexing import IndexFn, IngestionError, index_docx, index_pdf
@@ -16,6 +17,17 @@ from app.services.org.quotas import IngestionQuotaError, assert_ingest_pages_all
 from app.services.storage import ObjectStorage, StorageError, get_object_storage
 
 logger = logging.getLogger(__name__)
+
+
+def fetch_document_for_ingestion(db: Session, document_id: UUID) -> Document | None:
+    """Bypass RLS only for primary-key lookup, then bind the document's org."""
+    bind_session_rls(db, bypass=True)
+    document = db.get(Document, document_id)
+    if document is None:
+        bind_session_rls(db, bypass=False)
+        return None
+    bind_session_rls(db, organization_id=document.organization_id)
+    return document
 
 
 def delete_chunks_for_document(db: Session, document_id: UUID) -> int:
@@ -35,7 +47,7 @@ def persist_ingestion_failure(db: Session, document_id: str | UUID, exc: BaseExc
     except (ValueError, TypeError, AttributeError):
         return
     db.rollback()
-    document = db.get(Document, doc_uuid)
+    document = fetch_document_for_ingestion(db, doc_uuid)
     if document is None:
         return
     delete_chunks_for_document(db, doc_uuid)
@@ -75,7 +87,7 @@ def run_ingestion(
         return {"status": "skipped", "document_id": str(doc_uuid), "reason": "locked"}
 
     try:
-        document = db.get(Document, doc_uuid)
+        document = fetch_document_for_ingestion(db, doc_uuid)
         if document is None:
             logger.error("document %s not found", doc_uuid)
             return {"status": "error", "detail": "document not found", "document_id": str(doc_uuid)}

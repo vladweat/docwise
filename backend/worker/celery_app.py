@@ -10,7 +10,7 @@ apply_internal_no_proxy()
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
-from app.core.rls import bind_session_rls, clear_session_rls
+from app.core.rls import clear_session_rls
 from app.core.redis import release_indexing_lock
 from app.core.sentry import capture_pipeline_error, init_sentry
 from app.services.ingestion import persist_ingestion_failure, run_ingestion
@@ -66,7 +66,6 @@ celery_app.conf.update(
 def process_document_task(self, document_id: str) -> dict:
     """Index one document. `document_id` is a UUID string (not ChainWise int)."""
     db: Session = SessionLocal()
-    bind_session_rls(db, bypass=True)
     try:
         logger.info(
             "process_document document_id=%s task_id=%s retries=%s",

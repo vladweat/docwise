@@ -124,7 +124,7 @@ Compose: `SSO_PROVIDER=dev` (фикстурная assertion). Живой Okta/Wo
 
 ## ADR-016. Postgres RLS только на корпусе
 
-**Решение:** `FORCE ROW LEVEL SECURITY` на `documents` и `document_chunks`. GUC `app.organization_id` / bypass для Celery. `bind_session_rls` после resolve principal и на SSE-путях, где идёт retrieval.
+**Решение:** `FORCE ROW LEVEL SECURITY` на `documents` и `document_chunks`. GUC `app.organization_id`; Celery — `fetch_document_for_ingestion` (bypass только на `get` по id). `bind_session_rls` после resolve principal и на SSE-путях, где идёт retrieval.
 
 **Почему:** именно эти таблицы питают dense/FTS; одна забытая привязка org в SQL — кросс-тенантный текст в RRF. Чат и аудит уже всегда с `organization_id` (и `user_id`) в запросах; RLS на `chat_messages` без колонки org — лишняя сложность.
 

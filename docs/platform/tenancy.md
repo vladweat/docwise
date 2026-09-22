@@ -97,7 +97,7 @@ Self-serve:
 
 ## Postgres RLS (корпус)
 
-RLS только на **`documents`** и **`document_chunks`**: это поверхность hybrid retrieval; пропущенный `organization_id` в одном SQL-пути дал бы чужой индексированный текст. Политика `docwise_tenant_visible(organization_id)` по GUC `app.organization_id`; Celery ingest — `app.rls_bypass=on`. API/SSE chat выставляют org, потому что тот же запрос читает чанки.
+RLS только на **`documents`** и **`document_chunks`**: это поверхность hybrid retrieval; пропущенный `organization_id` в одном SQL-пути дал бы чужой индексированный текст. Политика `docwise_tenant_visible(organization_id)` по GUC `app.organization_id`. API/SSE chat выставляют org, потому что тот же запрос читает чанки. Celery: один lookup по `document_id` с кратковременным bypass, затем GUC = `document.organization_id` (`fetch_document_for_ingestion` в worker).
 
 Чат (`chat_sessions` / `chat_messages`) и `rag_audit_logs` **без** RLS: в коде уже жёсткий фильтр `organization_id` (+ `user_id` для сессий). RLS там не даёт выигрыша, только усложняет политики без `organization_id` на сообщениях.
 
