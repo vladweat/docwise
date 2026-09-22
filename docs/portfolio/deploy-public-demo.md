@@ -2,7 +2,7 @@
 
 Один VPS, тот же Docker Compose, что локально. Не прод с живым биллингом: `BILLING_PROVIDER=dev`, `SSO_PROVIDER=dev`.
 
-Задачи владельца после деплоя: [portfolio-owner-tasks.md](portfolio-owner-tasks.md).
+После деплоя обновите URL в [README.md](../../README.md) (блок Live demo) и прогоните smoke ниже.
 
 ## Цели и ограничения
 

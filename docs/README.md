@@ -1,6 +1,6 @@
 # Документация Docwise
 
-Источник истины по продукту — [srs.md](product/srs.md); по отклонениям от черновика ТЗ — [decisions.md](engineering/decisions.md). Канон HTTP — [api.md](engineering/api.md). FastAPI отдаёт `/docs` и `/openapi.json` вне `production` (в production выключены); OpenAPI не заменяет `api.md`.
+Источник истины по продукту — [srs.md](product/srs.md); по архитектурным решениям — [decisions.md](engineering/decisions.md). Канон HTTP — [api.md](engineering/api.md). FastAPI отдаёт `/docs` и `/openapi.json` вне `production` (в production выключены); OpenAPI не заменяет `api.md`.
 
 ## Раскладка каталога
 
@@ -9,8 +9,8 @@
 | `product/` | SRS, архитектура, roadmap, NFR, frontend, evaluation |
 | `platform/` | tenancy, auth, billing, data-model |
 | `pipeline/` | ingestion, retrieval |
-| `engineering/` | api, ADR/decisions, tech-debt, reuse-from-chainwise |
-| `portfolio/` | витрина, уровни A/B/C, owner tasks, deploy demo, career-kb, screenshots |
+| `engineering/` | api, ADR/decisions, tech-debt |
+| `portfolio/` | скриншоты для README, [гайд публичного demo](portfolio/deploy-public-demo.md) |
 | `meta/` | соглашения репозитория (`conventions.md`) |
 
 ## С чего начать
@@ -21,13 +21,9 @@
 4. [Ingestion](pipeline/ingestion.md) и [Retrieval](pipeline/retrieval.md) — индекс, ответы, inspect, аудит.
 5. [API](engineering/api.md) и [Frontend](product/frontend.md) — контракт и UX.
 6. [NFR](product/nfr.md), [Оценка](product/evaluation.md), [Roadmap](product/milestones.md) (чекбоксы вех).
-7. [Техдолг](engineering/tech-debt.md) — structural backlog после M0–M6 (не инварианты продукта).
-8. [Портфолио](portfolio/portfolio.md) — закрытие витрины (не вехи продукта).
-9. [Уровни портфолио A/B/C](portfolio/portfolio-levels.md) — interview-ready и abroad (не product roadmap).
-10. [Задачи владельца (видео, demo, GitHub)](portfolio/portfolio-owner-tasks.md) — уровень C, вне кода.
-11. [Публичный demo VPS](portfolio/deploy-public-demo.md) — C1 deploy checklist.
-12. [Карьерная KB](portfolio/career-kb.md) — факты для резюме/интервью (не продуктовая спека).
-13. [Соглашения](meta/conventions.md) и [переиспользование ChainWise](engineering/reuse-from-chainwise.md).
+7. [Техдолг](engineering/tech-debt.md) — структурные заметки после M0–M6 (не инварианты продукта).
+8. [Публичный demo на VPS](portfolio/deploy-public-demo.md) — TLS, env, smoke (опционально).
+9. [Соглашения](meta/conventions.md).
 
 ## Инварианты продукта
 
@@ -41,4 +37,4 @@
 
 ## Правила Cursor
 
-Каталог `.cursor/rules/` — короткие инструкции для агента (стек, RBAC, auth, API, ingestion, retrieval, frontend, tests/eval, reuse, billing). При противоречии сначала эти документы, затем править правила и код вместе.
+Каталог `.cursor/rules/` — короткие инструкции для агента (стек, RBAC, auth, API, ingestion, retrieval, frontend, tests/eval, billing). При противоречии сначала эти документы, затем править правила и код вместе.

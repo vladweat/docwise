@@ -104,7 +104,7 @@ Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Сущес�
 | `is_active` | Boolean | |
 | `created_at` | DateTime | |
 
-Роли ChainWise — только `user`/`admin`. Здесь: `admin` | `manager` | `employee` плюс `departments[]` **на членстве в организации**.  
+Роли membership: `admin` | `manager` | `employee` плюс `departments[]` **на членстве в организации** (не путать с `access_roles` на документе).  
 `allowed_roles` для фильтра поиска = `{role}` ∪ `departments` ∪ `{all}` текущей org (сборка — в [retrieval](../pipeline/retrieval.md)). Email уникален глобально: один человек — несколько org.
 
 ### `documents`
@@ -119,8 +119,8 @@ Unique pending `(organization_id, email) WHERE accepted_at IS NULL`. Сущес�
 | `file_size_bytes` | Integer | |
 | `total_pages` | Integer | Резерв квоты на upload (`page_count`); ingest может уточнить |
 | `access_roles` | `ARRAY(String)` | Например `['admin', 'hr']` — внутри org, не id компании |
-| `status` | Enum `pending` \| `processing` \| `ready` \| `failed` | В ChainWise аналог — `indexing`; при порте переименовать |
-| `last_error` | Text nullable | Как `contracts.last_error` в ChainWise |
+| `status` | Enum `pending` \| `processing` \| `ready` \| `failed` | Ingest в работе — `processing` |
+| `last_error` | Text nullable | Текст последней ошибки ingest |
 | `ingestion_stage` | String nullable | `parse` \| `chunk` \| `embed`; для поллинга `GET .../status` |
 | `created_at`, `updated_at` | DateTime | |
 
@@ -173,7 +173,7 @@ Sparse: колонка `search_vector` (`tsvector`, `to_tsvector('simple', conte
 | Поле | Тип | Заметки |
 | --- | --- | --- |
 | `id` | UUID PK | стабильный ключ чанка в API |
-| `document_id` | UUID | как `contract_id` в ChainWise, но UUID; FK только в составе пары с `organization_id` |
+| `document_id` | UUID | FK только в составе пары с `organization_id` |
 | `organization_id` | UUID | M5; копия с документа. Единственный FK на документ: `(document_id, organization_id) → documents(id, organization_id)` |
 | `chunk_id` | String unique | стабильный ключ для re-upsert (`{document_id}:{page}:{n}`) |
 | `page_number` | Integer | |

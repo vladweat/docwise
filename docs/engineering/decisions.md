@@ -1,42 +1,41 @@
 # Решения (ADR)
 
-Черновик ТЗ местами расходится с каркасом ChainWise. Ниже — зафиксированные отклонения. Продуктовые инварианты (RBAC **до** LLM, page-bounded chunking, hybrid + rerank, цитаты страниц) **не** ослабляются.
+Черновик ТЗ местами расходится с реализацией v1. Ниже — зафиксированные отклонения. Продуктовые инварианты (RBAC **до** LLM, page-bounded chunking, hybrid + rerank, цитаты страниц) **не** ослабляются.
 
-## ADR-001. Форк ChainWise, не greenfield
+## ADR-001. Каркас приложения, не greenfield
 
-**Решение:** копировать обвязку из `../chainwise`, вырезать Solidity/Slither, заменить парсер и retrieval.
+**Решение:** старт с готового стека (FastAPI, Celery, cookie auth, Compose, SSE-клиент), доменный ingest и retrieval — свои.
 
-**Почему:** auth, Celery, SSE, Compose уже есть. Оценка «80% готово» верна для обвязки и **неверна** для `rag_engine.py` (поиск по одному контракту). Векторный индекс в Docwise — pgvector, не Qdrant.
+**Почему:** auth, очереди, health и фронтовый API-клиент уже согласованы. Оценка «80% готово» верна для обвязки и **неверна** для корпусного RAG (поиск по одному артефакту в RAM не переносится). Векторный индекс — pgvector в Postgres, не отдельный Qdrant-only путь.
 
-**Следствие:** веха 0 — скелет; карта файлов — [reuse-from-chainwise.md](reuse-from-chainwise.md).
+**Следствие:** веха M0 — скелет; продуктовые вехи — [milestones.md](../product/milestones.md).
 
 ## ADR-002. Sync SQLAlchemy Session, не asyncpg
 
 **ТЗ:** SQLAlchemy 2 + asyncpg.  
-**Решение v1:** sync `Session`, как в ChainWise. FastAPI-хендлеры могут быть sync. Тяжёлая работа — в Celery.
+**Решение v1:** sync `Session`. FastAPI-хендлеры могут быть sync. Тяжёлая работа — в Celery.
 
-**Почему:** переписывать весь backend на async «заодно» с портом — риск, не ценность. asyncpg можно взять отдельной вехой.
+**Почему:** переписывать весь backend на async «заодно» с доменом — риск, не ценность. asyncpg можно взять отдельной вехой.
 
-## ADR-003. UUID PK (отмена integer из ChainWise)
+## ADR-003. UUID PK
 
 **ТЗ:** UUID.  
 **Решение v1:** UUID PK на всех сущностях (`users`, `documents`, `document_chunks`, чаты, аудит). `chunk_id` — отдельная стабильная строка для re-upsert. Celery `document_id` и Redis `indexing_lock:{document_id}` — UUID-строка.
 
-**Почему:** совпадает с ТЗ, не светит sequential id, проще когда объекты живут в MinIO/кэше/SSE. Integer PK ChainWise не копируем. Существующие integer-строки `users` мигрирует alembic `003`.
+**Почему:** совпадает с ТЗ, не светит sequential id, проще когда объекты живут в MinIO/кэше/SSE. Существующие integer-строки `users` мигрирует alembic `003`.
 
-## ADR-004. SSE JSON-конверты ChainWise, не именованные `event:`
+## ADR-004. SSE JSON-конверты `data:`, не именованные `event:`
 
 **ТЗ:** `event: citations` / `event: message` / `event: done`.  
 **Решение:** строки `data: {json}\n\n` с полем `type`: `citations` → `token` → `meta` → `data: [DONE]`. Ошибки: `type: error`.
 
-**Почему:** фронт ChainWise (`streamContractChat`) уже парсит этот протокол. Смысл ТЗ (цитаты до токенов) сохраняется.
+**Почему:** фронт уже парсит этот протокол (`lib/api.ts`, SSE reader). Смысл ТЗ (цитаты до токенов) сохраняется.
 
 ## ADR-005. Hybrid search без scroll корпуса
 
-**ТЗ:** native dense + BM25 в Qdrant.  
-**ChainWise:** dense в Qdrant, BM25 в Python по **всем** чанкам одного контракта.
+**ТЗ (черновик):** native dense + BM25 в отдельном vector store.
 
-**Решение:** формулу `reciprocal_rank_fusion` (`k=60`) копировать. `bm25_scores` — unit-тесты. Вызов in-memory BM25 по dense-кандидатам — нет. Индекс — таблица Postgres + pgvector + FTS.
+**Решение:** формулу `reciprocal_rank_fusion` (`k=60`) использовать как есть. `bm25_scores` — unit-тесты формулы RRF. In-memory BM25 по всему корпусу — нет. Индекс — Postgres + pgvector + FTS.
 
 1. pgvector cosine Top-25 + FTS (`document_chunks.search_vector`, `simple` + GIN) Top-25, оба с ACL `organization_id` и `access_roles && allowed_roles`, затем RRF.
 2. Запрещено `SELECT` всех чанков корпуса в RAM (в том числе для BM25).
@@ -46,27 +45,26 @@
 ## ADR-006. `last_error`, статус `processing`
 
 **ТЗ:** `error_message`, статус `processing`.  
-**Решение:** поле `last_error` (как `contracts.last_error`). Статус `indexing` ChainWise переименовать в `processing`.
+**Решение:** поле `last_error` на документе. Статус ingest — `processing` (не `indexing`).
 
-## ADR-007. Cookie-session как в ChainWise
+## ADR-007. Cookie-session
 
-**ТЗ:** JWT в токене.  
+**ТЗ:** JWT в теле ответа login.  
 **Решение v1:** только httpOnly cookies `dw_access` / `dw_refresh`. Login/register/google/refresh отдают `UserResponse`, не `access_token` в JSON. `Authorization: Bearer` игнорируется. `role` / `departments` всегда с сервера (membership), не из JWT. Access JWT ~15 мин, без claim `role`.
 
 При `COOKIE_SAMESITE=none` (SPA на другом origin) мутации `/api/v1` требуют `Origin` из `CORS_ORIGINS` **или** заголовок `X-Requested-With: Docwise`. При `lax`/`strict` проверка не нужна. Refresh в Redis: SET fail-closed (503), GET fail-closed. Первая регистрация в пустой БД получает `admin`, остальные — `employee`. Google ID token без `email_verified=true` отклоняется.
 
-## ADR-008. Эмбеддинги bge-small, не MiniLM
+## ADR-008. Эмбеддинги bge-small
 
-**Решение:** тот же FastEmbed-клиент, модель `BAAI/bge-small-en-v1.5` (384d cosine), реранкер `BAAI/bge-reranker-base`. MiniLM из ChainWise не оставлять «на время».
+**Решение:** FastEmbed, модель `BAAI/bge-small-en-v1.5` (384d cosine), реранкер `BAAI/bge-reranker-base`.
 
 ## ADR-009. Postgres 15 + pgvector + MinIO
 
-**ТЗ (черновик):** Postgres 16 без pgvector, векторы в Qdrant.  
-**Решение v1:** образ `pgvector/pgvector:pg15` (как в ChainWise). Расширение `vector` включено миграцией. Файлы — MinIO, не диск API-контейнера (локальный fallback допустим только за флагом для тестов).
+**ТЗ (черновик):** Postgres 16 без pgvector, векторы вне SQL.  
+**Решение v1:** образ `pgvector/pgvector:pg15`. Расширение `vector` включено миграцией. Файлы — MinIO, не диск API-контейнера (локальный fallback допустим только за флагом для тестов).
 
-## ADR-010. pgvector вместо Qdrant
+## ADR-010. pgvector вместо отдельного Qdrant
 
-**ТЗ / ChainWise:** отдельный сервис Qdrant.  
 **Решение:** чанки и dense-векторы живут в Postgres (`document_chunks.embedding vector(384)`, cosine / HNSW). ACL — SQL `access_roles && allowed_roles` на каждый dense и sparse запрос. Сервиса Qdrant в Compose нет.
 
 **Почему:** один datastore для метаданных и векторов; pgvector — явный инструмент стека. Инварианты RBAC и hybrid+RRF сохраняются.

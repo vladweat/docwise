@@ -15,7 +15,7 @@
 
 Docwise закрывает это связкой: **изоляция организаций (`org_id`)**, **RBAC на retrieval**, **structure-aware chunking**, **hybrid search + rerank**, **цитаты в PDF-вьюере**. Целевой деплой — shared B2B SaaS ([tenancy.md](../platform/tenancy.md)).
 
-Происхождение: тот же каркас, что [ChainWise](../../chainwise/README.md) (auth, Celery, SSE). Векторы — **pgvector** в Postgres, не Qdrant. Отличие продукта — корпус PDF с ACL, а не чат по одному Solidity-файлу. Как переносить код: [reuse-from-chainwise.md](../engineering/reuse-from-chainwise.md).
+Векторы — **pgvector** в Postgres (cosine HNSW) плюс независимый FTS; файлы — MinIO. Продукт — **корпусный** RAG с ACL на каждый запрос, не чат по одному загруженному файлу.
 
 ## 2. Компоненты
 
@@ -95,4 +95,4 @@ flowchart TB
 
 Shared SaaS: много организаций на одном деплое. Изоляция — SQL `organization_id` плюс внутренняя ACL. После M5 — [M6](milestones.md#milestone-6--commercial-saas): планы/квоты, SSO, custom domain; биллинг за портом (`dev` по умолчанию).
 
-Вне скоупа до отдельных вех: консоль оператора платформы, SCIM, боевой эквайринг как критерий, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение собственных эмбеддингов. Не тащить из ChainWise: Slither, solc, Etherscan, XGBoost risk score, генератор PDF-отчётов.
+Вне скоупа до отдельных вех: консоль оператора платформы, SCIM, боевой эквайринг как критерий, онлайн-редактирование файлов, агенты с tool-calling за пределы корпуса, обучение собственных эмбеддингов, доменный аудит смарт-контрактов и отдельный Qdrant-only vector path.

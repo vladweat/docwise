@@ -95,7 +95,7 @@ Content-Type: application/json
 }
 ```
 
-Ответ: `Content-Type: text/event-stream`. Cookie-сессия, лимит `RATE_LIMIT_CHAT_PER_MINUTE` по `user.id`. Квота токенов периода (M6): если исчерпана → SSE `{ "type": "error", "content": "Organization quota exceeded" }` **до** retrieval (тот же смысл, что HTTP `402`). Формат как в ChainWise (не именованные `event:` из чернового ТЗ):
+Ответ: `Content-Type: text/event-stream`. Cookie-сессия, лимит `RATE_LIMIT_CHAT_PER_MINUTE` по `user.id`. Квота токенов периода (M6): если исчерпана → SSE `{ "type": "error", "content": "Organization quota exceeded" }` **до** retrieval (тот же смысл, что HTTP `402`). Формат SSE (не именованные `event:` из чернового ТЗ):
 
 ```
 data: {"type":"citations","citations":[{"doc_id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","doc_title":"Travel.pdf","page":4,"section":null,"snippet":"..."}]}

@@ -1,6 +1,6 @@
 # Пайплайн обработки документов (Ingestion)
 
-Задача Celery: `process_document(doc_id)` (как `load_contract_task` в ChainWise). Redis-лок `indexing_lock:{document_id}`, TTL как в `redis_lock.py`. Воркер: `acks_late`, prefetch 1, лимит 20/25 мин, ретраи идемпотентного ingest.
+Задача Celery: `process_document(doc_id)`. Redis-лок `indexing_lock:{document_id}`. Воркер: `acks_late`, prefetch 1, лимит 20/25 мин, ретраи идемпотентного ingest.
 
 Идемпотентность: повторный запуск для того же `doc_id` удаляет старые строки `document_chunks` и перезаписывает чанки. Статусы: `pending → processing → ready | failed`. Во время `processing` поле `ingestion_stage` проходит `parse → chunk → embed` (коммитится между шагами для `GET /documents/{id}/status`).
 

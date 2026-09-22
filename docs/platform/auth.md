@@ -6,7 +6,7 @@
 
 ## Сессия
 
-v1 — cookie-session ChainWise, куки `dw_access` / `dw_refresh` (см. [decisions.md](../engineering/decisions.md) ADR-007).
+v1 — cookie-session, куки `dw_access` / `dw_refresh` (см. [decisions.md](../engineering/decisions.md) ADR-007).
 
 - Login / register / Google отдают пользователя в JSON и ставят куки; `access_token` в теле нет. SSO ACS ставит те же куки, без токена в JSON.
 - Access JWT живёт **15 минут** (`ACCESS_TOKEN_EXPIRE_MINUTES`); refresh — 7 дней. Клиент при `401` один раз зовёт `POST /auth/refresh` и повторяет запрос.

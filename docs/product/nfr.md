@@ -12,7 +12,7 @@
 - LLM cache key включает `org_id` (M5), поколение индекса и `allowed_roles` вызывающего (иначе кэш — дыра ACL, кросс-тенант или ответ после смены корпуса).
 - Секреты только в env. Не коммитить `.env`, ключи, дампы NDA. Stripe keys не обязательны для Compose (`BILLING_PROVIDER=dev`).
 - Audit: `rag_audit_logs` без тела чанков (только UUID после реранкера). Inspect в production за `ENABLE_SEARCH_INSPECT` (по умолчанию выкл); чужой файл не подтверждается.
-- Upload: лимит размера (ориентир 50 MB), PDF и DOCX, SHA-256, rate limit как в ChainWise. Квота org: страницы PDF или логические разделы DOCX → `402` (не `429`).
+- Upload: лимит размера (ориентир 50 MB), PDF и DOCX, SHA-256, rate limit по IP/user. Квота org: страницы PDF или логические разделы DOCX → `402` (не `429`).
 - Chat: квота токенов периода → отказ до retrieval. Rate limit чата → `429`.
 - XSS: не рендерить HTML из PDF/LLM как `dangerouslySetInnerHTML` без санитайза. Markdown ответа — безопасный рендер.
 
@@ -45,7 +45,7 @@
 
 - Faithfulness: ответ только из Top-4. Иначе фиксированная фраза отказа.
 - Каждая фактическая клауза — цитата `{doc_id, page}`.
-- Eval: [evaluation.md](evaluation.md). Релиз: Faithfulness ≥ 0.8 и **ноль** ACL-утечек на `must_not_doc_ids`. Прогон 2026-09-10 (ещё interim sparse): Faithfulness 1.000, Context Precision 0.976, Answer Relevance 0.789, page hit 0.929, ACL PASS. После независимого FTS живой прогон не обновлялся. Ноль утечек `must_not` документов **другой** org, даже с тегом `all`.
+- Eval: [evaluation.md](evaluation.md). Релиз: Faithfulness ≥ 0.8 и **ноль** ACL-утечек на `must_not_doc_ids`. Последний живой прогон **2026-09-21** (FTS migration `012`, 35 кейсов): Faithfulness 1.000, Context Precision 0.994, Answer Relevance 0.725, page hit 0.929, ACL PASS — [reports/rag_benchmark.md](../../reports/rag_benchmark.md). Ноль утечек `must_not` документов **другой** org, даже с тегом `all`.
 
 ## Совместимость и i18n
 

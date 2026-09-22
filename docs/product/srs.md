@@ -4,7 +4,7 @@
 **Название:** Docwise / Enterprise RAG Workspace  
 **Тип:** shared B2B SaaS умного поиска и Q&A по документам (много организаций на одном деплое). Private cloud / on-prem — тот же код с одной организацией, см. [tenancy.md](../platform/tenancy.md).
 
-Это каноническое продуктовое ТЗ. Детали реализации, отличающиеся от черновика (asyncpg → sync Session, SSE-конверт ChainWise), зафиксированы в [decisions.md](../engineering/decisions.md). PK — UUID, как в ТЗ. Карта кода: [reuse-from-chainwise.md](../engineering/reuse-from-chainwise.md).
+Это каноническое продуктовое ТЗ. Детали реализации, отличающиеся от черновика (asyncpg → sync Session, формат SSE), зафиксированы в [decisions.md](../engineering/decisions.md). PK — UUID, как в ТЗ.
 
 **Позиционирование:** *Production-grade Enterprise RAG system built with FastAPI, PostgreSQL/pgvector, Celery, and Next.js, featuring permission-aware retrieval, hybrid search with reranking, and exact PDF page citations.*
 
@@ -53,7 +53,7 @@ Docwise закрывает это связкой: **изоляция орган�
 | Frontend | Next.js 15 App Router, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
 | Инфра | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend tsc + vitest + lint + build) |
 
-Происхождение каркаса: соседний [ChainWise](../../chainwise/README.md). Не подменять стек (LangChain как ядро, другой векторный движок) без явной просьбы.
+Не подменять стек (LangChain как ядро, отдельный vector-only сервис вместо pgvector) без явной просьбы.
 
 ---
 
@@ -79,7 +79,7 @@ Docwise закрывает это связкой: **изоляция орган�
 - Фильтр SQL `access_roles && allowed_roles` на **каждый** dense и sparse/FTS запрос.
 - Hybrid: dense Top-25 + FTS Top-25 (независимо) → RRF `k=60` → Top-15 → cross-encoder → порог 0.25 → Top-4.
 - Генерация строго по Top-4. Пустой список после порога → фиксированный отказ без вызова «творчества».
-- SSE: сначала цитаты, затем токены, затем метрики. Протокол — JSON-конверты ChainWise (см. [api.md](../engineering/api.md)).
+- SSE: сначала цитаты, затем токены, затем метрики. Протокол — JSON-конверты `data:` (см. [api.md](../engineering/api.md)).
 
 ### FR-4. UI
 
