@@ -1,108 +1,108 @@
-# Мультитеннантность (shared B2B SaaS)
+# Multi-tenancy (shared B2B SaaS)
 
-Канон изоляции между компаниями. Внутри компании действует [auth.md](auth.md) (роли и отделы). Модель таблиц: [data-model.md](data-model.md). Решение: [ADR-012](../engineering/decisions.md).
+Canonical isolation between companies. Inside a company — [auth.md](auth.md) (roles and departments). Table model: [data-model.md](data-model.md). Decision: [ADR-012](../engineering/decisions.md).
 
-Docwise — **shared B2B SaaS**: много организаций на одном деплое (общий Postgres, MinIO, Redis, LLM). On-prem / private cloud — тот же код с одной организацией, не отдельный продукт.
+Docwise is **shared B2B SaaS**: many organizations on one deploy (shared Postgres, MinIO, Redis, LLM). On-prem / private cloud — same code with one organization, not a separate product.
 
-Код до M5 жил как **один неявный тенант**. После M5 на одном деплое много организаций; изоляция — SQL `organization_id`.
+One deploy hosts many organizations; isolation — SQL `organization_id`.
 
-## Два слоя доступа
+## Two access layers
 
-Роли **не** заменяют организацию. `hr` и `all` — теги внутри фирмы, не идентификаторы клиента.
+Roles **do not** replace organization. `hr` and `all` are tags inside a company, not customer identifiers.
 
 ```
-1. Тенант (внешняя стена):  org_id = current_org     — чужая компания невидима
-2. RBAC (внутренняя стена): access_roles && allowed_roles  — стажёр не читает HR
+1. Tenant (outer wall):  org_id = current_org     — foreign company invisible
+2. RBAC (inner wall): access_roles && allowed_roles  — intern cannot read HR
 ```
 
-На каждый list / status / raw / dense / sparse / inspect / chat:
+On every list / status / raw / dense / sparse / inspect / chat:
 
 ```sql
 WHERE org_id = :current_org
   AND access_roles && ARRAY['employee', 'hr', 'all']::text[]
 ```
 
-`current_org` берётся из сессии (cookie/JWT), **не** из тела запроса. Не фильтровать тенант «потом в промпте». Не использовать `access_roles = ['acme']` вместо `org_id`.
+`current_org` from session (cookie/JWT), **not** from request body. Do not filter tenant “later in prompt”. Do not use `access_roles = ['acme']` instead of `org_id`.
 
-Пока M5 не был влит, в коде был только слой 2. Слой 1 обязателен на каждом list / search / chat.
+Both layers are mandatory on every list / search / chat.
 
-## Организация и членство
+## Organization and membership
 
-| Сущность | Смысл |
+| Entity | Meaning |
 | --- | --- |
-| `users` | Глобальный человек (email unique). Пароль / Google. Без `role` / `departments` |
-| `organizations` | Компания-клиент: имя, slug, статус |
-| `organization_memberships` | Связь user↔org: `role` (`admin` \| `manager` \| `employee`) и `departments[]` |
+| `users` | Global person (email unique). Password / Google. No `role` / `departments` |
+| `organizations` | Customer company: name, slug, status |
+| `organization_memberships` | user↔org link: `role` (`admin` \| `manager` \| `employee`) and `departments[]` |
 
-Один пользователь может состоять в нескольких организациях (подрядчик, холдинг). Роль **своя в каждой**: admin в Acme и employee в Globex — норма.
+One user may belong to several orgs (contractor, holding). Role **per org**: admin at Acme and employee at Globex is normal.
 
-`require_admin` — **admin текущей организации**, не оператор платформы. Platform-admin, который читает чужие корпуса, в M5 нет и по умолчанию не появится.
+`require_admin` — **admin of current organization**, not platform operator. A platform operator with access to foreign corpora is not part of the product.
 
-## Планы, hostname, SSO (M6)
+## Plans, hostname, SSO
 
-Канон квот: [billing.md](billing.md). SSO: [auth.md](auth.md). ADR-013–015.
+Quota canonical: [billing.md](billing.md). SSO: [auth.md](auth.md). ADR-013–015.
 
-- План и квоты — поля **этой** org. Смена плана в dev-simulate или Stripe не даёт читать другую org.
-- Если `Host` привязан к организации (slug-поддомен или verified custom domain), он должен совпасть с `org_id` сессии. Hostname **пинит** тенант, не заменяет `WHERE organization_id = :current_org`.
-- Куки сессии — host-only, без `Domain` на родительский суффикс платформы (иначе cookie Acme уедет на хост Globex).
-- SSO-коннектор принадлежит одной org. Assertion не выбирает тенант.
-- `all` по-прежнему только члены этой org, в том числе после SSO JIT.
+- Plan and quotas — fields of **this** org. Plan change in dev-simulate or Stripe does not grant another org’s corpus.
+- If `Host` is bound to an org (slug subdomain or verified custom domain), it must match session `org_id`. Hostname **pins** tenant, does not replace `WHERE organization_id = :current_org`.
+- Session cookies — host-only, no `Domain` on platform parent suffix (otherwise Acme cookie leaks to Globex host).
+- SSO connector belongs to one org. Assertion does not choose tenant.
+- `all` still only members of this org, including after SSO JIT.
 
-На кастомном/slug-хосте Acme `switch-organization` в Globex запрещён (нужен хост Globex).
+On Acme custom/slug host, `switch-organization` to Globex is forbidden (need Globex host).
 
-## Сессия
+## Session
 
-- Cookie `dw_access` / `dw_refresh` как в [ADR-007](../engineering/decisions.md). В access-токене — `sub` (email/id) **и** `org_id` текущего членства; `role` в JWT нет.
-- `GET /auth/me` отдаёт текущую org и роль членства, не «глобальную» роль.
-- Смена org: только `POST /api/v1/auth/switch-organization` при существующем membership; новые куки. На hostname, привязанном к другой org, смена запрещена. Поле `organization_id` / `org_id` в chat/search/upload **игнорируется** как источник прав (как `access_roles` сегодня).
-- Нет членства в org из токена → `401` / `403`, без списка чужих организаций в `detail`.
+- Cookies `dw_access` / `dw_refresh` as in [ADR-007](../engineering/decisions.md). Access token — `sub` (email/id) **and** current membership `org_id`; no `role` in JWT.
+- `GET /auth/me` returns current org and membership role, not “global” role.
+- Org switch: only `POST /api/v1/auth/switch-organization` with existing membership; new cookies. On hostname bound to another org, switch forbidden. Field `organization_id` / `org_id` in chat/search/upload **ignored** as authority (like `access_roles` today).
+- No membership for org in token → `401` / `403`, without listing foreign orgs in `detail`.
 
-## Регистрация и инвайты
+## Registration and invites
 
 Self-serve:
 
-1. `POST /auth/register` создаёт `users` + `organizations` + membership `admin`. Тело: email, password, `organization_name`.
-2. Org-admin приглашает: `POST /api/v1/organizations/invites` `{ email, role, departments }`.
-3. Существующий пользователь с этим email получает membership; новый — регистрируется по инвайту и входит в org, **не** создаёт вторую фирму по тому же инвайту.
-4. Открытый register без имени организации не делает «employee глобального инстанса».
+1. `POST /auth/register` creates `users` + `organizations` + membership `admin`. Body: email, password, `organization_name`.
+2. Org-admin invites: `POST /api/v1/organizations/invites` `{ email, role, departments }`.
+3. Existing user with that email gets membership; new user registers via invite and joins org, **does not** create second company from same invite.
+4. Open register without org name does not create “employee of global instance”.
 
-Первый пользователь пустой БД больше не «admin всей платформы»: он admin **своей** организации.
+First user on empty DB is no longer “admin of whole platform”: admin **of own** organization.
 
-## Поверхности с одним правилом
+## Surfaces with one rule
 
-| Поверхность | Проверка |
+| Surface | Check |
 | --- | --- |
-| `GET /documents`, `/raw`, `/status` | `org_id` + пересечение `access_roles` |
-| chat / search / inspect | то же на `document_chunks` (`org_id` **и** ACL); чанки копируют `org_id` документа |
-| KB write (upload, delete, PATCH ACL, инвайты) | membership `admin` **текущей** org; строка всё равно с `org_id` сессии; seats/pages квота M6 |
-| чат-сессии, аудит | `org_id`; история Acme не подмешивается в Globex; токены периода — квота этой org |
-| LLM cache | ключ включает `org_id`, поколение индекса **и** канонический `allowed_roles` |
-| `file_hash` | unique `(org_id, file_hash)`, не глобально |
-| MinIO | ключ с префиксом org, без публичного URL |
-| биллинг / usage | только текущая org; `dev/simulate` чужой org → `404` |
-| SSO ACS | org из коннектора `{slug}`; JIT только в неё |
-| custom domain | verified hostname → одна org; несовпадение с сессией → отказ |
+| `GET /documents`, `/raw`, `/status` | `org_id` + `access_roles` intersection |
+| chat / search / inspect | same on `document_chunks` (`org_id` **and** ACL); chunks copy document `org_id` |
+| KB write (upload, delete, PATCH ACL, invites) | membership `admin` **current** org; row still session `org_id`; seats/pages quota per plan |
+| chat sessions, audit | `org_id`; Acme history not mixed into Globex; period tokens — this org quota |
+| LLM cache | key includes `org_id`, index generation **and** canonical `allowed_roles` |
+| `file_hash` | unique `(org_id, file_hash)`, not global |
+| MinIO | key with org prefix, no public URL |
+| billing / usage | current org only; `dev/simulate` foreign org → `404` |
+| SSO ACS | org from connector `{slug}`; JIT only into it |
+| custom domain | verified hostname → one org; mismatch with session → deny |
 
-Чужой тенант: `404` как у файла вне ACL. Не подтверждать, что у другой компании есть документ / совпал SHA-256.
+Foreign tenant: `404` as for file outside ACL. Do not confirm another company has a document / matching SHA-256.
 
-## Запрещено
+## Forbidden
 
-- Две компании в одной БД без `org_id` на документах **и** чанках.
-- Считать `all` «всем залогиненным в SaaS».
-- Кэш LLM только по ролям (employee Acme получит ответ, прогретый employee Globex).
-- Клиентский `org_id` / `organization_id` как источник прав.
-- Org-admin override внутренней ACL (как и сейчас: admin без `hr` не видит HR-файл).
-- Подсказывать в ошибке `409`, что такой PDF уже есть у *другой* организации.
-- Считать план, Stripe customer id или SAML-атрибут `org` источником `organization_id`.
+- Two companies in one DB without `org_id` on documents **and** chunks.
+- Treat `all` as “every logged-in SaaS user”.
+- LLM cache keyed only by roles (Acme employee gets Globex-warmed answer).
+- Client `org_id` / `organization_id` as authority.
+- Org-admin override of inner ACL (admin without `hr` still does not see HR file).
+- Hint in `409` that same PDF exists at *another* organization.
+- Treat plan, Stripe customer id, or SAML `org` attribute as source of `organization_id`.
 
-## Postgres RLS (корпус)
+## Postgres RLS (corpus)
 
-RLS только на **`documents`** и **`document_chunks`**: это поверхность hybrid retrieval; пропущенный `organization_id` в одном SQL-пути дал бы чужой индексированный текст. Политика `docwise_tenant_visible(organization_id)` по GUC `app.organization_id`. API/SSE chat выставляют org, потому что тот же запрос читает чанки. Celery: один lookup по `document_id` с кратковременным bypass, затем GUC = `document.organization_id` (`fetch_document_for_ingestion` в worker).
+RLS only on **`documents`** and **`document_chunks`**: hybrid retrieval surface; missed `organization_id` in one SQL path would expose foreign indexed text. Policy `docwise_tenant_visible(organization_id)` via GUC `app.organization_id`. API/SSE chat set org because same query reads chunks. Celery: one lookup by `document_id` with brief bypass, then GUC = `document.organization_id` (`fetch_document_for_ingestion` in worker).
 
-Чат (`chat_sessions` / `chat_messages`) и `rag_audit_logs` **без** RLS: в коде уже жёсткий фильтр `organization_id` (+ `user_id` для сессий). RLS там не даёт выигрыша, только усложняет политики без `organization_id` на сообщениях.
+Chat (`chat_sessions` / `chat_messages`) and `rag_audit_logs` **without** RLS: code already hard-filters `organization_id` (+ `user_id` for sessions). RLS there adds complexity without gain (no `organization_id` on messages).
 
-**Не заменяет** `WHERE organization_id` и `access_roles` в приложении (внутренняя ACL по-прежнему только в SQL/сервисах).
+**Does not replace** `WHERE organization_id` and `access_roles` in application (inner ACL still only in SQL/services).
 
-## Вне M6 (позже)
+## Not in product scope
 
-Консоль оператора платформы, SCIM. Боевой эквайринг (live Stripe / ЮKassa) не критерий продукта, пока M6 закрыт на `dev`.
+Platform operator console, SCIM. Live payment processing (live Stripe / YooKassa) is optional via the Stripe adapter; Compose and portfolio acceptance use `BILLING_PROVIDER=dev` ([billing.md](billing.md)).

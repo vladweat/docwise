@@ -1,73 +1,73 @@
-# Оценка качества (Ragas)
+# Quality evaluation (Ragas)
 
-Модуль `eval/` доказывает, что система не наивный RAG: верность контексту, чистота чанков, релевантность ответа.
+The `eval/` module shows the system is not naive RAG: faithfulness to context, clean chunks, answer relevance.
 
-## Состав
+## Contents
 
-| Артефакт | Назначение |
+| Artifact | Purpose |
 | --- | --- |
-| `eval/golden_dataset.json` | ≥ 30 пар: `question`, `ground_truth_answer`, `target_doc_id` (желательно `target_page`, `must_not_doc_ids` для ACL) |
-| `eval/run_eval.py` | Прогон через реальный пайплайн retrieval+generation |
-| `eval/corpus.py` | Синтетические PDF со стабильными UUID и тегами `all` / `hr` / `finance` |
-| `eval/seed_demo.py` | Локальное демо: employee / HR / admin и двенадцать PDF (`all` / `hr` / `finance`) |
-| `reports/rag_benchmark.md` | Таблица метрик для README |
+| `eval/golden_dataset.json` | ≥ 30 pairs: `question`, `ground_truth_answer`, `target_doc_id` (prefer `target_page`, `must_not_doc_ids` for ACL) |
+| `eval/run_eval.py` | Run through real retrieval+generation pipeline |
+| `eval/corpus.py` | Synthetic PDFs with stable UUIDs and tags `all` / `hr` / `finance` |
+| `eval/seed_demo.py` | Local demo: employee / HR / admin and twelve PDFs (`all` / `hr` / `finance`) |
+| `reports/rag_benchmark.md` | Metrics table for README |
 
-Синтетический набор допустим на старте; для портфолио лучше 10–15 вопросов по реальным (обезличенным) PDF плюс негативные кейсы.
+Synthetic set is fine initially; later add questions from real (anonymized) PDFs.
 
-Golden set гоняется под пользователем `eval-employee@docwise.example.com` (`employee`, `departments=[]`). Роли не берутся из тела запроса. Документы `hr` и `finance` стоят в `must_not_doc_ids` у **каждого** вопроса.
+Golden set runs as user `eval-employee@docwise.example.com` (`employee`, `departments=[]`). Roles are not taken from request body. `hr` and `finance` documents are in `must_not_doc_ids` for **every** question.
 
-## Метрики
+## Metrics
 
-Считаются по определениям Ragas тем же OpenAI-совместимым клиентом, что и чат (`complete_openai` / `stream_openai`). LangChain и пакет `ragas` в рантайм не входят.
+Computed per Ragas definitions with the same OpenAI-compatible client as chat (`complete_openai` / `stream_openai`). LangChain and `ragas` package are not runtime dependencies.
 
-1. **Faithfulness** — ответ не выходит за контекст (анти-галлюцинация).
-2. **Context Precision** — в Top-K мало мусорных чанков.
-3. **Answer Relevance** — ответ по существу закрывает вопрос (косинус эмбеддингов сгенерированных вопросов к исходному).
+1. **Faithfulness** — answer stays within context (anti-hallucination).
+2. **Context Precision** — few junk chunks in Top-K.
+3. **Answer Relevance** — answer substantively addresses the question (cosine of generated questions vs original).
 
-Дополнительно (свои assert'ы):
+Additionally (custom asserts):
 
-- страница найденного чанка совпадает с `target_page` в доле кейсов;
-- пользователь-employee не получает чанки из `must_not_doc_ids` (exit code 1 при любой утечке);
-- пользователь org A не получает документы org B (в т.ч. с `access_roles = ['all']`).
+- retrieved chunk page matches `target_page` in a fraction of cases;
+- employee user does not receive chunks from `must_not_doc_ids` (exit code 1 on any leak);
+- org A user does not receive org B documents (including `access_roles = ['all']`).
 
-## Запуск
+## Running
 
 ```bash
 make eval
-# или только retrieval + ACL, без LLM-судей:
+# or retrieval + ACL only, without LLM judges:
 make eval-retrieval
 ```
 
-Эквивалент внутри backend-контейнера:
+Equivalent inside backend container:
 
 ```bash
 python /eval/run_eval.py --seed
 ```
 
-`--seed` создаёт eval-пользователя (org `eval`) и прогоняет фикстурные PDF через реальный `index_pdf` (не Celery). Параллельно сеется decoy-документ в org `eval-foreign` с тегом `all`; раннер добавляет его UUID в `must_not_doc_ids`. Требования: поднятый стек, ключ LLM, кэш FastEmbed. Unit-тесты CI **не** вызывают этот скрипт по умолчанию.
+`--seed` creates eval user (org `eval`) and runs fixture PDFs through real `index_pdf` (not Celery). A decoy document in org `eval-foreign` with tag `all` is seeded in parallel; runner adds its UUID to `must_not_doc_ids`. Requires: stack up, LLM key, FastEmbed cache. CI unit tests **do not** invoke this script by default.
 
-Локальное ACL-демо (employee vs HR vs finance, двенадцать PDF):
+Local ACL demo (employee vs HR vs finance, twelve PDFs):
 
 ```bash
 make demo
 ```
 
-Скрипт: [eval/seed_demo.py](../eval/seed_demo.py). Пользователи и проход — в корневом [README.md](../README.md).
+Script: [eval/seed_demo.py](../../eval/seed_demo.py). Users and walkthrough — root [README.md](../../README.md).
 
-## Когда гонять
+## When to run
 
-После изменений чанкинга, RRF, порога реранкера, системного промпта, эмбеддингов или sparse (FTS vs BM25 по dense). В PR — кратко: выросли/упали метрики, не только «добавлен eval». После независимого FTS (миграция `012`) — перегонять eval перед интервью/откликами.
+After changes to chunking, RRF, reranker threshold, system prompt, embeddings, or sparse (FTS vs BM25 on dense). In PRs — briefly note metric movement, not only “added eval”. After independent FTS (migration `012`) — re-run eval before release.
 
-## Пороги релиза
+## Release thresholds
 
-Последний живой прогон (**2026-09-21**, post-`012`; 35 кейсов, `eval-employee`, retrieval + generation + Ragas):
+Latest live run (**2026-09-21**, post-`012`; 35 cases, `eval-employee`, retrieval + generation + Ragas):
 
-| Метрика | Порог | Факт |
+| Metric | Threshold | Actual |
 | --- | ---: | ---: |
 | Faithfulness | ≥ 0.8 | 1.000 |
-| Context Precision | ориентир ≥ 0.9 | 0.994 |
-| Answer Relevance | ориентир, не гейт | 0.725 |
-| Target page hit | ориентир | 0.929 |
-| ACL `must_not_doc_ids` | **0 утечек** | 0 / PASS |
+| Context Precision | guideline ≥ 0.9 | 0.994 |
+| Answer Relevance | guideline, not gate | 0.725 |
+| Target page hit | guideline | 0.929 |
+| ACL `must_not_doc_ids` | **0 leaks** | 0 / PASS |
 
-Вывод: SQL-RBAC до LLM держит корпус (7 ACL-негативов, 0 leaks). Faithfulness 1.0 на позитивах. Два page miss (`hb-security-email`, `eng-python`) — пустой контекст после rerank 0.25, отказ без галлюцинации. Базовый прогон до FTS (2026-09-10): Context Precision 0.976, Answer Relevance 0.789 — те же page miss. Таблица: [reports/rag_benchmark.md](../reports/rag_benchmark.md).
+Summary: SQL RBAC before LLM holds corpus (7 ACL negatives, 0 leaks). Faithfulness 1.0 on positives. Two page misses (`hb-security-email`, `eng-python`) — empty context after rerank 0.25, refusal without hallucination. Baseline before FTS (2026-09-10): Context Precision 0.976, Answer Relevance 0.789 — same page misses. Table: [reports/rag_benchmark.md](../../reports/rag_benchmark.md).

@@ -1,68 +1,68 @@
-# Пайплайн обработки документов (Ingestion)
+# Document processing pipeline (Ingestion)
 
-Задача Celery: `process_document(doc_id)`. Redis-лок `indexing_lock:{document_id}`. Воркер: `acks_late`, prefetch 1, лимит 20/25 мин, ретраи идемпотентного ingest.
+Celery task: `process_document(doc_id)`. Redis lock `indexing_lock:{document_id}`. Worker: `acks_late`, prefetch 1, 20/25 min limit, idempotent ingest retries.
 
-Идемпотентность: повторный запуск для того же `doc_id` удаляет старые строки `document_chunks` и перезаписывает чанки. Статусы: `pending → processing → ready | failed`. Во время `processing` поле `ingestion_stage` проходит `parse → chunk → embed` (коммитится между шагами для `GET /documents/{id}/status`).
+Idempotency: re-run for same `doc_id` deletes old `document_chunks` rows and rewrites chunks. Statuses: `pending → processing → ready | failed`. During `processing`, `ingestion_stage` goes `parse → chunk → embed` (committed between steps for `GET /documents/{id}/status`).
 
 ## 1. Extraction
 
-1. Скачать объект из MinIO по `documents.file_path`.
-2. Документ уже несёт `organization_id` (M5); воркер **не** принимает org из аргументов задачи как источник истины — только строка Postgres.
-2. Открыть PDF через `fitz` (PyMuPDF).
-3. Для каждой физической страницы:
-   - извлечь текст в порядке чтения;
-   - сохранить номер страницы (1-based в API и цитатах);
-   - при наличии сетки таблицы извлечь её через pdfplumber в Markdown (`| Header | Header |`);
-   - по возможности сохранить координаты блоков (для подсветки во вьюере).
-4. Записать `total_pages` в Postgres.
+1. Download object from MinIO via `documents.file_path`.
+2. Document row already has `organization_id`; worker **does not** treat org from task args as source of truth — only Postgres row.
+3. Open PDF via `fitz` (PyMuPDF).
+4. For each physical page:
+   - extract text in reading order;
+   - keep page number (1-based in API and citations);
+   - if table grid present, extract via pdfplumber as Markdown (`| Header | Header |`);
+   - store block coordinates when possible (viewer highlight).
+5. Write `total_pages` to Postgres.
 
-DOCX: `python-docx`, логические разделы (Heading) → отдельные «страницы» парсера; в Postgres `page_number = 0`, цитаты через `section` (без выдуманного `page`). Таблицы — GFM Markdown, как у PDF.
+DOCX: `python-docx`, logical sections (Heading) → separate parser “pages”; in Postgres `page_number = 0`, citations via `section` (no invented `page`). Tables — GFM Markdown, same as PDF.
 
 ## 2. Structure-aware chunking
 
-Запрещено: скользящее окно по всему тексту файла без учёта страниц.
+Forbidden: sliding window over full file text ignoring pages.
 
-Правила:
+Rules:
 
-- Чанк **не пересекает** границу страницы.
-- Предпочтительно резать по заголовкам секций внутри страницы.
-- Размер: **400–600 токенов**, overlap **50 токенов** только внутри той же страницы/секции.
-- Таблицы по возможности держать одним чанком (`is_table: true`); если таблица длиннее лимита — резать по строкам, повторяя header Markdown.
+- Chunk **must not cross** page boundary.
+- Prefer splits at section headings within page.
+- Size: **400–600 tokens**, overlap **50 tokens** only within same page/section.
+- Tables preferably one chunk (`is_table: true`); if table exceeds limit — split by rows, repeat Markdown header.
 
-Перед векторизацией в начало чанка инжектится мета-заголовок:
+Before vectorization inject meta header at chunk start:
 
 ```
 [Document: HR_Policy.pdf | Section: Expenses | Page: 12]
 {content}
 ```
 
-Это часть эмбеддинга, не колонка в Postgres. Правило v1 (не смешивать):
+Part of embedding, not a Postgres column. v1 rule (do not mix):
 
-- `document_chunks.content` — чистый фрагмент для UI, LLM, cross-encoder rerank и цитат (без служебной строки).
-- `embed_text` = мета-заголовок + `\n` + `content` (считается в `chunker.format_embed_text` только перед FastEmbed; в Postgres не хранится).
-- Сниппет цитаты берётся из `content` (`citation_snippet`); если в текст случайно попал заголовок `[Document:`, он отбрасывается.
+- `document_chunks.content` — clean fragment for UI, LLM, cross-encoder rerank and citations (no service line).
+- `embed_text` = meta header + `\n` + `content` (computed in `chunker.format_embed_text` only before FastEmbed; not stored in Postgres).
+- Citation snippet from `content` (`citation_snippet`); if `[Document:` accidentally in text, strip it.
 
-Мета-заголовок влияет на dense через эмбеддинг; rerank и промпт LLM используют `content` (см. [retrieval.md](retrieval.md)).
+Meta header affects dense via embedding; rerank and LLM prompt use `content` (see [retrieval.md](retrieval.md)).
 
 ## 3. Embed & upsert
 
-1. Батч dense-векторов FastEmbed `BAAI/bge-small-en-v1.5` (384d cosine) по `embed_text`.
-2. `delete` строк `document_chunks` по `document_id`.
-3. Insert: vectors + payload (`document_id`, `organization_id` с документа, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` с документа, `content`, `token_count`).
-4. `documents.status = ready`. Любое исключение: `failed` + `last_error`, без «частично готового» индекса (либо явный rollback delete).
+1. Batch dense vectors FastEmbed `BAAI/bge-small-en-v1.5` (384d cosine) on `embed_text`.
+2. `delete` `document_chunks` rows by `document_id`.
+3. Insert: vectors + payload (`document_id`, `organization_id` from document, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` from document, `content`, `token_count`).
+4. `documents.status = ready`. Any exception: `failed` + `last_error`, no “partially ready” index (or explicit rollback delete).
 
-Sparse BM25/FTS — Postgres `search_vector` + GIN, Top-25 независимо от dense ([ADR-005](../engineering/decisions.md)).
+Sparse BM25/FTS — Postgres `search_vector` + GIN, Top-25 independent of dense ([ADR-005](../engineering/decisions.md)).
 
-Смена ACL без re-ingest: `PATCH /documents/{id}` копирует `access_roles` на документ и все его чанки.
+ACL change without re-ingest: `PATCH /documents/{id}` copies `access_roles` to document and all chunks.
 
-## 4. Тест качества парсера
+## 4. Parser quality test
 
-Фикстура: PDF с таблицей и многоуровневыми заголовками.
+Fixture: PDF with table and multi-level headings.
 
-Проверки:
+Checks:
 
-- у каждого чанка одна `page_number`;
-- таблица сериализована в Markdown и `is_table=true`;
-- `access_roles` чанка равны ролям документа;
-- `organization_id` чанка равен документу;
-- повторный `process_document` не плодит дубликаты в `document_chunks`.
+- each chunk has one `page_number`;
+- table serialized to Markdown and `is_table=true`;
+- chunk `access_roles` equal document roles;
+- chunk `organization_id` equals document;
+- repeat `process_document` does not duplicate `document_chunks`.

@@ -1,68 +1,68 @@
 # Frontend: UI/UX
 
-Стек: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui (Radix), PDF: `@react-pdf-viewer/core` или `pdfjs-dist`. Состояние: TanStack Query + Zustand.
+Stack: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui (Radix), PDF: `@react-pdf-viewer/core` or `pdfjs-dist`. State: TanStack Query + Zustand.
 
-Маршруты в `app/` — RSC (`metadata` + остров). Интерактив и сторы фичи — `src/features/{chat,documents,settings,auth,inspect,health}`. Общий HTTP — `lib/api.ts`. Примитивы — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
+Routes in `app/` — RSC (`metadata` + islands). Feature interactivity and stores — `src/features/{chat,documents,settings,auth,inspect,health}`. Shared HTTP — `lib/api.ts`. Primitives — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
 
-База UI — shadcn + `lib/api.ts`, чат, auth. PDF viewer вместо code-viewer; цитаты `Doc.pdf (стр. N)` или раздел DOCX. SSE-ридер: события `citations | token | meta | error | done`.
+UI base — shadcn + `lib/api.ts`, chat, auth. PDF viewer instead of code viewer; citations `Doc.pdf (page N)` or DOCX section. SSE reader: events `citations | token | meta | error | done`.
 
-## Маршруты
+## Routes
 
-| Путь | Экран |
+| Path | Screen |
 | --- | --- |
-| `/login` | Вход: демо (три кнопки) сверху; Google/SSO свёрнуты |
-| `/` или `/chat` | Split-screen чат |
-| `/chat/[sessionId]` | Конкретная сессия |
+| `/login` | Login: demo (three buttons) on top; Google/SSO collapsed |
+| `/` or `/chat` | Split-screen chat |
+| `/chat/[sessionId]` | Specific session |
 | `/documents` | Knowledge Base admin |
 | `/inspect` | Org-admin: dense / FTS / RRF / reranked (`ENABLE_SEARCH_INSPECT`) |
-| `/settings` | Org-admin: план, usage, SSO, домен |
+| `/settings` | Org-admin: plan, usage, SSO, domain |
 
-## Главный экран чата
+## Main chat screen
 
-Три колонки на широком экране:
+Three columns on wide screens:
 
-- **Сессии (слева):** фиксированная ширина, можно **полностью скрыть**. Узкая кнопка слева возвращает список. Состояние — `localStorage` (`dw-sessions-pane-open`). Удаление сессии — с подтверждением; чужие сессии API не отдаёт.
-- **Чат (центр):** лента сообщений и поле ввода. Минимальная ширина ~440px: разделитель не сжимает переписку в узкий столбец; при нехватке места уменьшается PDF, не чат.
-- **PDF (справа, ~55% остатка):** встроенный viewer, `GET /api/v1/documents/{id}/raw`. Можно **полностью скрыть** (кнопка в шапке / двойной щелчок по разделителю). Клик по сноске снова открывает PDF. Состояние — `dw-pdf-pane-open`.
+- **Sessions (left):** fixed width, can be **fully hidden**. Narrow button on the left restores the list. State — `localStorage` (`dw-sessions-pane-open`). Session delete — with confirmation; API does not return other users’ sessions.
+- **Chat (center):** message list and input. Minimum width ~440px: splitter does not crush chat into a narrow column; when space is tight PDF shrinks, not chat.
+- **PDF (right, ~55% remainder):** embedded viewer, `GET /api/v1/documents/{id}/raw`. Can be **fully hidden** (header button / double-click splitter). Footnote click reopens PDF. State — `dw-pdf-pane-open`.
 
-Сноски — интерактивные теги вида `📄 Expense_Policy.pdf (стр. 4)`, не сырой `[^4]`. Стрим токенов без ожидания полного ответа. На узком экране — отдельный экран PDF с «К чату».
+Footnotes — interactive tags like `📄 Expense_Policy.pdf (page 4)`, not raw `[^4]`. Stream tokens without waiting for full answer. On narrow screens — separate PDF screen with “Back to chat”.
 
-По клику на сноску:
+On footnote click:
 
-1. Если открыт другой файл — загрузить нужный.
-2. Перейти на `page`.
-3. Мягко подсветить блок (текст/bbox из цитаты), скролл в область видимости.
+1. If another file is open — load the required one.
+2. Go to `page`.
+3. Soft-highlight block (text/bbox from citation), scroll into view.
 
-Пока PDF грузится, не блокировать чтение ответа. Пустое правое состояние: плейсхолдер «Выберите цитату, чтобы открыть источник».
+While PDF loads, do not block reading the answer. Empty right state: placeholder “Select a citation to open the source”.
 
-SSE: сначала отрисовать chips цитат, затем наращивать markdown ответа. Коды ошибок чата — тост/баннер, без разрыва всей страницы.
+SSE: render citation chips first, then grow answer markdown. Chat error codes — toast/banner, no full-page break.
 
-## Админка базы знаний
+## Knowledge Base admin
 
-Таблица: название, размер, страницы, теги доступа, статус (`pending` / `processing` / `ready` / `failed`). Failed — показать `last_error`.
+Table: title, size, pages, access tags, status (`pending` / `processing` / `ready` / `failed`). Failed — show `last_error`.
 
-Загрузка: drag-and-drop модалка, выбор ролей (`HR`, `Finance`, `General` / `all` и т.д. — маппинг на `access_roles`). После upload — поллинг `GET .../status` до терминального статуса; в статусе поле `stage`: `parse` → `chunk` → `embed`.
+Upload: drag-and-drop modal, role selection (`HR`, `Finance`, `General` / `all` etc. — mapped to `access_roles`). After upload — poll `GET .../status` until terminal status; status includes `stage`: `parse` → `chunk` → `embed`.
 
-Upload и удаление — с подтверждением где нужно; manage KB: `admin` или `manager` текущей org (`canManageKnowledgeBase`). Смена `access_roles` после upload — только через `PATCH /api/v1/documents/{id}` (UI v1 не реализует). Список не показывает документы вне ACL и вне текущей организации.
+Upload and delete — confirm where needed; manage KB: `admin` or `manager` of current org (`canManageKnowledgeBase`). Changing `access_roles` after upload — only via `PATCH /api/v1/documents/{id}` (not exposed in the default UI). List does not show documents outside ACL or current org.
 
-В шапке имя текущей org; org-admin — инвайты на `/documents`. Переключение org не шлёт `organization_id` в теле чата. Не подставлять id другой компании в upload.
+Header shows current org name; org-admin — invites on `/documents`. Org switch does not send `organization_id` in chat body. Do not substitute another company’s id on upload.
 
-`/settings` (org-admin): текущий план и usage; при `BILLING_PROVIDER=dev` — бейдж **Dev billing** и смена плана / past_due / cancel. Employee при `402` на upload/чат — тост «квота организации исчерпана», без панели биллинга. SSO: метаданные IdP и `sso_enforced`. Домен: hostname и статус verify. Не слать `organization_id` в этих формах как источник прав.
+`/settings` (org-admin): current plan and usage; with `BILLING_PROVIDER=dev` — **Dev billing** badge and plan change / past_due / cancel. Employee on `402` for upload/chat — toast “organization quota exceeded”, no billing panel. SSO: IdP metadata and `sso_enforced`. Domain: hostname and verify status. Do not send `organization_id` in these forms as authority.
 
-Logout / login / смена пользователя сбрасывает TanStack Query и Zustand чата (сессии предыдущего аккаунта не оставлять на экране). `?next=/chat/:id` после логина не восстанавливать — id сессии принадлежит одному пользователю.
+Logout / login / user switch resets TanStack Query and chat Zustand (do not leave previous account’s sessions on screen). Do not restore `?next=/chat/:id` after login — session id belongs to one user.
 
-## Состояния и доступность
+## States and accessibility
 
-- Пустой чат: hint про ACL и цитаты; в org `Demo` — подсказка employee vs HR. Подсветка сниппета в PDF при клике по цитате.
-- Квота `402` — тост «квота организации исчерпана». Ingest `failed` — `last_error` в таблице. `/raw` 404 — «Документ недоступен», без названия чужого файла.
-- Нет прав на файл цитаты (не должно случаться при корректном ACL) — сообщение без утечки названия чужого документа, если его не было в ответе.
-- Клавиатура: фокус на сноски, Enter открывает страницу.
-- Контраст подсветки PDF читаемый в светлой теме (тёмная — по возможности).
+- Empty chat: hint about ACL and citations; in `Demo` org — employee vs HR hint. PDF snippet highlight on citation click.
+- Quota `402` — toast “organization quota exceeded”. Ingest `failed` — `last_error` in table. `/raw` 404 — “Document unavailable”, no foreign filename.
+- No rights on cited file (should not happen with correct ACL) — message without leaking another document’s title if it was not in the answer.
+- Keyboard: focus footnotes, Enter opens page.
+- PDF highlight contrast readable in light theme (dark — where possible).
 
-## Запреты UX
+## UX prohibitions
 
-- Не рендерить «источники», которых не было в событии `citations`.
-- Не подставлять публичный MinIO URL в `<iframe>`.
-- Не слать `org_id` / `access_roles` в теле чата как «фильтр».
-- Не принимать кастомный Host как достаточный ACL без cookie-сессии.
-- Не скрывать отказ модели «в документах нет информации» за спиннером или повторным запросом без действия пользователя.
+- Do not render “sources” that were not in the `citations` event.
+- Do not embed public MinIO URL in `<iframe>`.
+- Do not send `org_id` / `access_roles` in chat body as “filter”.
+- Do not treat custom Host as sufficient ACL without cookie session.
+- Do not hide model refusal “no information in documents” behind spinner or automatic retry without user action.
