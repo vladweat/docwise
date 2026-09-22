@@ -51,7 +51,7 @@ export function UserAccountMenu() {
         <ChevronDown className="size-4 shrink-0 text-slate-500 transition-transform group-open/menu:rotate-180" />
       </summary>
 
-      <div className="absolute right-0 top-[calc(100%+0.35rem)] z-50 w-[min(calc(100vw-1.5rem),17rem)] rounded-xl border border-slate-800 bg-slate-950 py-2 shadow-lg">
+      <div className="absolute right-0 top-[calc(100%+0.35rem)] z-[60] w-[min(calc(100vw-1.5rem),17rem)] rounded-xl border border-slate-800 bg-slate-950 py-2 shadow-xl ring-1 ring-black/20">
         <div className="px-3 pb-2">
           <p className="truncate text-sm font-medium text-slate-100">{user.email}</p>
           {orgs.length > 1 ? (

@@ -58,7 +58,7 @@ export function AppHeader() {
   const navItems = NAV.filter((item) => !item.adminOnly || canManageOrg);
 
   return (
-    <header className="shrink-0 border-b border-slate-800 bg-slate-950/80 pt-[env(safe-area-inset-top)] backdrop-blur">
+    <header className="relative z-50 shrink-0 border-b border-slate-800 bg-slate-950/80 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="sm:flex sm:h-14 sm:items-center sm:justify-between sm:gap-4 sm:px-4">
         <div className="flex min-h-12 items-center justify-between gap-2 px-3 py-2 sm:min-h-0 sm:flex-1 sm:justify-start sm:gap-6 sm:px-0 sm:py-0">
           <Link href="/" className="block shrink-0">
@@ -73,7 +73,12 @@ export function AppHeader() {
             />
           ) : null}
 
-          <div className="flex shrink-0 items-center gap-2 text-sm">
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-2 text-sm",
+              !isAuthenticated && "sm:ml-auto",
+            )}
+          >
             {isAuthenticated && user ? (
               <div className="sm:hidden">
                 <UserAccountMenu />

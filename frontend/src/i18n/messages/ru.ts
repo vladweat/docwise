@@ -110,6 +110,7 @@ export const ru = {
     verifyDomainFailed: "Не удалось подтвердить домен",
     loadDomainFailed: "Не удалось загрузить домен",
     loadSsoFailed: "Не удалось загрузить SSO",
+    loadMembersFailed: "Не удалось загрузить участников",
     selectFile: "Выберите файл",
     apiConnectFailed: "Не удалось подключиться к API:",
     llmNotConfigured: "Чат недоступен: не настроен ключ LLM API.",
@@ -225,14 +226,6 @@ export const ru = {
     onlyPdfDocx: "Только PDF или DOCX",
     fileTooLarge: "Файл больше 50 МБ",
     queuedToast: "Файл поставлен в очередь обработки",
-    inviteTitle: "Пригласить в организацию",
-    inviteDescription:
-      "Существующий email получит членство сразу. Новый пользователь регистрируется с токеном инвайта.",
-    inviteTokenOnce: "Токен инвайта (один раз):",
-    inviteRole: "Роль",
-    inviteDepartments: "Отделы",
-    memberAddedToast: "Пользователь добавлен в организацию",
-    inviteCreatedToast: "Инвайт создан. Передайте токен новому сотруднику.",
   },
   inspect: {
     title: "Inspect retrieval",
@@ -301,5 +294,20 @@ export const ru = {
     requireSso: "Требовать SSO (пароль и Google не входят в эту org)",
     groupMapping: "Маппинг групп IdP → role / departments",
     saveSso: "Сохранить SSO",
+    teamTitle: "Команда",
+    teamDescription:
+      "Участники текущей организации. Инвайты учитываются в квоте мест.",
+    teamColEmail: "Email",
+    teamColRole: "Роль",
+    teamColDepartments: "Отделы",
+    teamColJoined: "Добавлен",
+    inviteTitle: "Пригласить в организацию",
+    inviteDescription:
+      "Существующий email получит членство сразу. Новый пользователь регистрируется с токеном инвайта.",
+    inviteTokenOnce: "Токен инвайта (один раз):",
+    inviteRole: "Роль",
+    inviteDepartments: "Отделы",
+    memberAddedToast: "Пользователь добавлен в организацию",
+    inviteCreatedToast: "Инвайт создан. Передайте токен новому сотруднику.",
   },
 } as const;

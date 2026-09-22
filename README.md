@@ -152,6 +152,24 @@ Open http://localhost:3001 — on localhost the login screen has **Войти к
 
 Script: `eval/seed_demo.py` (same fixture PDFs as eval; real `index_pdf`, not Celery). Local passwords only.
 
+Re-seed demo without wiping volumes: `make demo-fresh`. Full reset (destructive): `make demo-fresh-volumes`.
+
+### Fast frontend loop (UI on the host)
+
+Backend, worker, Postgres, Redis, and MinIO stay in Docker. Run Next.js with HMR so you skip `make up-frontend` on every UI change:
+
+```bash
+make deps-frontend    # once: node_modules
+make up-fast          # API on :8001
+cd frontend && NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev
+```
+
+Open http://localhost:3000 (not :3001). Cookies and `apiUrl()` still target `http://localhost:8001` on plain `localhost`.
+
+After edits under `backend/app/services/ingestion/` or `worker/`, run `make restart-worker`.
+
+Optional git hook (ruff on staged `backend/` only): `pip install pre-commit && pre-commit install` (see `.pre-commit-config.yaml`; CI unchanged).
+
 **Sample files (upload tests):** regenerate with `backend/.venv/bin/python samples/export-sample-documents.py` → [samples/documents/](samples/documents/) (12 demo PDFs + `Travel-Policy-Test.docx`). DOCX has no in-browser Word preview in the KB modal — chat pane shows the cited snippet and download.
 
 ## Screenshots
@@ -199,6 +217,7 @@ CI does not require GPU, a live LLM, or the Ragas eval runner.
 
 ```bash
 make lint            # ruff + mypy
+make test-smoke      # fast subset (~3 min); full suite: make test
 make test            # pytest in the backend container → docwise_test
 make typecheck       # frontend tsc --noEmit
 make test-frontend   # vitest

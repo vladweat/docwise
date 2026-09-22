@@ -10,6 +10,7 @@ import { FadeIn } from "@/components/ui/fade-in";
 import { BillingSection, PLAN_LABEL } from "@/features/settings/billing-section";
 import { DomainSection } from "@/features/settings/domain-section";
 import { SsoSection } from "@/features/settings/sso-section";
+import { TeamSection } from "@/features/settings/team-section";
 import { canManageOrganization } from "@/lib/access-roles";
 import {
   ApiRequestError,
@@ -17,6 +18,7 @@ import {
   fetchBillingSubscription,
   fetchBillingUsage,
   fetchOrganizationDomain,
+  fetchOrganizationMembers,
   fetchOrganizationSso,
   simulateDevBilling,
   upsertOrganizationDomain,
@@ -50,6 +52,11 @@ export function SettingsPage() {
   const [ssoFormReady, setSsoFormReady] = useState(false);
   const [customHostname, setCustomHostname] = useState("");
 
+  const membersQuery = useQuery({
+    queryKey: ["org-members", user?.organization_id],
+    queryFn: fetchOrganizationMembers,
+    enabled: Boolean(user) && canManage,
+  });
   const usageQuery = useQuery({
     queryKey: ["billing-usage", user?.organization_id],
     queryFn: fetchBillingUsage,
@@ -233,6 +240,12 @@ export function SettingsPage() {
             </Card>
           ) : (
             <>
+              <TeamSection
+                members={membersQuery.data}
+                loading={membersQuery.isLoading}
+                error={membersQuery.error}
+                onRefresh={() => void membersQuery.refetch()}
+              />
               <BillingSection
                 sub={subQuery.data}
                 usage={usageQuery.data}

@@ -35,9 +35,11 @@ const DEPARTMENT_OPTIONS = ACCESS_ROLE_OPTIONS.filter(
 export function InviteMemberModal({
   open,
   onClose,
+  onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }) {
   const { t } = useI18n();
   const pushToast = useToastStore((state) => state.push);
@@ -69,11 +71,13 @@ export function InviteMemberModal({
         departments,
       });
       if (result.status === "added") {
-        pushToast(t("documents.memberAddedToast"), "info");
+        pushToast(t("settings.memberAddedToast"), "info");
+        onSuccess?.();
         resetAndClose();
       } else {
         setToken(result.invite_token);
-        pushToast(t("documents.inviteCreatedToast"), "info");
+        pushToast(t("settings.inviteCreatedToast"), "info");
+        onSuccess?.();
       }
     } catch (err) {
       const message =
@@ -95,12 +99,12 @@ export function InviteMemberModal({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t("documents.inviteTitle")}</DialogTitle>
-          <DialogDescription>{t("documents.inviteDescription")}</DialogDescription>
+          <DialogTitle>{t("settings.inviteTitle")}</DialogTitle>
+          <DialogDescription>{t("settings.inviteDescription")}</DialogDescription>
         </DialogHeader>
         {token ? (
           <div className="space-y-3">
-            <p className="text-sm text-slate-300">{t("documents.inviteTokenOnce")}</p>
+            <p className="text-sm text-slate-300">{t("settings.inviteTokenOnce")}</p>
             <code className="block break-all rounded-md bg-slate-950 p-2 text-xs text-slate-200">{token}</code>
             <Button type="button" className="w-full" onClick={resetAndClose}>
               {t("common.done")}
@@ -119,7 +123,7 @@ export function InviteMemberModal({
               />
             </div>
             <div>
-              <Label htmlFor="invite-role">{t("documents.inviteRole")}</Label>
+              <Label htmlFor="invite-role">{t("settings.inviteRole")}</Label>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger id="invite-role" className="mt-1">
                   <SelectValue />
@@ -134,7 +138,7 @@ export function InviteMemberModal({
               </Select>
             </div>
             <fieldset>
-              <legend className="text-sm font-medium">{t("documents.inviteDepartments")}</legend>
+              <legend className="text-sm font-medium">{t("settings.inviteDepartments")}</legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {DEPARTMENT_OPTIONS.map((item) => {
                   const checked = departments.includes(item.value);
