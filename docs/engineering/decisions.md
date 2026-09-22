@@ -127,3 +127,11 @@ Unverified domain not bound; one hostname — one org. CORS/CSRF allowlist — f
 **Why:** these tables feed dense/FTS; one forgotten org bind in SQL — cross-tenant text in RRF. Chat and audit already always filter `organization_id` (and `user_id`); RLS on `chat_messages` without org column — unnecessary complexity.
 
 **Consequence:** migration `015`. Inner ACL (`access_roles`) not in RLS. Pytest: `RLS_TEST_FIXTURE_BYPASS` only for direct ORM corpus fixtures.
+
+## ADR-017. Data retention and erasure (EU pilot policy)
+
+**Context:** GDPR-style pilots ask how long queries and retrieval metadata are kept, and what happens when a person leaves. v1 has **no** automated retention job or self-service “delete my account” API.
+
+**Decision:** Product defaults and erasure notes live in [data-retention.md](../platform/data-retention.md). Summary: audit logs **90 days** (when contract requires a purge job); chat until session delete; KB customer-controlled; LLM Redis cache **24 h**. Audit never stores chunk body text. Embedding rotation does not erase audit — private runbook `docs/_private/operations/embedding-model-migration.md`.
+
+**Consequence:** no schema change in ADR-017. When a pilot mandates a shorter audit TTL, add migration-safe purge job + env in the same PR as implementation.

@@ -4,26 +4,7 @@ Step order is fixed. Skipping reranker or RBAC filter on a “happy path” is n
 
 ## Step 1. RBAC in SQL (before LLM)
 
-From JWT/session: current `organization_id`, membership role and `departments` (assembly — [auth.md](../platform/auth.md), isolation — [tenancy.md](../platform/tenancy.md)).
-
-Build `allowed_roles`:
-
-- always include global role (`employee` / `manager` / `admin`);
-- include each `departments` element;
-- include literal `all` for org-wide documents.
-
-Filter on **every** dense and FTS query:
-
-```sql
-WHERE organization_id = :current_org
-  AND access_roles && ARRAY['employee', 'hr', 'all']::text[]
-ORDER BY embedding <=> :query_vec
-LIMIT 25
-```
-
-Chunks outside org or ACL do not enter RRF, rerank, or prompt. Do not filter “later in prompt”. Do not replace `org_id` with tag in `access_roles`.
-
-Original download (`GET .../raw`) uses same semantics on `documents` row, not “user found citation so allow”.
+Session yields current `organization_id` and `allowed_roles` ([auth.md](../platform/auth.md); org wall — [tenancy.md](../platform/tenancy.md)). Apply both conjuncts on **every** dense and FTS query before RRF, rerank, or the LLM. Do not filter “later in prompt”. Original download (`GET .../raw`) uses the same semantics on the `documents` row.
 
 ## Step 2. Hybrid search
 

@@ -52,10 +52,7 @@ On Acme custom/slug host, `switch-organization` to Globex is forbidden (need Glo
 
 ## Session
 
-- Cookies `dw_access` / `dw_refresh` as in [ADR-007](../engineering/decisions.md). Access token — `sub` (email/id) **and** current membership `org_id`; no `role` in JWT.
-- `GET /auth/me` returns current org and membership role, not “global” role.
-- Org switch: only `POST /api/v1/auth/switch-organization` with existing membership; new cookies. On hostname bound to another org, switch forbidden. Field `organization_id` / `org_id` in chat/search/upload **ignored** as authority (like `access_roles` today).
-- No membership for org in token → `401` / `403`, without listing foreign orgs in `detail`.
+Session cookies, JWT claims, org switch, and CSRF: [auth.md](auth.md). Access token carries `sub` and current membership `org_id`; role comes from `organization_memberships`, not the JWT. Field `organization_id` / `org_id` in chat/search/upload is ignored as authority.
 
 ## Registration and invites
 
@@ -74,7 +71,7 @@ First user on empty DB is no longer “admin of whole platform”: admin **of ow
 | --- | --- |
 | `GET /documents`, `/raw`, `/status` | `org_id` + `access_roles` intersection |
 | chat / search / inspect | same on `document_chunks` (`org_id` **and** ACL); chunks copy document `org_id` |
-| KB write (upload, delete, PATCH ACL, invites) | membership `admin` **current** org; row still session `org_id`; seats/pages quota per plan |
+| KB write (upload, delete, PATCH ACL, invites) | membership `admin`/`manager` **current** org; row still session `org_id`; seats/pages quota per plan |
 | chat sessions, audit | `org_id`; Acme history not mixed into Globex; period tokens — this org quota |
 | LLM cache | key includes `org_id`, index generation **and** canonical `allowed_roles` |
 | `file_hash` | unique `(org_id, file_hash)`, not global |
@@ -83,7 +80,7 @@ First user on empty DB is no longer “admin of whole platform”: admin **of ow
 | SSO ACS | org from connector `{slug}`; JIT only into it |
 | custom domain | verified hostname → one org; mismatch with session → deny |
 
-Foreign tenant: `404` as for file outside ACL. Do not confirm another company has a document / matching SHA-256.
+Auth-specific write gates (`require_kb_admin` / `require_admin`) and inspect flag: [auth.md](auth.md). Foreign tenant: `404` as for file outside ACL. Do not confirm another company has a document / matching SHA-256.
 
 ## Forbidden
 

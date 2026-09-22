@@ -12,8 +12,6 @@ The `eval/` module shows the system is not naive RAG: faithfulness to context, c
 | `eval/seed_demo.py` | Local demo: employee / HR / admin and twelve PDFs (`all` / `hr` / `finance`) |
 | `reports/rag_benchmark.md` | Metrics table for README |
 
-Synthetic set is fine initially; later add questions from real (anonymized) PDFs.
-
 Golden set runs as user `eval-employee@docwise.example.com` (`employee`, `departments=[]`). Roles are not taken from request body. `hr` and `finance` documents are in `must_not_doc_ids` for **every** question.
 
 ## Metrics
@@ -65,11 +63,11 @@ Use this checklist when a PR touches hybrid retrieval, Postgres FTS, RRF (`k=60`
 | Change area | Command | Update artifacts |
 | --- | --- | --- |
 | `backend/app/services/retrieval/` only (no prompt) | `make eval-retrieval` | If page hit or ACL regress: note in PR; full `make eval` if rerank threshold moved |
-| Fusion, FTS query, rerank threshold, chunking, embeddings | `make eval` | [reports/rag_benchmark.md](../../reports/rag_benchmark.md) (regenerate table via eval runner); [nfr.md](nfr.md) § RAG quality date line if Faithfulness, ACL, or diagnostic metrics move materially (≥ 0.02 absolute or any ACL leak) |
+| Fusion, FTS query, rerank threshold, chunking, embeddings | `make eval` | [reports/rag_benchmark.md](../../reports/rag_benchmark.md) (regenerate via eval runner) if Faithfulness, ACL, or diagnostic metrics move materially (≥ 0.02 absolute or any ACL leak) |
 | Chat prompt / refusal wording / answer length | `make eval` | Same as above; compare **Answer Relevance** per-question in benchmark appendix |
 | No RAG path change | — | Check “did not change retrieval” in PR template |
 
-**Faithfulness and ACL leaks are release gates** (see thresholds below). Context Precision, Answer Relevance, and page hit are diagnostic until gated in NFR.
+**Faithfulness and ACL leaks are release gates** (see thresholds below). Context Precision, Answer Relevance, and page hit are diagnostic.
 
 **Inspect for misses:** `/search/inspect` (Compose: `ENABLE_SEARCH_INSPECT=true`) — dense → FTS → RRF → reranked. Do not log restricted chunk bodies in tickets visible to the same user.
 
@@ -77,14 +75,12 @@ Maintaining the benchmark file: [reports/rag_benchmark.md](../../reports/rag_ben
 
 ## Release thresholds
 
-Latest live run (**2026-09-22**, eval fixture section splits; 35 cases, `eval-employee`, retrieval + generation + Ragas):
+| Metric | Threshold |
+| --- | ---: |
+| Faithfulness | ≥ 0.8 |
+| Context Precision | guideline ≥ 0.9 (diagnostic) |
+| Answer Relevance | ≥ 0.75 |
+| Target page hit | ≥ 0.95 |
+| ACL `must_not_doc_ids` | **0 leaks** |
 
-| Metric | Threshold | Actual |
-| --- | ---: | ---: |
-| Faithfulness | ≥ 0.8 | 1.000 |
-| Context Precision | guideline ≥ 0.9 | 0.994 |
-| Answer Relevance | ≥ 0.75 | 0.776 |
-| Target page hit | ≥ 0.95 | 1.000 |
-| ACL `must_not_doc_ids` | **0 leaks** | 0 / PASS |
-
-Summary: SQL RBAC before LLM holds corpus (7 ACL negatives, 0 leaks). Faithfulness 1.0 on positives. Prior **2026-09-21** run (FTS `012`): page hit 0.929 — two rerank-threshold refusals on multi-topic handbook/engineering chunks; fixed by splitting eval PDF sections (`eval/corpus.py`) so rerank scores clear 0.25 without lowering the threshold. Optional CI: [`.github/workflows/eval.yml`](../../.github/workflows/eval.yml) (`workflow_dispatch`, `OPENAI_API_KEY`). Table: [reports/rag_benchmark.md](../../reports/rag_benchmark.md).
+Live scores and per-question table: [reports/rag_benchmark.md](../../reports/rag_benchmark.md). Optional CI: [`.github/workflows/eval.yml`](../../.github/workflows/eval.yml) (`workflow_dispatch`).

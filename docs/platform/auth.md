@@ -63,16 +63,6 @@ Document with `access_roles = ["hr"]` is visible to a user **in this org** who h
 
 Document role literals (admin UI tags): `admin`, `manager`, `employee`, departments (`hr`, `finance`, …), plus `all` / UI label **General**.
 
-## Surfaces with one rule
-
-| Surface | Check |
-| --- | --- |
-| `GET /documents` | session `organization_id` **and** `access_roles` intersects `allowed_roles` |
-| `GET /documents/{id}/raw` | same; else 404 (not 403 with filename; foreign org indistinguishable) |
-| chat / search / inspect | `organization_id` **and** `&&` on `document_chunks`; do not rely on prompt |
-| `POST /search/inspect` | cookie; flag off → `404`; not org-admin → `403`; then same filter as chat |
-| KB: `PATCH /documents/{id}` | `require_kb_admin` (admin or manager of current org); writes document `access_roles` **and** all chunks; `org_id` unchanged |
-| Billing / SSO / domain | `require_admin` of current org; foreign org indistinguishable (`404` on simulate and foreign slug) |
-| LLM cache | key includes `org_id`, index generation, and canonical `allowed_roles` set |
-
 ACL change on a file: update `documents` **and** all `document_chunks` rows for that file (or full re-upsert). Otherwise the index lies.
+
+HTTP surfaces that apply this filter (list, raw, chat, inspect, cache, billing): see the surfaces table in [tenancy.md](tenancy.md#surfaces-with-one-rule).

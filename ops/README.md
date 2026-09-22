@@ -1,6 +1,6 @@
 # Pilot operations (Compose)
 
-Scripts for **self-host / pilot** backup and restore. Canonical runbook (prod checklist, secret rotation, TLS): `docs/_private/operations/pilot-runbook.md` (gitignored; copy from your team backup).
+Scripts for **self-host / pilot** backup and restore. Canonical runbook (prod checklist, secret rotation, TLS): `docs/_private/operations/pilot-runbook.md` (gitignored; copy from your team backup). **Embedding model change:** `docs/_private/operations/embedding-model-migration.md`.
 
 | Command | Action |
 | --- | --- |

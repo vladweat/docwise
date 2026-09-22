@@ -65,7 +65,7 @@ def cache_key(question: str, allowed_roles: Sequence[str], *, organization_id: U
     """Redis key: org + index generation + roles hash + question (never body-supplied org)."""
 ```
 
-Language: **English** in code docstrings; product specs may stay in Russian in `docs/product/`.
+Language: **English** in code docstrings and in public `docs/` product specs.
 
 ## Comments
 
