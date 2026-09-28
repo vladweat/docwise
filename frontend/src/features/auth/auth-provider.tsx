@@ -22,6 +22,7 @@ import {
   register,
   switchOrganization,
 } from "@/lib/api";
+import { tClient } from "@/i18n/client-translate";
 import { resetClientSessionState } from "@/lib/reset-client-state";
 import type { UserResponse } from "@/types/auth";
 import type { DevSsoAssertion } from "@/types/sso";
@@ -112,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await login({ email, password });
         applyUser(me);
       } catch (err) {
-        const message = err instanceof ApiRequestError ? err.message : "Login failed";
+        const message = err instanceof ApiRequestError ? err.message : tClient("auth.loginFailed");
         setError(message);
         throw err;
       }
@@ -132,7 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         applyUser(me);
       } catch (err) {
-        const message = err instanceof ApiRequestError ? err.message : "Registration failed";
+        const message =
+          err instanceof ApiRequestError ? err.message : tClient("auth.registrationFailed");
         setError(message);
         throw err;
       }
@@ -147,7 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await loginWithGoogle(idToken, extras);
         applyUser(me);
       } catch (err) {
-        const message = err instanceof ApiRequestError ? err.message : "Google login failed";
+        const message =
+          err instanceof ApiRequestError ? err.message : tClient("auth.googleLoginFailed");
         setError(message);
         throw err;
       }
@@ -162,7 +165,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await loginWithSso(slug, assertion);
         applyUser(me);
       } catch (err) {
-        const message = err instanceof ApiRequestError ? err.message : "SSO login failed";
+        const message =
+          err instanceof ApiRequestError ? err.message : tClient("auth.ssoLoginFailed");
         setError(message);
         throw err;
       }

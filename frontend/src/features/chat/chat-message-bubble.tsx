@@ -1,5 +1,8 @@
 "use client";
 
+import { ThumbsDown, ThumbsUp } from "lucide-react";
+import { useState } from "react";
+
 import { AnswerMarkdown } from "@/features/chat/answer-markdown";
 import { CitationTag } from "@/features/chat/citation-tag";
 import {
@@ -9,9 +12,13 @@ import {
   uniqueCitations,
 } from "@/features/chat/lib/chat";
 import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/locale-provider";
+import { ApiRequestError, sendChatFeedback } from "@/lib/api";
+import { userFacingApiMessage } from "@/lib/quota";
 import { cn } from "@/lib/utils";
-import type { UiMessage } from "@/features/chat/stores/chat-store";
+import { useChatStore, type UiMessage } from "@/features/chat/stores/chat-store";
+import { useToastStore } from "@/stores/toast-store";
 import type { Citation } from "@/types/chat";
 
 export function ChatMessageBubble({
@@ -24,11 +31,35 @@ export function ChatMessageBubble({
   onSelectCitation?: (citation: Citation) => void;
 }) {
   const { t } = useI18n();
+  const [savingFeedback, setSavingFeedback] = useState(false);
   const isUser = message.role === "user";
   const chips = uniqueCitations(message.sources);
   const parts = splitAnswerParts(message.content, message.sources);
   const plainContent = chips.length > 0 ? stripCitationMarkers(message.content) : message.content;
   const isRefusal = isNoContextAnswer(message.content);
+  const canFeedback =
+    !isUser &&
+    !streaming &&
+    !message.error &&
+    Boolean(message.serverId) &&
+    message.content.trim().length > 0;
+
+  async function submitFeedback(rating: 1 | -1) {
+    if (!message.serverId || savingFeedback || message.feedback != null) return;
+    setSavingFeedback(true);
+    try {
+      await sendChatFeedback(message.serverId, rating);
+      useChatStore.getState().patchMessage(message.id, { feedback: rating });
+      useToastStore.getState().push(t("chat.feedbackThanks"));
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : t("errors.feedbackFailed");
+      const text =
+        err instanceof ApiRequestError ? userFacingApiMessage(err.status, err.message) : raw;
+      useToastStore.getState().push(text);
+    } finally {
+      setSavingFeedback(false);
+    }
+  }
 
   return (
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
@@ -90,6 +121,42 @@ export function ChatMessageBubble({
             <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-current align-middle" />
           ) : null}
         </div>
+        {canFeedback ? (
+          <div className="mt-2 flex items-center gap-1 border-t border-slate-700/80 pt-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-7 gap-1.5 px-2 text-xs text-slate-400 hover:text-slate-100",
+                message.feedback === 1 && "text-emerald-400 hover:text-emerald-300",
+              )}
+              disabled={savingFeedback || message.feedback != null}
+              aria-label={t("chat.feedbackUseful")}
+              aria-pressed={message.feedback === 1}
+              onClick={() => void submitFeedback(1)}
+            >
+              <ThumbsUp className="size-3.5" aria-hidden />
+              {t("chat.feedbackUseful")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                "h-7 gap-1.5 px-2 text-xs text-slate-400 hover:text-slate-100",
+                message.feedback === -1 && "text-amber-400 hover:text-amber-300",
+              )}
+              disabled={savingFeedback || message.feedback != null}
+              aria-label={t("chat.feedbackNotUseful")}
+              aria-pressed={message.feedback === -1}
+              onClick={() => void submitFeedback(-1)}
+            >
+              <ThumbsDown className="size-3.5" aria-hidden />
+              {t("chat.feedbackNotUseful")}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
