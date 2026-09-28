@@ -1,21 +1,22 @@
 # Frontend: UI/UX
 
-Stack: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui (Radix), PDF: `@react-pdf-viewer/core` or `pdfjs-dist`. State: TanStack Query + Zustand.
+Stack: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui (Radix), PDF: `pdfjs-dist`. State: TanStack Query + Zustand. Theme: dark UI (single palette).
 
-Routes in `app/` — RSC (`metadata` + islands). Feature interactivity and stores — `src/features/{chat,documents,settings,auth,inspect,health}`. Shared HTTP — `lib/api.ts`. Primitives — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
+Routes in `app/` — RSC (`metadata` + islands). Feature interactivity and stores — `src/features/{chat,documents,settings,auth,inspect}`. Shared HTTP — `lib/api.ts`. Primitives — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
 
-UI base — shadcn + `lib/api.ts`, chat, auth. PDF viewer instead of code viewer; citations `Doc.pdf (page N)` or DOCX section. SSE reader: events `citations | token | meta | error | done`.
+UI base — shadcn + `lib/api.ts`, chat, auth. PDF viewer instead of code viewer; citations `Doc.pdf (page N)` or DOCX section. SSE reader: events `citations | token | meta | error | done`. Assistant replies support `+1` / `-1` feedback (`POST /chat/feedback`) when `message_id` is known.
 
 ## Routes
 
 | Path | Screen |
 | --- | --- |
 | `/login` | Login: demo (three buttons) on top; Google/SSO collapsed |
-| `/` or `/chat` | Split-screen chat |
+| `/` | Guest: marketing welcome. Authenticated: same split-screen chat as `/chat` |
+| `/chat` | Split-screen chat (new session) |
 | `/chat/[sessionId]` | Specific session |
 | `/documents` | Knowledge Base admin |
 | `/inspect` | Org-admin: dense / FTS / RRF / reranked (`ENABLE_SEARCH_INSPECT`) |
-| `/settings` | Org-admin: plan, usage, SSO, domain |
+| `/settings` | Org-admin: team/invites, plan, usage, SSO, domain |
 
 ## Main chat screen
 
@@ -35,7 +36,7 @@ On footnote click:
 
 While PDF loads, do not block reading the answer. Empty right state: placeholder “Select a citation to open the source”.
 
-SSE: render citation chips first, then grow answer markdown. Chat error codes — toast/banner, no full-page break.
+SSE: render citation chips first, then grow answer markdown. After `meta.message_id`, show thumbs up/down on the assistant bubble (own messages only). Chat error codes — toast/banner, no full-page break.
 
 ## Knowledge Base admin
 
@@ -43,11 +44,11 @@ Table: title, size, pages, access tags, status (`pending` / `processing` / `read
 
 Upload: drag-and-drop modal, role selection (`HR`, `Finance`, `General` / `all` etc. — mapped to `access_roles`). After upload — poll `GET .../status` until terminal status; status includes `stage`: `parse` → `chunk` → `embed`.
 
-Upload and delete — confirm where needed; manage KB: `admin` or `manager` of current org (`canManageKnowledgeBase`). Changing `access_roles` after upload — only via `PATCH /api/v1/documents/{id}` (not exposed in the default UI). List does not show documents outside ACL or current org.
+Upload and delete — confirm where needed; manage KB: `admin` or `manager` of current org (`canManageKnowledgeBase`). Changing `access_roles` after upload — Access column dialog → `PATCH /api/v1/documents/{id}` (manager/admin); tags copy to chunks of the same org. List does not show documents outside ACL or current org.
 
-Header shows current org name; org-admin — invites on `/documents`. Org switch does not send `organization_id` in chat body. Do not substitute another company’s id on upload.
+Header shows current org name. Org-admin invites live on `/settings` (Team), not on `/documents`. Org switch does not send `organization_id` in chat body. Do not substitute another company’s id on upload.
 
-`/settings` (org-admin): current plan and usage; with `BILLING_PROVIDER=dev` — **Dev billing** badge and plan change / past_due / cancel. Employee on `402` for upload/chat — toast “organization quota exceeded”, no billing panel. SSO: IdP metadata and `sso_enforced`. Domain: hostname and verify status. Do not send `organization_id` in these forms as authority.
+`/settings` (org-admin): team roster and invites; current plan and usage; with `BILLING_PROVIDER=dev` — **Dev billing** badge and plan change / past_due / cancel. Employee on `402` for upload/chat — toast “organization quota exceeded”, no billing panel. SSO: IdP metadata and `sso_enforced`. Domain: hostname and verify status. Do not send `organization_id` in these forms as authority.
 
 Logout / login / user switch resets TanStack Query and chat Zustand (do not leave previous account’s sessions on screen). Do not restore `?next=/chat/:id` after login — session id belongs to one user.
 
@@ -57,7 +58,7 @@ Logout / login / user switch resets TanStack Query and chat Zustand (do not leav
 - Quota `402` — toast “organization quota exceeded”. Ingest `failed` — `last_error` in table. `/raw` 404 — “Document unavailable”, no foreign filename.
 - No rights on cited file (should not happen with correct ACL) — message without leaking another document’s title if it was not in the answer.
 - Keyboard: focus footnotes, Enter opens page.
-- PDF highlight contrast readable in light theme (dark — where possible).
+- PDF highlight contrast readable on the dark UI (amber overlay on white PDF canvas).
 
 ## UX prohibitions
 

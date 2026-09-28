@@ -11,6 +11,7 @@ export interface UiMessage {
   cached?: boolean;
   error?: boolean;
   serverId?: string | null;
+  feedback?: 1 | -1 | null;
 }
 
 interface ChatState {

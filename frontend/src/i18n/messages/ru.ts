@@ -90,6 +90,10 @@ export const ru = {
     demoPersonaHr: "HR",
     demoPersonaAdmin: "Admin",
     demoFlowHint: "Сначала «Сотрудник», затем HR — один вопрос про L3 salary band.",
+    loginFailed: "Не удалось войти",
+    registrationFailed: "Не удалось зарегистрироваться",
+    googleLoginFailed: "Не удалось войти через Google",
+    ssoLoginFailed: "Не удалось войти через SSO",
   },
   errors: {
     quotaExceeded: "Квота организации исчерпана",
@@ -123,9 +127,9 @@ export const ru = {
     loadMembersFailed: "Не удалось загрузить участников",
     patchAclFailed: "Не удалось обновить теги доступа",
     selectFile: "Выберите файл",
-    apiConnectFailed: "Не удалось подключиться к API:",
     llmNotConfigured: "Чат недоступен: не настроен ключ LLM API.",
     llmNotConfiguredDev: "Укажите OPENAI_API_KEY в .env и перезапустите backend.",
+    feedbackFailed: "Не удалось сохранить оценку",
   },
   chat: {
     noContextAnswer: "В предоставленных документах нет информации по данному вопросу.",
@@ -165,6 +169,9 @@ export const ru = {
     inputHint: "Enter — отправить, Shift+Enter — новая строка",
     typing: "Печатает…",
     cachedSuffix: " · из кеша",
+    feedbackUseful: "Полезно",
+    feedbackNotUseful: "Не полезно",
+    feedbackThanks: "Спасибо за оценку",
     hideDocumentPane: "Скрыть панель документа",
     showSessionsPane: "Показать список сессий",
     showDocumentPane: "Показать панель документа",
@@ -192,7 +199,6 @@ export const ru = {
       "Список только документов, которые пересекаются с вашими ролями. Чужие ACL сюда не попадают.",
     subtitleOrg:
       "Организация «{org}». Список только документов, которые пересекаются с вашими ролями.",
-    invite: "Пригласить",
     uploadPdf: "Загрузить PDF",
     adminOnlyHint: "Загрузка и удаление — только admin.",
     empty:

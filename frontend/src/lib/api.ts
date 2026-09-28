@@ -56,6 +56,4 @@ export {
   uploadDocument,
 } from "@/lib/api/documents";
 
-export { fetchHealth } from "@/lib/api/health";
-
 export { inspectSearch } from "@/lib/api/inspect";
