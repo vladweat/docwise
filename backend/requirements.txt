@@ -1,5 +1,5 @@
 fastapi>=0.115.0,<0.116
-uvicorn[standard]>=0.32.0,<0.33
+uvicorn[standard]>=0.53.0,<0.54
 pydantic-settings>=2.6.0,<3
 pydantic[email]>=2.6.0,<3
 sqlalchemy>=2.0.36,<3
