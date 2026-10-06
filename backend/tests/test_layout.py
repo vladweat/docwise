@@ -43,7 +43,7 @@ def test_compose_pins_minio_image():
         pytest.skip("docker-compose.yml is not mounted in this environment")
     text = compose.read_text()
     assert "image: quay.io/minio/minio:RELEASE." in text
-    line = next(l for l in text.splitlines() if "minio/minio" in l)
+    line = next(row for row in text.splitlines() if "minio/minio" in row)
     assert ":latest" not in line
 
 

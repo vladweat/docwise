@@ -2,7 +2,8 @@ fastapi>=0.115.0,<0.116
 uvicorn[standard]>=0.32.0,<0.33
 pydantic-settings>=2.6.0,<3
 pydantic[email]>=2.6.0,<3
-sqlalchemy>=2.0.36,<3
+# Keep <2.1: SQLAlchemy 2.1 defaults postgresql:// to psycopg3; we use psycopg2-binary.
+sqlalchemy>=2.0.36,<2.1
 psycopg2-binary>=2.9.10,<3
 redis>=5.2.0,<6
 httpx>=0.27.2,<0.28
