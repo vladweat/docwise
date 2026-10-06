@@ -1,17 +1,10 @@
 # Docwise
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/vladweat/docwise/actions/workflows/ci.yml/badge.svg)](https://github.com/vladweat/docwise/actions/workflows/ci.yml)
 
 RAG over shared PDF/DOCX knowledge bases: FastAPI, PostgreSQL/pgvector, Celery, Next.js. Hybrid retrieval with cross-encoder rerank, page/section citations, and SQL access control before the LLM.
 
 Deploy model: **shared B2B SaaS** (many organizations on one stack). Isolation is `organization_id` plus document `access_roles` — applied on every dense and FTS query before fusion, rerank, or generation. Spec: [docs/product/srs.md](docs/product/srs.md). Tenancy: [docs/platform/tenancy.md](docs/platform/tenancy.md).
-
-| | |
-| --- | --- |
-| **Live demo** | TBD |
-| **Walkthrough video** | TBD (60–90 s) |
-
-Replace `OWNER/REPO` in the CI badge after you publish the GitHub remote.
 
 ## Why not naive RAG
 
@@ -78,14 +71,14 @@ flowchart TB
 
 ## Eval
 
-Golden set (35 cases) through the same hybrid path as production. Release gates and how to run: [docs/product/evaluation.md](docs/product/evaluation.md). Latest numbers: [reports/rag_benchmark.md](reports/rag_benchmark.md). Optional CI: [`.github/workflows/eval.yml`](.github/workflows/eval.yml).
+Golden set (35 cases) through the same hybrid path as production. Latest: Faithfulness 1.000, Context Precision 0.994, page hit rate 1.000; 0 ACL leaks on 7 restricted-document questions. Release gates and how to run: [docs/product/evaluation.md](docs/product/evaluation.md). Full report: [reports/rag_benchmark.md](reports/rag_benchmark.md). Optional CI: [`.github/workflows/eval.yml`](.github/workflows/eval.yml).
 
 ## Run the demo
 
-**Quickstart (~15 min):** copy env → `make deps` → `make up` → `make demo` → open UI. Chat needs `OPENAI_API_KEY` (or KodikRouter) in `.env`; see [`.env.example`](.env.example).
+**Quickstart (~15 min):** copy env → `make deps` → `make up` → `make demo` → open UI. Chat needs `OPENAI_API_KEY` (or any OpenAI-compatible endpoint) in `.env`; see [`.env.example`](.env.example).
 
 ```bash
-cp .env.example .env          # set OPENAI_API_KEY (or KodikRouter) for chat
+cp .env.example .env          # set OPENAI_API_KEY (or any OpenAI-compatible endpoint) for chat
 make deps                     # backend/.venv + FastEmbed ONNX + frontend/node_modules
 make up                       # postgres, redis, minio, backend, worker, frontend
 make health                   # GET http://localhost:8001/health
