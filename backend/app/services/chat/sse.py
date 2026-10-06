@@ -28,7 +28,6 @@ from app.services.chat.prompt import (
     load_cached_answer,
     save_cached_answer,
 )
-from app.services.chat.runtime import SessionLocal, embed_query, finish_retrieval, hybrid_search, stream_openai
 from app.services.chat.sessions import get_owned_session
 from app.services.org.quotas import QUOTA_EXCEEDED, has_chat_token_quota
 from app.services.retrieval import NO_CONTEXT_ANSWER, allowed_roles_for, retrieve as retrieval_retrieve
@@ -37,12 +36,15 @@ logger = logging.getLogger(__name__)
 
 GENERIC_CHAT_ERROR = "Chat failed. Try again."
 
+# Tests monkeypatch ``app.services.chat._persist_turn``.
+_persist_turn = persist_turn
 
-def _active_retrieve():
-    """Late-bind so tests can monkeypatch ``app.services.chat.retrieve``."""
-    from app.services.chat import retrieve
 
-    return retrieve
+def _chat():
+    """Late-bind package attrs so tests can monkeypatch ``app.services.chat.*``."""
+    import app.services.chat as chat
+
+    return chat
 
 
 def iter_sse_events(
@@ -55,12 +57,14 @@ def iter_sse_events(
     streamer=None,
 ) -> Iterator[str]:
     started = time.perf_counter()
-    search = retriever if retriever is not None else _active_retrieve()
-    generate = streamer or stream_openai
+    chat = _chat()
+    search = retriever if retriever is not None else chat.retrieve
+    generate = streamer or chat.stream_openai
+    session_local = chat.SessionLocal
     use_split = retriever is None and search is retrieval_retrieve
 
     try:
-        with SessionLocal() as db:
+        with session_local() as db:
             bind_session_rls(db, organization_id=organization_id)
             user = principal_or_none(db, user_id, organization_id)
             if user is None:
@@ -85,7 +89,7 @@ def iter_sse_events(
             if cached is not None:
                 persist_ok = True
                 try:
-                    persist = persist_turn(
+                    persist = chat._persist_turn(
                         db,
                         user=user,
                         session=session,
@@ -194,17 +198,19 @@ def iter_sse_events(
 
 
 def _run_retrieval(search, user_id: UUID, organization_id: UUID, query: str, *, use_split: bool):
+    chat = _chat()
+    session_local = chat.SessionLocal
     if use_split:
-        vector = embed_query(query)
-        with SessionLocal() as db:
+        vector = chat.embed_query(query)
+        with session_local() as db:
             bind_session_rls(db, organization_id=organization_id)
             user = principal_or_none(db, user_id, organization_id)
             if user is None:
                 return None
-            pool = hybrid_search(db, user, query, vector)
-        return finish_retrieval(query, pool)
+            pool = chat.hybrid_search(db, user, query, vector)
+        return chat.finish_retrieval(query, pool)
 
-    with SessionLocal() as db:
+    with session_local() as db:
         bind_session_rls(db, organization_id=organization_id)
         user = principal_or_none(db, user_id, organization_id)
         if user is None:
@@ -214,7 +220,3 @@ def _run_retrieval(search, user_id: UUID, organization_id: UUID, query: str, *, 
 
 def _elapsed_ms(started: float) -> int:
     return max(int((time.perf_counter() - started) * 1000), 0)
-
-
-# Tests monkeypatch ``app.services.chat._persist_turn``.
-_persist_turn = persist_turn

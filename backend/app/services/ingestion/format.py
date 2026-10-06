@@ -20,12 +20,23 @@ def suffix_format(filename: str) -> str | None:
 
 
 def detect_format(filename: str, content: bytes, content_type: str | None) -> str | None:
-    """Return ``pdf`` or ``docx`` when the upload looks valid, else ``None``."""
-    if content.startswith(PDF_MAGIC):
-        return "pdf"
-    if _looks_like_docx(content):
-        return "docx"
+    """Return ``pdf`` or ``docx`` when the upload looks valid, else ``None``.
+
+    Magic bytes win only when the filename has no suffix or a matching ``.pdf`` /
+    ``.docx`` suffix. A ``.txt`` (or other non-KB suffix) is always rejected.
+    """
+    suffix = Path(filename).suffix.lower()
+    if suffix and suffix not in {".pdf", ".docx"}:
+        return None
     by_name = suffix_format(filename)
+    if content.startswith(PDF_MAGIC):
+        if by_name in (None, "pdf"):
+            return "pdf"
+        return None
+    if _looks_like_docx(content):
+        if by_name in (None, "docx"):
+            return "docx"
+        return None
     if by_name == "pdf":
         return None
     media = (content_type or "").split(";")[0].strip().lower()

@@ -58,7 +58,7 @@ def storage():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.upload.enqueue_ingestion", lambda document_id: None)
 
 
 @pytest.fixture(autouse=True)
@@ -147,7 +147,7 @@ def test_parse_access_roles_json_and_repeated():
 def test_upload_returns_201_pending_and_enqueues(admin_client: TestClient, storage: FakeStorage, monkeypatch):
     enqueued: list[UUID] = []
     monkeypatch.setattr(
-        "app.services.documents.enqueue_ingestion",
+        "app.services.documents.upload.enqueue_ingestion",
         lambda document_id: enqueued.append(document_id),
     )
     content = _pdf("upload-ok")

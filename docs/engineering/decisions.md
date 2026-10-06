@@ -126,7 +126,7 @@ Unverified domain not bound; one hostname — one org. CORS/CSRF allowlist — f
 
 **Why:** these tables feed dense/FTS; one forgotten org bind in SQL — cross-tenant text in RRF. Chat and audit already always filter `organization_id` (and `user_id`); RLS on `chat_messages` without org column — unnecessary complexity.
 
-**Consequence:** migration `015`. Inner ACL (`access_roles`) not in RLS. Pytest: `RLS_TEST_FIXTURE_BYPASS` only for direct ORM corpus fixtures.
+**Consequence:** migration `015`. Inner ACL (`access_roles`) not in RLS. Pytest: `RLS_TEST_FIXTURE_BYPASS` only for direct ORM corpus fixtures. Postgres **superusers always bypass RLS** (FORCE only affects the table owner); CI/pytest set `DOCWISE_RLS_SESSION_ROLE=docwise_rls` and `SET LOCAL ROLE` each transaction so corpus policies apply under `POSTGRES_USER`.
 
 ## ADR-017. Data retention and erasure (EU pilot policy)
 

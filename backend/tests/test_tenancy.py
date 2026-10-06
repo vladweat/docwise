@@ -66,7 +66,7 @@ def storage():
 
 @pytest.fixture(autouse=True)
 def _mock_celery(monkeypatch):
-    monkeypatch.setattr("app.services.documents.enqueue_ingestion", lambda document_id: None)
+    monkeypatch.setattr("app.services.documents.upload.enqueue_ingestion", lambda document_id: None)
 
 
 def _register(name: str) -> TestClient:

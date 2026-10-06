@@ -49,6 +49,9 @@ os.environ["STRIPE_SECRET_KEY"] = ""
 os.environ["STRIPE_WEBHOOK_SECRET"] = ""
 os.environ["RLS_TEST_FIXTURE_BYPASS"] = "1"
 
+# Non-superuser role for session queries — Postgres superusers bypass RLS even with FORCE.
+RLS_SESSION_ROLE = "docwise_rls"
+
 
 def _ensure_test_database() -> None:
     from sqlalchemy import create_engine, text
@@ -64,6 +67,66 @@ def _ensure_test_database() -> None:
                 conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
     finally:
         admin_engine.dispose()
+
+
+def _ensure_rls_session_role() -> None:
+    """Create a NOSUPERUSER role and SET LOCAL ROLE on every test transaction.
+
+    CI/Compose often connect as the Postgres superuser (`POSTGRES_USER`). Superusers
+    always bypass RLS; FORCE only constrains the table owner. Tests (and a correct
+    demo) need a non-superuser session role for corpus policies to apply.
+    """
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(os.environ["DATABASE_URL"], isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    f"""
+                    DO $$
+                    BEGIN
+                      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{RLS_SESSION_ROLE}') THEN
+                        CREATE ROLE {RLS_SESSION_ROLE}
+                          NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS LOGIN;
+                      END IF;
+                    END
+                    $$;
+                    """
+                )
+            )
+            conn.execute(text(f"GRANT CONNECT ON DATABASE {TEST_DB_NAME} TO {RLS_SESSION_ROLE}"))
+            conn.execute(text(f"GRANT USAGE ON SCHEMA public TO {RLS_SESSION_ROLE}"))
+            conn.execute(
+                text(
+                    f"GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER "
+                    f"ON ALL TABLES IN SCHEMA public TO {RLS_SESSION_ROLE}"
+                )
+            )
+            conn.execute(
+                text(
+                    f"GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public "
+                    f"TO {RLS_SESSION_ROLE}"
+                )
+            )
+            conn.execute(
+                text(
+                    f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, "
+                    f"DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLES TO {RLS_SESSION_ROLE}"
+                )
+            )
+            conn.execute(
+                text(
+                    f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE "
+                    f"ON SEQUENCES TO {RLS_SESSION_ROLE}"
+                )
+            )
+            # Login role must be allowed to assume the RLS role each transaction.
+            conn.execute(text(f"GRANT {RLS_SESSION_ROLE} TO CURRENT_USER"))
+    finally:
+        engine.dispose()
+
+    os.environ["DOCWISE_RLS_SESSION_ROLE"] = RLS_SESSION_ROLE
 
 
 def _test_db_revision() -> str | None:
@@ -113,6 +176,7 @@ def _run_migrations_if_needed() -> None:
 _PREP_START = time.perf_counter()
 _ensure_test_database()
 _run_migrations_if_needed()
+_ensure_rls_session_role()
 _PREP_SECONDS = time.perf_counter() - _PREP_START
 
 

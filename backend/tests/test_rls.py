@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy.orm import Session
@@ -34,7 +34,8 @@ def _vec(seed: int) -> list[float]:
     return [((seed + offset) % 17) / 17.0 for offset in range(EMBEDDING_DIM)]
 
 
-def _seed_two_org_corpus(db: Session) -> tuple:
+def _seed_two_org_corpus(db: Session) -> tuple[UUID, UUID, UUID, UUID]:
+    """Insert two-org corpus; return plain UUIDs (safe after session close)."""
     bind_session_rls(db, bypass=True)
     acme = make_org(db, "Acme RLS")
     globex = make_org(db, "Globex RLS")
@@ -87,8 +88,10 @@ def _seed_two_org_corpus(db: Session) -> tuple:
             doc_title=globex_doc.title,
         )
     )
+    acme_id, globex_id = acme.id, globex.id
+    acme_doc_id, globex_doc_id = acme_doc.id, globex_doc.id
     db.commit()
-    return acme, globex, acme_doc, globex_doc
+    return acme_id, globex_id, acme_doc_id, globex_doc_id
 
 
 def _buggy_chunk_query_no_org_filter(db: Session, allowed_roles: list[str]):
@@ -106,8 +109,8 @@ def test_rls_hides_foreign_org_documents(clean_tables, monkeypatch):
 
     seed = SessionLocal()
     try:
-        acme, globex, _, _ = _seed_two_org_corpus(seed)
-        assert acme.id != globex.id
+        acme_id, globex_id, _, _ = _seed_two_org_corpus(seed)
+        assert acme_id != globex_id
     finally:
         seed.close()
 
@@ -119,7 +122,7 @@ def test_rls_hides_foreign_org_documents(clean_tables, monkeypatch):
 
     scoped = SessionLocal()
     try:
-        bind_session_rls(scoped, organization_id=acme.id)
+        bind_session_rls(scoped, organization_id=acme_id)
         titles = {row.title for row in scoped.query(Document).all()}
         assert titles == {"Acme handbook"}
     finally:
@@ -131,7 +134,7 @@ def test_rls_blocks_retrieval_query_missing_org_filter(clean_tables, monkeypatch
 
     seed = SessionLocal()
     try:
-        acme, globex, _, _ = _seed_two_org_corpus(seed)
+        acme_id, globex_id, _, _ = _seed_two_org_corpus(seed)
     finally:
         seed.close()
 
@@ -143,7 +146,7 @@ def test_rls_blocks_retrieval_query_missing_org_filter(clean_tables, monkeypatch
 
     acme_db = SessionLocal()
     try:
-        bind_session_rls(acme_db, organization_id=acme.id)
+        bind_session_rls(acme_db, organization_id=acme_id)
         rows = _buggy_chunk_query_no_org_filter(acme_db, ["employee", "all"]).all()
         assert len(rows) == 1
         assert "acme-retrieval-marker" in rows[0].content
@@ -153,7 +156,7 @@ def test_rls_blocks_retrieval_query_missing_org_filter(clean_tables, monkeypatch
 
     globex_db = SessionLocal()
     try:
-        bind_session_rls(globex_db, organization_id=globex.id)
+        bind_session_rls(globex_db, organization_id=globex_id)
         rows = _buggy_chunk_query_no_org_filter(globex_db, ["employee", "all"]).all()
         assert len(rows) == 1
         assert "globex-retrieval-marker" in rows[0].content
@@ -166,21 +169,22 @@ def test_worker_document_lookup_scopes_rls(clean_tables, monkeypatch):
 
     seed = SessionLocal()
     try:
-        acme, globex, acme_doc, globex_doc = _seed_two_org_corpus(seed)
+        acme_id, _, acme_doc_id, globex_doc_id = _seed_two_org_corpus(seed)
     finally:
         seed.close()
 
     worker_db = SessionLocal()
     try:
-        assert worker_db.get(Document, acme_doc.id) is None
-        assert worker_db.get(Document, globex_doc.id) is None
+        assert worker_db.get(Document, acme_doc_id) is None
+        assert worker_db.get(Document, globex_doc_id) is None
 
-        loaded = fetch_document_for_ingestion(worker_db, acme_doc.id)
+        loaded = fetch_document_for_ingestion(worker_db, acme_doc_id)
         assert loaded is not None
-        assert loaded.id == acme_doc.id
+        assert loaded.id == acme_doc_id
+        assert loaded.organization_id == acme_id
 
         visible = {row.id for row in worker_db.query(Document).all()}
-        assert visible == {acme_doc.id}
-        assert globex_doc.id not in visible
+        assert visible == {acme_doc_id}
+        assert globex_doc_id not in visible
     finally:
         worker_db.close()

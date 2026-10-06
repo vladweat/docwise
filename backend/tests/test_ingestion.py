@@ -69,7 +69,7 @@ def stub_embeddings(monkeypatch):
             for index in range(len(texts))
         ]
 
-    monkeypatch.setattr("app.services.ingestion.embed_texts", fake_embed_texts)
+    monkeypatch.setattr("app.services.ingestion.indexing.embed_texts", fake_embed_texts)
     return captured
 
 
@@ -87,8 +87,8 @@ def locks(monkeypatch):
     def release(document_id):
         held.discard(str(document_id))
 
-    monkeypatch.setattr("app.services.ingestion.acquire_indexing_lock", acquire)
-    monkeypatch.setattr("app.services.ingestion.release_indexing_lock", release)
+    monkeypatch.setattr("app.services.ingestion.worker.acquire_indexing_lock", acquire)
+    monkeypatch.setattr("app.services.ingestion.worker.release_indexing_lock", release)
     return held
 
 
@@ -315,13 +315,13 @@ def test_missing_minio_object_fails(db: Session, storage: FakeStorage):
 def test_non_pdf_object_fails(db: Session, storage: FakeStorage):
     document = _seed(db, storage, pdf=b"not-a-pdf")
 
-    with pytest.raises(IngestionError, match="not a PDF"):
+    with pytest.raises(IngestionError, match="Unsupported document format"):
         run_ingestion(db, document.id, storage=storage, index_fn=_index_chunk("hello"))
 
     stored = db.get(Document, document.id)
     assert stored is not None
     assert stored.status == DocumentStatus.failed.value
-    assert "not a PDF" in (stored.last_error or "")
+    assert "Unsupported document format" in (stored.last_error or "")
 
 
 def test_missing_document_releases_lock(db: Session, storage: FakeStorage, locks: set[str]):
@@ -379,17 +379,17 @@ def test_index_pdf_blank_pdf_fails(db: Session):
 
 def test_index_pdf_advances_parse_chunk_embed_stages(db: Session, monkeypatch):
     seen: list[str] = []
-    from app.services import ingestion as ingestion_mod
+    from app.services.ingestion import indexing as indexing_mod
 
-    original = ingestion_mod.set_ingestion_stage
+    original = indexing_mod.set_ingestion_stage
 
     def spy(session: Session, document: Document, stage: str) -> None:
         seen.append(stage)
         original(session, document, stage)
 
-    monkeypatch.setattr(ingestion_mod, "set_ingestion_stage", spy)
+    monkeypatch.setattr(indexing_mod, "set_ingestion_stage", spy)
     document = _seed(db, FakeStorage(), pdf=policy_pdf_bytes())
-    ingestion_mod.index_pdf(db, document, policy_pdf_bytes())
+    indexing_mod.index_pdf(db, document, policy_pdf_bytes())
     db.flush()
     db.refresh(document)
     assert seen == ["parse", "chunk", "embed"]
@@ -431,7 +431,7 @@ def test_index_pdf_rejects_wrong_embedding_dim(db: Session, monkeypatch):
     def bad_embed(texts, *, embedder=None):
         return [[0.0] * 8 for _ in texts]
 
-    monkeypatch.setattr("app.services.ingestion.embed_texts", bad_embed)
+    monkeypatch.setattr("app.services.ingestion.indexing.embed_texts", bad_embed)
     with pytest.raises(IngestionError, match="384"):
         index_pdf(db, document, policy_pdf_bytes())
 
@@ -442,7 +442,7 @@ def test_index_pdf_wraps_embedding_error(db: Session, monkeypatch):
     def boom(texts, *, embedder=None):
         raise EmbeddingError("Embedding model not found")
 
-    monkeypatch.setattr("app.services.ingestion.embed_texts", boom)
+    monkeypatch.setattr("app.services.ingestion.indexing.embed_texts", boom)
     with pytest.raises(IngestionError, match="Embedding model not found"):
         index_pdf(db, document, policy_pdf_bytes())
 

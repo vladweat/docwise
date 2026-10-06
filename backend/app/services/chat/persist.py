@@ -22,7 +22,6 @@ from app.services.chat.prompt import (
     HistoryTurn,
     title_from_query,
 )
-from app.services.chat.runtime import SessionLocal
 from app.services.chat.sessions import get_owned_session
 from app.services.chat.envelope import PERSIST_FAILED
 from app.services.org.quotas import has_chat_token_quota, lock_organization
@@ -134,14 +133,18 @@ def persist_closed(
     latency_ms: int,
 ) -> tuple[ChatResult, bool]:
     try:
-        with SessionLocal() as db:
+        # Late-bind so tests can monkeypatch ``app.services.chat._persist_turn``.
+        from app.services.chat import SessionLocal as session_local
+        from app.services.chat import _persist_turn as persist_fn
+
+        with session_local() as db:
             bind_session_rls(db, organization_id=organization_id)
             user = principal_or_none(db, user_id, organization_id)
             if user is None:
                 return result, False
             session = get_owned_session(db, user, session_id) if session_id is not None else None
             return (
-                persist_turn(
+                persist_fn(
                     db,
                     user=user,
                     session=session,
