@@ -76,3 +76,18 @@ README, SRS и architecture повторяют stack и RAG flow. Канон д�
 Не проверены внешние URL, private gitignored runbooks, production infrastructure, secret
 manager, firewall, backup schedule, реальные IdP/Stripe credentials и provider policies.
 Отсутствие evidence в репозитории отмечено как пробел, а не заменено предположением.
+
+## Результаты валидации
+
+| Проверка | Результат |
+| --- | --- |
+| `git diff --check` | Пройдена |
+| Локальные relative links и наличие linked files | Пройдена для 32 tracked Markdown-файлов |
+| Баланс fenced code blocks | Пройден |
+| Все aliases из `Settings` названы в configuration | Пройден после исправления grouped keys |
+| Наличие документированных `GET /`, `/health`, `/ready` | Пройдено |
+| `make -n` для документированных dev/ops targets | Пройдено; команды не выполнялись |
+| Markdownlint | Пропущен: CLI отсутствует, новые зависимости не устанавливались |
+| Базовая структура Mermaid blocks | Пройдена для трёх диаграмм |
+| Полный Mermaid CLI parse | Пропущен: CLI отсутствует, новые зависимости не устанавливались |
+| Runtime, pytest, Docker Compose, backup/restore | Пропущены как непропорциональные документационному изменению |

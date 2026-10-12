@@ -77,13 +77,21 @@ adapter нет. При недоступности Redis rate limiting работ
 | Переменная | Default |
 | --- | --- |
 | `PLAN_PERIOD_DAYS` | `30` |
-| `PLAN_STARTER_SEATS` / `PAGES` / `TOKENS` | `3` / `200` / `100000` |
-| `PLAN_TEAM_SEATS` / `PAGES` / `TOKENS` | `15` / `2000` / `1000000` |
-| `PLAN_ENTERPRISE_SEATS` / `PAGES` / `TOKENS` | `100` / `20000` / `10000000` |
+| `PLAN_STARTER_SEATS` | `3` |
+| `PLAN_STARTER_PAGES` | `200` |
+| `PLAN_STARTER_TOKENS` | `100000` |
+| `PLAN_TEAM_SEATS` | `15` |
+| `PLAN_TEAM_PAGES` | `2000` |
+| `PLAN_TEAM_TOKENS` | `1000000` |
+| `PLAN_ENTERPRISE_SEATS` | `100` |
+| `PLAN_ENTERPRISE_PAGES` | `20000` |
+| `PLAN_ENTERPRISE_TOKENS` | `10000000` |
 | `BILLING_PROVIDER` | `dev` |
 | `STRIPE_SECRET_KEY` | пусто |
 | `STRIPE_WEBHOOK_SECRET` | пусто |
-| `STRIPE_PRICE_STARTER` / `TEAM` / `ENTERPRISE` | пусто |
+| `STRIPE_PRICE_STARTER` | пусто |
+| `STRIPE_PRICE_TEAM` | пусто |
+| `STRIPE_PRICE_ENTERPRISE` | пусто |
 
 Stripe считается настроенным только при наличии secret key и webhook secret. Price IDs
 нужны для соответствующих планов. Значения — секреты или provider identifiers; в примерах
