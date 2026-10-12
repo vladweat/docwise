@@ -1,8 +1,14 @@
-# Document processing pipeline (Ingestion)
+# Обработка документов (Ingestion)
 
-Celery task: `process_document(doc_id)`. Redis lock `indexing_lock:{document_id}`. Worker: `acks_late`, prefetch 1, 20/25 min limit, idempotent ingest retries.
+Celery task: `ingestion.process_document`, аргумент `document_id`. Redis lock:
+`indexing_lock:{document_id}`. Worker: `acks_late`, prefetch 1, soft/hard limits 20/25 минут,
+до трёх retry с backoff.
 
-Idempotency: re-run for same `doc_id` deletes old `document_chunks` rows and rewrites chunks. Statuses: `pending → processing → ready | failed`. During `processing`, `ingestion_stage` goes `parse → chunk → embed` (committed between steps for `GET /documents/{id}/status`).
+Повторный запуск для того же `document_id` удаляет старые `document_chunks` и записывает
+новые. Это уменьшает дублирование, но не обеспечивает строгую транзакционную идемпотентность
+для MinIO, нескольких commit статуса и аварий worker. Status:
+`pending → processing → ready | failed`. Во время `processing` `ingestion_stage` проходит
+`parse → chunk → embed` с commit между этапами для `GET /documents/{id}/status`.
 
 ## 1. Extraction
 
@@ -65,4 +71,4 @@ Checks:
 - table serialized to Markdown and `is_table=true`;
 - chunk `access_roles` equal document roles;
 - chunk `organization_id` equals document;
-- repeat `process_document` does not duplicate `document_chunks`.
+- повторный запуск `ingestion.process_document` не дублирует `document_chunks`.

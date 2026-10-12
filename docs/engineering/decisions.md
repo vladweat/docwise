@@ -52,7 +52,7 @@ Intermediate “BM25 only on dense Top-50” removed by migration `012`.
 **Spec:** JWT in login response body.  
 **v1 decision:** httpOnly cookies `dw_access` / `dw_refresh` only. Login/register/google/refresh return `UserResponse`, not `access_token` in JSON. `Authorization: Bearer` ignored. `role` / `departments` always from server (membership), not JWT. Access JWT ~15 min, no `role` claim.
 
-With `COOKIE_SAMESITE=none` (SPA on different origin) mutations on `/api/v1` require `Origin` from `CORS_ORIGINS` **or** header `X-Requested-With: Docwise`. With `lax`/`strict` check not needed. Refresh in Redis: SET fail-closed (503), GET fail-closed. First registration on empty DB gets `admin`, others — `employee`. Google ID token without `email_verified=true` rejected.
+With `COOKIE_SAMESITE=none` (SPA on different origin) mutations on `/api/v1` require `Origin` from `CORS_ORIGINS` **or** header `X-Requested-With: Docwise`. With `lax`/`strict` check not needed. Refresh in Redis: SET fail-closed (503), GET fail-closed. Open registration with `organization_name` creates a new organization and an `admin` membership; joining another organization requires an invite. Google ID token without `email_verified=true` rejected.
 
 ## ADR-008. Embeddings bge-small
 

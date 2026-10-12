@@ -100,6 +100,13 @@ Chat (`chat_sessions` / `chat_messages`) and `rag_audit_logs` **without** RLS: c
 
 **Does not replace** `WHERE organization_id` and `access_roles` in application (inner ACL still only in SQL/services).
 
+**Runtime prerequisite:** PostgreSQL superuser всегда обходит RLS, включая `FORCE ROW LEVEL
+SECURITY`. `app.core.rls` выполняет `SET LOCAL ROLE` только если задана
+`DOCWISE_RLS_SESSION_ROLE`. Текущий `docker-compose.yml` эту переменную и отдельную
+least-privilege role не настраивает, поэтому в Compose изоляция фактически опирается на
+application filters. Tests создают отдельную role в `backend/tests/conftest.py`; production
+deployment обязан воспроизвести и проверить эту настройку отдельно.
+
 ## Not in product scope
 
 Platform operator console, SCIM. Live payment processing (live Stripe / YooKassa) is optional via the Stripe adapter; Compose and portfolio acceptance use `BILLING_PROVIDER=dev` ([billing.md](billing.md)).

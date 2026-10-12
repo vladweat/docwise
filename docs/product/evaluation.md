@@ -69,9 +69,13 @@ Use this checklist when a PR touches hybrid retrieval, Postgres FTS, RRF (`k=60`
 
 **Faithfulness and ACL leaks are release gates** (see thresholds below). Context Precision, Answer Relevance, and page hit are diagnostic.
 
-**Inspect for misses:** `/search/inspect` (Compose: `ENABLE_SEARCH_INSPECT=true`) — dense → FTS → RRF → reranked. Do not log restricted chunk bodies in tickets visible to the same user.
+**Inspect for misses:** `POST /api/v1/search/inspect` (Compose:
+`ENABLE_SEARCH_INSPECT=true`) — dense → FTS → RRF → reranked. Do not log restricted chunk
+bodies in tickets visible to the same user.
 
-Maintaining the benchmark file: [reports/rag_benchmark.md](../../reports/rag_benchmark.md#maintaining-this-report).
+Benchmark обновляет `eval/run_eval.py`; результаты сохраняются в
+[reports/rag_benchmark.md](../../reports/rag_benchmark.md). Файл является артефактом
+конкретного прогона, а не гарантией текущего runtime.
 
 ## Release thresholds
 

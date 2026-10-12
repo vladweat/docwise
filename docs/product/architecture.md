@@ -26,7 +26,7 @@ flowchart TB
   PG[(PostgreSQL + pgvector)]
   S3[(MinIO / S3)]
   Redis[(Redis)]
-  LLM[OpenAI / Anthropic]
+  LLM[OpenAI-compatible API]
 
   UI --> Chat
   Admin --> Upload
@@ -48,13 +48,16 @@ flowchart TB
 | Celery | Heavy parsing, chunking, embeddings, chunk upsert in Postgres |
 | PostgreSQL + pgvector | Users, organizations and memberships, documents, sessions, audit, dense chunk vectors + FTS |
 | MinIO | Original file bytes |
-| Redis | Celery broker and cache |
+| Redis | Celery broker/result backend, refresh sessions, rate limits, locks and cache |
+
+LLM-клиент в `backend/app/services/chat/llm.py` реализует OpenAI-compatible HTTP.
+Отдельного Anthropic adapter в репозитории нет.
 
 ## Flow A — document upload
 
 1. Org-admin of current org uploads PDF/DOCX and selects `access_roles[]` (inner tags, not company id).
 2. API computes SHA-256, checks unique `(org_id, file_hash)`, stores object in MinIO with org prefix, row in `documents` (`pending`, session `org_id`).
-3. Task `process_document(doc_id)` is enqueued.
+3. Task `ingestion.process_document` with `document_id` is enqueued.
 4. Worker: page extraction → section/page chunks → dense embedding; FTS (`search_vector`) in Postgres → upsert `document_chunks` (copy document `org_id` and ACL) → `status = ready` or `failed`.
 
 Detail: [ingestion.md](../pipeline/ingestion.md).

@@ -14,8 +14,11 @@ PNG set for the root [README](../../../README.md) gallery.
 From repo root, with `make up` + `make demo` and an LLM key in `.env`:
 
 ```bash
-cd scripts && npm init -y && npm install playwright@1.51.1 && npx playwright install chromium
-cd .. && node scripts/capture-portfolio-screenshots.mjs
+cd scripts
+npm ci
+npx playwright install chromium
+cd ..
+node scripts/capture-portfolio-screenshots.mjs
 ```
 
 Manual clicks follow the ACL walkthrough in the root README.

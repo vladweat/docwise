@@ -1,26 +1,37 @@
-# Docwise documentation
+# Документация Docwise
 
-Public product and engineering specs (English). Source of truth: [srs.md](product/srs.md), [decisions.md](engineering/decisions.md), [api.md](engineering/api.md). OpenAPI (`/docs`) is disabled in `production`.
+Код, миграции и тесты имеют приоритет над описанием. OpenAPI доступен на `/docs` только
+при `ENVIRONMENT != production`. Ручной HTTP-контракт поддерживается в
+[engineering/api.md](engineering/api.md).
 
-Internal materials (roadmap, tech debt, ops runbooks, interview notes) live in `docs/_private/` ([PRIVATE.md](PRIVATE.md), not in Git).
+Внутренние roadmap, production runbooks и заметки находятся в gitignored `docs/_private/`;
+см. [PRIVATE.md](PRIVATE.md). Их отсутствие в clone не означает, что публичный Compose
+является готовой production-конфигурацией.
 
-## Catalog
+## Быстрый маршрут
 
-| Directory | Contents |
+1. [Локальная разработка](development/getting-started.md) и
+   [конфигурация](development/configuration.md).
+2. [Архитектура](product/architecture.md), [tenancy](platform/tenancy.md) и
+   [модель данных](platform/data-model.md).
+3. [Ingestion](pipeline/ingestion.md) и [retrieval](pipeline/retrieval.md).
+4. [API](engineering/api.md), [auth](platform/auth.md) и [security](security/overview.md).
+5. [Эксплуатация](operations/operations.md) и [технический долг](maintenance/technical-debt.md).
+
+## Каталог
+
+| Раздел | Содержание |
 | --- | --- |
-| `product/` | SRS, architecture, NFR, frontend, evaluation |
-| `platform/` | tenancy, auth, billing, data-model, data-retention |
-| `pipeline/` | ingestion, retrieval |
-| `engineering/` | HTTP contract, ADRs, Python docstring conventions |
-| `portfolio/screenshots/` | PNGs for the root README |
+| `product/` | SRS, архитектура, NFR, frontend и evaluation |
+| `platform/` | Tenancy, auth, billing, data model и retention |
+| `pipeline/` | Ingestion и hybrid retrieval |
+| `engineering/` | HTTP contract, ADR и Python conventions |
+| `development/` | Запуск, тестирование и environment variables |
+| `operations/` | Compose deployment, health, backup/restore и troubleshooting |
+| `security/` | Trust boundaries, auth и подтверждённые ограничения |
+| `maintenance/` | Risk register и [аудит документации](maintenance/documentation-audit.md) |
+| `portfolio/screenshots/` | Артефакты для корневого README |
 
-## Where to start
-
-1. [SRS](product/srs.md) — goals, functional requirements, acceptance criteria.
-2. [Architecture](product/architecture.md) — components, upload / chat / inspect.
-3. [Tenancy](platform/tenancy.md), [Auth](platform/auth.md), [Data model](platform/data-model.md), [Data retention](platform/data-retention.md), [Billing](platform/billing.md).
-4. [Ingestion](pipeline/ingestion.md), [Retrieval](pipeline/retrieval.md).
-5. [API](engineering/api.md), [Python style](engineering/python-style.md), [Frontend](product/frontend.md).
-6. [NFR](product/nfr.md), [Evaluation](product/evaluation.md).
-
-Invariants (org isolation, SQL ACL before LLM, cite-or-refuse): see [tenancy.md](platform/tenancy.md) and [retrieval.md](pipeline/retrieval.md).
+Ключевые инварианты: tenant isolation по `organization_id`, SQL ACL до LLM и
+cite-or-refuse. RLS является дополнительным слоем только при корректной non-superuser
+runtime role; подробнее в [security/overview.md](security/overview.md).

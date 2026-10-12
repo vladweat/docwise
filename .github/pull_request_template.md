@@ -8,7 +8,7 @@
 
 ## RAG / retrieval
 
-See [docs/product/evaluation.md](docs/product/evaluation.md#release-discipline-fusion--fts--rerank--prompt).
+See [docs/product/evaluation.md](../docs/product/evaluation.md), section “Release discipline”.
 
 - [ ] I did **not** change `backend/app/services/retrieval/`, `backend/app/services/chat/` prompts, chunking/ingestion embed path, or fusion/rerank/FTS thresholds
 - [ ] I changed retrieval only → ran `make eval-retrieval` (`OPENAI_API_KEY` in `.env`)

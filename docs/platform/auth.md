@@ -44,6 +44,10 @@ Canonical: [ADR-014](../engineering/decisions.md). Plan gate — [billing.md](bi
 - Email without verified equivalent — denied, same as Google.
 - Compose: `SSO_PROVIDER=dev`, fixture assertion. Plan without SSO entitlement → `403` on connector upsert, not “wrong IdP”.
 
+На текущем runtime это единственный реализованный provider: при `SSO_PROVIDER != dev`
+публичные login/ACS routes не подключают SAML/OIDC adapter и отвечают `404`. Поля connector
+модели и целевой flow не означают готовую production-интеграцию с IdP.
+
 Google OIDC remains consumer login for plans without SSO. Not a SAML replacement.
 
 ## Building `allowed_roles` for search

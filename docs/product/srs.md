@@ -47,7 +47,7 @@ Out of product scope — see [§7](#7-out-of-scope).
 | Queues | Redis 7, Celery 5 |
 | Data | PostgreSQL 15 + pgvector (`pgvector/pgvector:pg15`), dense 384d cosine + FTS (`tsvector` + GIN) independent of dense |
 | Parsing | PyMuPDF (`fitz`), pdfplumber (tables → Markdown) |
-| ML | fastembed `BAAI/bge-small-en-v1.5`, `BAAI/bge-reranker-base`; LLM `gpt-4o-mini` / Anthropic via `httpx` |
+| ML | fastembed `BAAI/bge-small-en-v1.5`, `BAAI/bge-reranker-base`; LLM через OpenAI-compatible HTTP client |
 | Frontend | Next.js 15 App Router, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
 | Infra | Docker Compose, MinIO, GitHub Actions (ruff + mypy + pytest; frontend tsc + vitest + lint + build) |
 
