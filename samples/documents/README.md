@@ -4,7 +4,7 @@
 Сгенерировать заново (нужен `backend/.venv` с `pymupdf`, `python-docx`):
 
 ```bash
-cd /home/lzvw/projects/docwise
+# из корня репозитория
 backend/.venv/bin/python samples/export-sample-documents.py
 ```
 
@@ -36,10 +36,8 @@ backend/.venv/bin/python samples/export-sample-documents.py
 
 **DOCX — примеры вопросов:** travel cap 150 USD per night; receipts within 30 days; L3 limit in the table.
 
-## Пути на диске
+## Путь в репозитории
 
-Корень каталога:
-
-`/home/lzvw/projects/docwise/samples/documents/`
+Каталог: `samples/documents/`.
 
 В UI Docwise файлы **не** раздаются по URL — загрузите через **База знаний → Загрузить документ** или перетащите в модалку upload.

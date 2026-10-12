@@ -7,9 +7,13 @@ All `/api/v1/*` endpoints except login/register/google, `GET/POST /auth/sso/{slu
 ## Health
 
 ```http
+GET /
 GET /health
 GET /ready
 ```
+
+`GET /` — metadata процесса: `{"service":"docwise-backend","docs":"/docs"}`; поле `docs`
+равно `null` в production.
 
 `GET /health` — process liveness: `200` `{ "status": "ok" }` without dependency checks.
 
@@ -52,7 +56,10 @@ Size limit: `UPLOAD_MAX_BYTES` (default 50 MiB) → `413`. Unsupported format �
 GET /api/v1/documents
 ```
 
-Pagination: `limit` (1…100, default 20), `offset`. Filters: `status`. Only documents of **current org** visible to user role. Fields: `id` (UUID), `title`, `file_size_bytes`, `total_pages`, `access_roles`, `status`, `last_error` (null if not `failed`), `created_at`.
+Pagination: `limit` (1…100, default 20), `offset`. Filters: `status`. Only documents of
+**current org** visible to user role. Fields: `id` (UUID), `title`, `file_size_bytes`,
+`total_pages`, `access_roles`, `status`, `last_error` (null if not `failed`), `created_at`,
+`preview_snippet`.
 
 ```http
 GET /api/v1/documents/{id}/status
@@ -131,7 +138,9 @@ Deletes session of current user **in current org** with messages (Postgres `ON D
 POST /api/v1/chat/feedback
 ```
 
-Body: `{ "message_id": "<uuid>", "rating": 1 | -1, "comment": "..." }`. Writes `rag_audit_logs.feedback`. Own **assistant** messages only. Success `204`. Foreign / user message → `404`.
+Body: `{ "message_id": "<uuid>", "rating": 1 | -1, "comment": "..." }`. Текущая реализация
+записывает только `rating` в `rag_audit_logs.feedback`; `comment` валидируется схемой, но не
+сохраняется. Own **assistant** messages only. Success `204`. Foreign / user message → `404`.
 
 ## Inspect (admin)
 

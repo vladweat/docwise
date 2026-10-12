@@ -2,7 +2,9 @@
 
 Stack: Next.js 15 App Router, React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui (Radix), PDF: `pdfjs-dist`. State: TanStack Query + Zustand. Theme: dark UI (single palette).
 
-Routes in `app/` — RSC (`metadata` + islands). Feature interactivity and stores — `src/features/{chat,documents,settings,auth,inspect}`. Shared HTTP — `lib/api.ts`. Primitives — `components/ui` (dialog, table, select, checkbox, tabs, progress, alert, skeleton, fade-in).
+Routes находятся в `frontend/src/app/` — RSC (`metadata` + islands). Feature interactivity
+and stores — `frontend/src/features/{chat,documents,settings,auth,inspect}`. Shared HTTP —
+`frontend/src/lib/api/`. Primitives — `frontend/src/components/ui`.
 
 UI base — shadcn + `lib/api.ts`, chat, auth. PDF viewer instead of code viewer; citations `Doc.pdf (page N)` or DOCX section. SSE reader: events `citations | token | meta | error | done`. Assistant replies support `+1` / `-1` feedback (`POST /chat/feedback`) when `message_id` is known.
 

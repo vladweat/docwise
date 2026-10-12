@@ -2,9 +2,15 @@
 
 [![CI](https://github.com/vladweat/docwise/actions/workflows/ci.yml/badge.svg)](https://github.com/vladweat/docwise/actions/workflows/ci.yml)
 
-RAG over shared PDF/DOCX knowledge bases: FastAPI, PostgreSQL/pgvector, Celery, Next.js. Hybrid retrieval with cross-encoder rerank, page/section citations, and SQL access control before the LLM.
+RAG-сервис для общих баз знаний PDF/DOCX: FastAPI, PostgreSQL/pgvector, Celery и Next.js.
+Hybrid retrieval использует dense и FTS-поиск, RRF, cross-encoder rerank, ссылки на
+страницы/разделы и SQL access control до передачи контекста в LLM.
 
-Deploy model: **shared B2B SaaS** (many organizations on one stack). Isolation is `organization_id` plus document `access_roles` — applied on every dense and FTS query before fusion, rerank, or generation. Spec: [docs/product/srs.md](docs/product/srs.md). Tenancy: [docs/platform/tenancy.md](docs/platform/tenancy.md).
+Модель: **shared B2B SaaS** — несколько организаций в одном стеке. Изоляция основана на
+`organization_id` и document `access_roles`, применяемых к dense и FTS до fusion, rerank и
+generation. Важно: RLS требует отдельной non-superuser runtime role; текущий Compose её не
+настраивает. См. [tenancy](docs/platform/tenancy.md) и
+[security](docs/security/overview.md).
 
 ## Why not naive RAG
 
@@ -40,7 +46,7 @@ flowchart TB
   PG[(PostgreSQL + pgvector)]
   S3[(MinIO)]
   Redis[(Redis)]
-  LLM[OpenAI / Anthropic]
+  LLM[OpenAI-compatible API]
 
   UI --> Chat
   Admin --> Upload
@@ -65,7 +71,7 @@ flowchart TB
 | Queue | Redis 7, Celery 5 |
 | Data | PostgreSQL 15 + pgvector (`vector(384)` cosine; FTS `tsvector` + GIN) |
 | Parse | PyMuPDF, pdfplumber; DOCX via `python-docx` |
-| ML | fastembed `bge-small-en-v1.5` + `bge-reranker-base`; LLM via OpenAI/Anthropic |
+| ML | fastembed `bge-small-en-v1.5` + `bge-reranker-base`; LLM via OpenAI-compatible HTTP |
 | Frontend | Next.js 15, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
 | Infra | Docker Compose, MinIO, GitHub Actions |
 
@@ -73,7 +79,7 @@ flowchart TB
 
 Golden set (35 cases) through the same hybrid path as production. Latest: Faithfulness 1.000, Context Precision 0.994, page hit rate 1.000; 0 ACL leaks on 7 restricted-document questions. Release gates and how to run: [docs/product/evaluation.md](docs/product/evaluation.md). Full report: [reports/rag_benchmark.md](reports/rag_benchmark.md). Optional CI: [`.github/workflows/eval.yml`](.github/workflows/eval.yml).
 
-## Run the demo
+## Запуск demo
 
 **Quickstart (~15 min):** copy env → `make deps` → `make up` → `make demo` → open UI. Chat needs `OPENAI_API_KEY` (or any OpenAI-compatible endpoint) in `.env`; see [`.env.example`](.env.example).
 
@@ -81,7 +87,7 @@ Golden set (35 cases) through the same hybrid path as production. Latest: Faithf
 cp .env.example .env          # set OPENAI_API_KEY (or any OpenAI-compatible endpoint) for chat
 make deps                     # backend/.venv + FastEmbed ONNX + frontend/node_modules
 make up                       # postgres, redis, minio, backend, worker, frontend
-make health                   # GET http://localhost:8001/health
+curl -fsS http://localhost:8001/ready | python3 -m json.tool
 make demo                     # Demo org: 3 users + 12 PDFs (all / hr / finance)
 ```
 
@@ -124,9 +130,10 @@ Open http://localhost:3000. After edits under `backend/app/services/ingestion/` 
 
 Regenerate: [docs/portfolio/screenshots/README.md](docs/portfolio/screenshots/README.md) or `node scripts/capture-portfolio-screenshots.mjs`.
 
-## CI
+## Проверки и CI
 
-On every push/PR: **ruff** + **mypy**, **pytest** (no live LLM), frontend `tsc` / vitest / lint / build, non-blocking supply-chain advisory. Dependabot weekly.
+На каждый push/PR CI запускает **ruff** + **mypy**, полный **pytest** без live LLM,
+frontend `tsc` / vitest / lint / build и неблокирующий supply-chain advisory.
 
 ```bash
 make lint            # ruff + mypy
@@ -147,11 +154,16 @@ reports/          # rag_benchmark.md
 .github/workflows/ci.yml
 ```
 
-## Docs
+## Документация
 
 | Doc | Contents |
 | --- | --- |
 | [docs/README.md](docs/README.md) | Index and reading order |
+| [docs/development/getting-started.md](docs/development/getting-started.md) | Local setup and verified commands |
+| [docs/development/configuration.md](docs/development/configuration.md) | Environment variables |
+| [docs/operations/operations.md](docs/operations/operations.md) | Operations, backup and recovery |
+| [docs/security/overview.md](docs/security/overview.md) | Trust boundaries and security limitations |
+| [docs/maintenance/technical-debt.md](docs/maintenance/technical-debt.md) | Prioritized risks |
 | [docs/product/srs.md](docs/product/srs.md) | Product requirements |
 | [docs/product/architecture.md](docs/product/architecture.md) | Components and flows |
 | [docs/platform/tenancy.md](docs/platform/tenancy.md) | Shared SaaS org isolation |
