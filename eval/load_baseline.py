@@ -101,16 +101,16 @@ def _one_retrieval(email: str, question: str) -> float:
         db.close()
 
 
-def _run_load(email: str, questions: list[str], *, rounds: int, concurrency: int) -> list[float]:
-    tasks = [q for _ in range(rounds) for q in questions]
+def _run_load(questions: list[tuple[str, str]], *, rounds: int, concurrency: int) -> list[float]:
+    tasks = [question for _ in range(rounds) for question in questions]
     latencies: list[float] = []
     if concurrency <= 1:
-        for question in tasks:
+        for email, question in tasks:
             latencies.append(_one_retrieval(email, question))
         return latencies
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        futures = [pool.submit(_one_retrieval, email, q) for q in tasks]
+        futures = [pool.submit(_one_retrieval, email, question) for email, question in tasks]
         for future in as_completed(futures):
             latencies.append(future.result())
     return latencies
@@ -196,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Retrieval load baseline (no LLM)")
     parser.add_argument("--dataset", type=Path, default=default_dataset_path())
     parser.add_argument("--report", type=Path, default=default_report_path())
-    parser.add_argument("--email", default="", help="Override eval user email")
+    parser.add_argument("--email", default="", help="Override the no-department employee evaluator email")
     parser.add_argument("--rounds", type=int, default=int(os.environ.get("LOAD_ROUNDS", "2")))
     parser.add_argument("--concurrency", type=int, default=int(os.environ.get("LOAD_CONCURRENCY", "1")))
     parser.add_argument("--warmup", type=int, default=3)
@@ -206,7 +206,9 @@ def main(argv: list[str] | None = None) -> int:
 
     dataset = load_golden_dataset(args.dataset)
     email = (args.email or os.environ.get("EVAL_USER_EMAIL") or dataset.eval_user_email).strip()
-    questions = [case.question for case in dataset.items if case.kind == "positive"]
+    questions = [
+        (case.eval_user_email or email, case.question) for case in dataset.items if case.kind == "positive"
+    ]
     if not questions:
         logger.error("No positive questions in dataset")
         return 2
@@ -222,8 +224,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     logger.info("Warmup %s queries", args.warmup)
-    for question in questions[: args.warmup]:
-        _one_retrieval(email, question)
+    for case_email, question in questions[: args.warmup]:
+        _one_retrieval(case_email, question)
 
     depth = _celery_depth()
     logger.info(
@@ -233,12 +235,12 @@ def main(argv: list[str] | None = None) -> int:
         args.concurrency,
         corpus["chunks"],
     )
-    latencies = _run_load(email, questions, rounds=args.rounds, concurrency=max(1, args.concurrency))
+    latencies = _run_load(questions, rounds=args.rounds, concurrency=max(1, args.concurrency))
 
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(
         render_report(
-            email=email,
+            email=", ".join(sorted({case_email for case_email, _ in questions})),
             stats=corpus,
             latencies_ms=latencies,
             rounds=args.rounds,

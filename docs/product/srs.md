@@ -132,8 +132,9 @@ flowchart LR
 ## Приёмка и качество
 
 Тесты покрывают ACL, чат, ingestion и API. Сохранённый eval report от 2026-09-22 содержит 35 кейсов:
-28 положительных и 7 ACL-negative. Golden set вырос до 41 кейса (28 положительных, 13 ACL-negative),
-поэтому report пока не отражает текущий набор. Результаты и ограничения приведены в
+28 положительных и 7 ACL-negative. Golden set вырос до 69 кейсов (33 положительных, 36 ACL-negative),
+включая новые документы для Legal, Security и Engineering и матрицу доступа пяти подразделений.
+Сохранённый report пока не отражает текущий набор. Результаты и ограничения приведены в
 [evaluation.md](evaluation.md) и [reports/rag_benchmark.md](../../reports/rag_benchmark.md).
 
 ## За пределами текущего продукта

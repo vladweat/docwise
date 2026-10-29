@@ -5,9 +5,12 @@ Evaluation использует golden set и проходит через тот
 
 ## Сохранённый historical benchmark
 
-Прогон от **2026-09-22**, 35 кейсов: 28 положительных и 7 ACL-negative. После расширения golden set
-текущий набор содержит 41 кейс: 28 положительных и 13 ACL-negative. Для текущих метрик нужно выполнить
-новый retrieval-only или полный прогон; сохранённые scores не пересчитываются без запущенного Compose backend.
+Прогон от **2026-09-22**, 35 кейсов: 28 положительных и 7 ACL-negative. Текущий golden set содержит
+69 кейсов: 33 положительных и 36 ACL-negative. В eval-корпус входят 9 синтетических документов;
+ACL-матрица проверяет employee, HR, Finance, Legal, Security и Engineering: каждый отдел видит свой
+restricted документ, не получая документы остальных отделов; employee без отдела не видит ни один из них.
+Для новых метрик нужно выполнить
+retrieval-only или полный прогон; сохранённые scores не пересчитывались.
 Текущая embedding-модель `BAAI/bge-small-en-v1.5` English-only, поэтому русскоязычные кейсы добавлять
 после выбора multilingual embedding model и корпуса на русском.
 
@@ -28,19 +31,22 @@ Evaluation использует golden set и проходит через тот
 | Артефакт | Назначение |
 | --- | --- |
 | `eval/golden_dataset.json` | Вопросы, ожидаемые ответы, документы/страницы и запреты на документы |
-| `eval/run_eval.py` | Прогон через retrieval и generation |
-| `eval/corpus.py` | Synthetic PDFs со стабильными IDs и ACL tags |
+| `eval/run_eval.py` | Прогон через retrieval и generation с фиксированными evaluator personas |
+| `eval/corpus.py` | 9 synthetic PDFs со стабильными IDs и ACL tags |
 | `eval/seed_demo.py` | Локальный demo corpus: 3 роли и 12 PDF |
 | `reports/rag_benchmark.md` | Сохранённые метрики и подробности прогона |
 
-Eval user — `eval-employee@docwise.example.com`, membership `employee`, без отделов. HR/Finance IDs
-указаны как `must_not_doc_ids`; роли из request body не принимаются.
+Пользователь по умолчанию — `eval-employee@docwise.example.com`, membership `employee`, без отделов.
+Для матрицы используются фиксированные синтетические evaluator accounts с подразделениями `hr`, `finance`,
+`legal`, `security` и `engineering`; поле `eval_user_email` в кейсе выбирает нужный аккаунт. Каждый кейс
+перечисляет недоступные документы в `must_not_doc_ids`; роли из request body не принимаются.
 
 ## Метрики и обязательные проверки
 
 - **Faithfulness**, **Context Precision**, **Answer Relevance** считаются по определениям Ragas;
   judge использует OpenAI-compatible client. `ragas` и LangChain не нужны runtime-приложению.
-- Дополнительные asserts проверяют target page, cross-org isolation и отсутствие запрещённых IDs в Top-4.
+- Дополнительные asserts проверяют target page, cross-org isolation и отсутствие запрещённых IDs в Top-4
+  для каждого evaluator account.
 - **Ноль ACL leaks** — обязательный gate. Остальные метрики помогают увидеть регрессию и требуют оценки контекста.
 
 ## Запуск
@@ -51,7 +57,7 @@ make eval-retrieval       # retrieval/ACL без LLM judges
 ```
 
 Нужны запущенный Compose stack; полному evaluation — LLM key и FastEmbed cache.
-`run_eval.py --seed` создаёт тестового пользователя, synthetic corpus и foreign-tenant decoy.
+`run_eval.py --seed` создаёт шесть тестовых evaluator personas, synthetic corpus и foreign-tenant decoy.
 CI unit suite не запускает полный evaluation по умолчанию.
 
 Для локального ACL walkthrough:

@@ -1,6 +1,6 @@
 # RAG benchmark
 
-> Historical snapshot for the 35-case golden set from 2026-09-22. The current dataset has 41 cases;
+> Historical snapshot for the 35-case golden set from 2026-09-22. The current dataset has 69 cases;
 > this report has no recorded code revision or dataset digest and must not be quoted as a current result.
 
 Generated: `2026-09-22T13:22:33+00:00`

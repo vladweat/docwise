@@ -20,12 +20,23 @@ EXPENSE_ID = UUID("aaaaaaaa-1111-4111-8111-000000000003")
 ENGINEERING_ID = UUID("aaaaaaaa-1111-4111-8111-000000000004")
 HR_COMP_ID = UUID("aaaaaaaa-1111-4111-8111-000000000005")
 FINANCE_ID = UUID("aaaaaaaa-1111-4111-8111-000000000006")
+LEGAL_ID = UUID("aaaaaaaa-1111-4111-8111-000000000007")
+SECURITY_RESTRICTED_ID = UUID("aaaaaaaa-1111-4111-8111-000000000008")
+ENGINEERING_RESTRICTED_ID = UUID("aaaaaaaa-1111-4111-8111-000000000009")
 FOREIGN_ORG_DOC_ID = UUID("bbbbbbbb-2222-4222-8222-000000000099")
 
 DEFAULT_EVAL_EMAIL = "eval-employee@docwise.example.com"
 DEFAULT_EVAL_PASSWORD = "eval-employee-pass"
+EVAL_HR_EMAIL = "eval-hr@docwise.example.com"
+EVAL_FINANCE_EMAIL = "eval-finance@docwise.example.com"
+EVAL_LEGAL_EMAIL = "eval-legal@docwise.example.com"
+EVAL_SECURITY_EMAIL = "eval-security@docwise.example.com"
+EVAL_ENGINEERING_EMAIL = "eval-engineering@docwise.example.com"
 
-RESTRICTED_DOC_IDS = (str(HR_COMP_ID), str(FINANCE_ID))
+RESTRICTED_DOC_IDS = tuple(
+    str(doc_id)
+    for doc_id in (HR_COMP_ID, FINANCE_ID, LEGAL_ID, SECURITY_RESTRICTED_ID, ENGINEERING_RESTRICTED_ID)
+)
 EVAL_ORG_SLUG = "eval"
 DEMO_ORG_SLUG = "demo"
 FOREIGN_ORG_SLUG = "eval-foreign"
@@ -82,6 +93,13 @@ class DemoAccount:
     departments: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class EvalAccount:
+    email: str
+    password: str
+    departments: tuple[str, ...]
+
+
 CATALOG: tuple[FixtureSpec, ...] = (
     FixtureSpec(HANDBOOK_ID, "employee-handbook", "Employee-Handbook.pdf", ("all",), "handbook"),
     FixtureSpec(LEAVE_ID, "leave-policy", "Leave-Policy.pdf", ("all",), "leave"),
@@ -89,6 +107,21 @@ CATALOG: tuple[FixtureSpec, ...] = (
     FixtureSpec(ENGINEERING_ID, "engineering-onboarding", "Engineering-Onboarding.pdf", ("all",), "engineering"),
     FixtureSpec(HR_COMP_ID, "hr-compensation", "HR-Compensation.pdf", ("hr",), "hr_comp"),
     FixtureSpec(FINANCE_ID, "finance-q4", "Finance-Q4-Memo.pdf", ("finance",), "finance"),
+    FixtureSpec(LEGAL_ID, "legal-templates", "Legal-Templates.pdf", ("legal",), "legal"),
+    FixtureSpec(
+        SECURITY_RESTRICTED_ID,
+        "security-controls",
+        "Security-Controls.pdf",
+        ("security",),
+        "security_restricted",
+    ),
+    FixtureSpec(
+        ENGINEERING_RESTRICTED_ID,
+        "engineering-release",
+        "Engineering-Release-Plan.pdf",
+        ("engineering",),
+        "engineering_restricted",
+    ),
 )
 
 CATALOG_BY_ID = {str(item.id): item for item in CATALOG}
@@ -97,6 +130,15 @@ DEMO_ACCOUNTS: tuple[DemoAccount, ...] = (
     DemoAccount(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, "admin", ()),
     DemoAccount(DEMO_EMPLOYEE_EMAIL, DEMO_EMPLOYEE_PASSWORD, "employee", ()),
     DemoAccount(DEMO_HR_EMAIL, DEMO_HR_PASSWORD, "employee", ("hr",)),
+)
+
+EVAL_ACCOUNTS: tuple[EvalAccount, ...] = (
+    EvalAccount(DEFAULT_EVAL_EMAIL, DEFAULT_EVAL_PASSWORD, ()),
+    EvalAccount(EVAL_HR_EMAIL, "eval-hr-pass", ("hr",)),
+    EvalAccount(EVAL_FINANCE_EMAIL, "eval-finance-pass", ("finance",)),
+    EvalAccount(EVAL_LEGAL_EMAIL, "eval-legal-pass", ("legal",)),
+    EvalAccount(EVAL_SECURITY_EMAIL, "eval-security-pass", ("security",)),
+    EvalAccount(EVAL_ENGINEERING_EMAIL, "eval-engineering-pass", ("engineering",)),
 )
 
 
@@ -136,6 +178,9 @@ def build_pdf(spec: FixtureSpec) -> bytes:
         "engineering": _engineering_pdf,
         "hr_comp": _hr_comp_pdf,
         "finance": _finance_pdf,
+        "legal": _legal_pdf,
+        "security_restricted": _security_restricted_pdf,
+        "engineering_restricted": _engineering_restricted_pdf,
         "security": _security_pdf,
         "recruiting": _recruiting_pdf,
         "travel": _travel_pdf,
@@ -311,7 +356,7 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec],
 
 
 def seed_corpus(*, email: str | None = None, password: str | None = None) -> dict:
-    """Upsert fixture PDFs and the employee eval user, then run real `index_pdf`."""
+    """Upsert fixture PDFs and fixed department personas, then run real `index_pdf`."""
     from app.core.database import SessionLocal
     from app.core.rls import bind_session_rls
     from app.models.user import UserRole
@@ -326,15 +371,17 @@ def seed_corpus(*, email: str | None = None, password: str | None = None) -> dic
     storage.ensure_private_bucket()
     try:
         organization = get_or_create_org(db, name="Eval", slug=EVAL_ORG_SLUG)
-        upsert_user(
-            db,
-            email=eval_email,
-            password=eval_password,
-            role=UserRole.employee.value,
-            departments=[],
-            organization=organization,
-            reset_password=False,
-        )
+        for account in EVAL_ACCOUNTS:
+            is_default = account.email == DEFAULT_EVAL_EMAIL
+            upsert_user(
+                db,
+                email=eval_email if is_default else account.email,
+                password=eval_password if is_default else account.password,
+                role=UserRole.employee.value,
+                departments=account.departments,
+                organization=organization,
+                reset_password=False,
+            )
         db.commit()
         indexed = index_specs(db, storage, CATALOG, organization=organization)
         foreign = _seed_foreign_org(db, storage)
@@ -394,7 +441,7 @@ def _seed_foreign_org(db, storage) -> UUID:
 
 
 def seed_demo() -> dict:
-    """Upsert demo users and the six-PDF catalog (all / hr / finance ACLs)."""
+    """Upsert demo users and its twelve-PDF catalog (all / hr / finance ACLs)."""
     from app.core.database import SessionLocal
     from app.core.rls import bind_session_rls
     from app.services.storage import get_object_storage
@@ -674,6 +721,58 @@ def _finance_pdf() -> bytes:
                 "The marketing budget for next quarter is 210000 USD. "
                 "The bad debt reserve is 45000 USD. "
                 "The board meeting pack is due on 12 January.",
+            ),
+        ]
+    )
+
+
+def _legal_pdf() -> bytes:
+    return _multi_page(
+        [
+            (
+                "Contract templates (Legal only)",
+                "The contract-redline template requires legal-review before external circulation. "
+                "Standard vendor agreements use the Docwise mutual confidentiality clause. "
+                "Only Legal may approve liability-cap changes.",
+            ),
+            (
+                "Review process",
+                "The legal-review queue target is three business days. "
+                "A redline must include a named business owner and a summary of requested changes.",
+            ),
+        ]
+    )
+
+
+def _security_restricted_pdf() -> bytes:
+    return _multi_page(
+        [
+            (
+                "Credential rotation (Security only)",
+                "The rotation window for privileged credentials is 24 hours after suspected exposure. "
+                "Security records the owner, affected systems, and validation result in the incident ticket.",
+            ),
+            (
+                "Access review",
+                "Emergency access grants expire after four hours unless the security lead renews them. "
+                "Review logs are retained for 180 days.",
+            ),
+        ]
+    )
+
+
+def _engineering_restricted_pdf() -> bytes:
+    return _multi_page(
+        [
+            (
+                "Release controls (Engineering only)",
+                "Production releases use a canary window lasting 30 minutes before full rollout. "
+                "The release captain must compare error rates with the previous stable version.",
+            ),
+            (
+                "Rollback criteria",
+                "Rollback begins when the five-minute error rate exceeds two percent. "
+                "The on-call engineer records the deployment identifier and verification command.",
             ),
         ]
     )

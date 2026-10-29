@@ -10,7 +10,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -22,7 +25,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -34,7 +40,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -46,7 +55,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -58,7 +70,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -70,7 +85,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -82,7 +100,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -94,7 +115,10 @@
       "target_page": 3,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -106,7 +130,10 @@
       "target_page": 3,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -118,7 +145,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -130,7 +160,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -142,7 +175,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -154,7 +190,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -166,7 +205,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -178,7 +220,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -190,7 +235,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -202,7 +250,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -214,7 +265,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -226,7 +280,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -238,7 +295,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -250,7 +310,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -262,7 +325,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -274,7 +340,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -286,7 +355,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -298,7 +370,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -310,7 +385,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -322,7 +400,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -334,7 +415,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -346,7 +430,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -358,7 +445,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -370,7 +460,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -382,7 +475,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -394,7 +490,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -406,7 +505,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -418,7 +520,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -430,7 +535,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -442,7 +550,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -454,7 +565,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -466,7 +580,10 @@
       "target_page": 1,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -478,7 +595,10 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     },
     {
@@ -490,7 +610,450 @@
       "target_page": 2,
       "must_not_doc_ids": [
         "aaaaaaaa-1111-4111-8111-000000000005",
-        "aaaaaaaa-1111-4111-8111-000000000006"
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-allowed-hr",
+      "kind": "positive",
+      "eval_user_email": "eval-hr@docwise.example.com",
+      "question": "What is the individual contributor L3 salary band?",
+      "ground_truth_answer": "The L3 salary band is 72000 to 88000 USD.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-allowed-finance",
+      "kind": "positive",
+      "eval_user_email": "eval-finance@docwise.example.com",
+      "question": "What was the gross margin in Q4?",
+      "ground_truth_answer": "Gross margin was 61 percent.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-allowed-legal",
+      "kind": "positive",
+      "eval_user_email": "eval-legal@docwise.example.com",
+      "question": "What does the contract-redline template require before external circulation?",
+      "ground_truth_answer": "It requires legal review before external circulation.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000007",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-allowed-security",
+      "kind": "positive",
+      "eval_user_email": "eval-security@docwise.example.com",
+      "question": "How soon must privileged credentials be rotated after suspected exposure?",
+      "ground_truth_answer": "Within 24 hours.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000008",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-allowed-engineering",
+      "kind": "positive",
+      "eval_user_email": "eval-engineering@docwise.example.com",
+      "question": "How long is the production canary window?",
+      "ground_truth_answer": "30 minutes.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000009",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008"
+      ]
+    },
+    {
+      "id": "acl-denied-employee-legal",
+      "kind": "acl_negative",
+      "question": "What does the contract-redline template require before external circulation?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000007",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-denied-employee-security",
+      "kind": "acl_negative",
+      "question": "How soon must privileged credentials be rotated after suspected exposure?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000008",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-denied-employee-engineering",
+      "kind": "acl_negative",
+      "question": "How long is the production canary window?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000009",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-hr-denies-finance",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-hr@docwise.example.com",
+      "question": "What was the gross margin in Q4?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-hr-denies-legal",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-hr@docwise.example.com",
+      "question": "What does the contract-redline template require before external circulation?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000007",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-hr-denies-security",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-hr@docwise.example.com",
+      "question": "How soon must privileged credentials be rotated after suspected exposure?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000008",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-hr-denies-engineering",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-hr@docwise.example.com",
+      "question": "How long is the production canary window?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000009",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-finance-denies-hr",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-finance@docwise.example.com",
+      "question": "What is the individual contributor L3 salary band?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-finance-denies-legal",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-finance@docwise.example.com",
+      "question": "What does the contract-redline template require before external circulation?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000007",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-finance-denies-security",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-finance@docwise.example.com",
+      "question": "How soon must privileged credentials be rotated after suspected exposure?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000008",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-finance-denies-engineering",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-finance@docwise.example.com",
+      "question": "How long is the production canary window?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000009",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-legal-denies-hr",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-legal@docwise.example.com",
+      "question": "What is the individual contributor L3 salary band?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-legal-denies-finance",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-legal@docwise.example.com",
+      "question": "What was the gross margin in Q4?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-legal-denies-security",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-legal@docwise.example.com",
+      "question": "How soon must privileged credentials be rotated after suspected exposure?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000008",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-legal-denies-engineering",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-legal@docwise.example.com",
+      "question": "How long is the production canary window?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000009",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-security-denies-hr",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-security@docwise.example.com",
+      "question": "What is the individual contributor L3 salary band?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-security-denies-finance",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-security@docwise.example.com",
+      "question": "What was the gross margin in Q4?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-security-denies-legal",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-security@docwise.example.com",
+      "question": "What does the contract-redline template require before external circulation?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000007",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-security-denies-engineering",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-security@docwise.example.com",
+      "question": "How long is the production canary window?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000009",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-engineering-denies-hr",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-engineering@docwise.example.com",
+      "question": "What is the individual contributor L3 salary band?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-engineering-denies-finance",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-engineering@docwise.example.com",
+      "question": "What was the gross margin in Q4?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-engineering-denies-legal",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-engineering@docwise.example.com",
+      "question": "What does the contract-redline template require before external circulation?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000007",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "acl-matrix-engineering-denies-security",
+      "kind": "acl_negative",
+      "eval_user_email": "eval-engineering@docwise.example.com",
+      "question": "How soon must privileged credentials be rotated after suspected exposure?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000008",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
       ]
     }
   ]

@@ -1,6 +1,7 @@
 # Load baseline (retrieval)
 
-> Historical snapshot from 2026-09-22. Code revision and dataset digest were not recorded; rerun against
+> Historical snapshot from 2026-09-22: 28 positive queries for the default employee persona. The current set
+> has 33 positive queries across six personas. Code revision and dataset digest were not recorded; rerun against
 > an indexed corpus before using these latency values as a current capacity baseline.
 
 Generated: `2026-09-22T13:38:50+00:00`

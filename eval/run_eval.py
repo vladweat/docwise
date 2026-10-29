@@ -25,12 +25,13 @@ elif Path("/app/app").is_dir():
 sys.path.insert(0, str(EVAL_DIR))
 
 from acl import leaked_doc_ids  # noqa: E402
-from corpus import CATALOG_BY_ID, DEFAULT_EVAL_EMAIL, FOREIGN_ORG_DOC_ID, seed_corpus  # noqa: E402
+from corpus import CATALOG_BY_ID, DEFAULT_EVAL_EMAIL, EVAL_ACCOUNTS, FOREIGN_ORG_DOC_ID, seed_corpus  # noqa: E402
 from dataset import GoldenCase, load_golden_dataset  # noqa: E402
 from metrics import RagasScores, score_case  # noqa: E402
 from provenance import code_revision, dataset_sha256  # noqa: E402
 
 from app.core.database import SessionLocal  # noqa: E402
+from app.core.principal import Principal  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.services.chat import build_messages  # noqa: E402
 from app.services.chat.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai  # noqa: E402
@@ -110,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip generation and Ragas judges (ACL + page hits still run)",
     )
-    parser.add_argument("--email", default="", help="Override eval user email")
+    parser.add_argument("--email", default="", help="Override the no-department employee evaluator email")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -137,25 +138,40 @@ def main(argv: list[str] | None = None) -> int:
         dataset_sha256=dataset_sha256(args.dataset),
         retrieval_only=args.retrieval_only,
     )
+    evaluator_accounts = {account.email: account for account in EVAL_ACCOUNTS}
+    users: dict[str, Principal] = {}
     db = SessionLocal()
     try:
-        user_row = db.query(User).filter(User.email == email).first()
-        if user_row is None or not user_row.is_active:
-            logger.error("Eval user %s is missing; run with --seed", email)
-            return 2
-        user = resolve_principal(db, user_row, None)
-        if user is None:
-            logger.error("Eval user %s has no organization membership; run with --seed", email)
-            return 2
-        allowed = set(user.allowed_roles())
-        if "hr" in allowed or "finance" in allowed:
-            logger.error(
-                "Eval user %s has extra departments %s; employee with no departments is required",
-                email,
-                user.departments,
-            )
-            return 2
         for case in items:
+            case_email = case.eval_user_email or email
+            account = evaluator_accounts.get(case_email)
+            if case.eval_user_email is not None:
+                if account is None:
+                    logger.error("Unknown eval persona %s in case %s", case_email, case.id)
+                    return 2
+                expected_departments = account.departments
+            else:
+                expected_departments = ()
+            user = users.get(case_email)
+            if user is None:
+                user_row = db.query(User).filter(User.email == case_email).first()
+                if user_row is None or not user_row.is_active:
+                    logger.error("Eval user %s is missing; run with --seed", case_email)
+                    return 2
+                user = resolve_principal(db, user_row, None)
+                if user is None:
+                    logger.error("Eval user %s has no organization membership; run with --seed", case_email)
+                    return 2
+                actual_departments = tuple(sorted(user.departments or ()))
+                if actual_departments != tuple(sorted(expected_departments)):
+                    logger.error(
+                        "Eval user %s has departments %s; expected fixture departments %s",
+                        case_email,
+                        actual_departments,
+                        expected_departments,
+                    )
+                    return 2
+                users[case_email] = user
             summary.results.append(_run_case(db, user, case, retrieval_only=args.retrieval_only))
     finally:
         db.close()
@@ -280,7 +296,7 @@ def render_report(summary: EvalSummary) -> str:
         f"Generated: `{summary.generated_at}`",
         f"Code revision: `{summary.code_revision}`",
         f"Golden dataset SHA-256: `{summary.dataset_sha256}`",
-        f"Eval user: `{summary.eval_user_email}` (role `employee`, departments `[]`)",
+        "Eval personas: `employee`, `hr`, `finance`, `legal`, `security`, `engineering`",
         f"Cases: {len(summary.results)} ({len(positives)} positive, {len(acl_rows)} ACL-negative)",
         f"Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` ({mode})",
         "",
@@ -312,13 +328,13 @@ def render_report(summary: EvalSummary) -> str:
         f"| Cases with a `must_not_doc_ids` leak | **{summary.leak_count}** |",
         f"| Result | {'PASS' if leak_pass else 'FAIL'} |",
         "",
-        "Every golden item also lists HR/Finance ids in `must_not_doc_ids`. "
+        "Each case lists documents outside that persona's access in `must_not_doc_ids`. "
         "A leak is any Top-4 chunk from those documents. Restricted chunk text is not written here.",
         "",
         "## Per-question",
         "",
-        "| id | kind | target doc | page | ACL leak | faith | ctx p | ans rel | question |",
-        "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+        "| id | persona | kind | target doc | page | ACL leak | faith | ctx p | ans rel | question |",
+        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
     ]
     for row in summary.results:
         ragas = row.ragas
@@ -331,9 +347,11 @@ def render_report(summary: EvalSummary) -> str:
         target = slug.slug if slug else row.case.target_doc_id[:8]
         leak = ",".join(row.leaks) if row.leaks else "0"
         question = row.case.question.replace("|", "/")
+        persona = row.case.eval_user_email or summary.eval_user_email
         lines.append(
-            "| {id} | {kind} | {target} | {page} | {leak} | {faith} | {ctx} | {rel} | {q} |".format(
+            "| {id} | {persona} | {kind} | {target} | {page} | {leak} | {faith} | {ctx} | {rel} | {q} |".format(
                 id=row.case.id,
+                persona=persona,
                 kind=row.case.kind,
                 target=target,
                 page=page,

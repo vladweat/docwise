@@ -13,11 +13,6 @@ import pytest
 
 from app.services.retrieval import NO_CONTEXT_ANSWER
 
-HR_ID = "aaaaaaaa-1111-4111-8111-000000000005"
-FINANCE_ID = "aaaaaaaa-1111-4111-8111-000000000006"
-RESTRICTED = {HR_ID, FINANCE_ID}
-
-
 def _eval_dir() -> Path:
     env = os.environ.get("EVAL_DIR")
     if env:
@@ -53,19 +48,111 @@ def test_golden_dataset_meets_eval_contract():
     assert len(golden.positives) >= 20
 
     known_ids = set(corpus_mod.CATALOG_BY_ID)
+    restricted_ids = set(corpus_mod.restricted_doc_ids())
+    evaluator_emails = {account.email for account in corpus_mod.EVAL_ACCOUNTS}
     seen_ids: set[str] = set()
     for item in golden.items:
         assert item.id not in seen_ids
         seen_ids.add(item.id)
         UUID(item.target_doc_id)
         assert item.target_doc_id in known_ids
+        assert item.eval_user_email is None or item.eval_user_email in evaluator_emails
         assert item.target_page is not None and item.target_page >= 1
-        assert RESTRICTED.issubset(set(item.must_not_doc_ids))
+        forbidden = set(item.must_not_doc_ids)
         if item.is_acl_negative:
-            assert item.target_doc_id in RESTRICTED
+            assert item.target_doc_id in restricted_ids
+            assert item.target_doc_id in forbidden
             assert item.ground_truth_answer == NO_CONTEXT_ANSWER
         else:
-            assert item.target_doc_id not in RESTRICTED
+            if item.target_doc_id in restricted_ids:
+                assert item.eval_user_email is not None
+                assert item.target_doc_id not in forbidden
+            else:
+                assert restricted_ids.issubset(forbidden)
+
+
+def test_acl_dataset_covers_allowed_and_denied_access_for_each_restricted_department():
+    corpus = _load_module("corpus")
+    dataset = _load_module("dataset").load_golden_dataset(_eval_dir() / "golden_dataset.json")
+    accounts = {account.email: account for account in corpus.EVAL_ACCOUNTS}
+    restricted = {
+        "hr": str(corpus.HR_COMP_ID),
+        "finance": str(corpus.FINANCE_ID),
+        "legal": str(corpus.LEGAL_ID),
+        "security": str(corpus.SECURITY_RESTRICTED_ID),
+        "engineering": str(corpus.ENGINEERING_RESTRICTED_ID),
+    }
+
+    specs = {str(spec.id): spec for spec in corpus.CATALOG}
+    assert len(corpus.CATALOG) == 9
+    assert len(dataset.items) == 69
+    assert len(dataset.positives) == 33
+    assert len(dataset.acl_negatives) == 36
+    assert accounts[dataset.eval_user_email].departments == ()
+
+    for department, document_id in restricted.items():
+        assert specs[document_id].access_roles == (department,)
+        assert any(
+            item.eval_user_email is None
+            and item.target_doc_id == document_id
+            and item.is_acl_negative
+            for item in dataset.items
+        )
+        account = next(account for account in accounts.values() if account.departments == (department,))
+        assert any(
+            item.eval_user_email == account.email
+            and item.target_doc_id == document_id
+            and not item.is_acl_negative
+            and document_id not in item.must_not_doc_ids
+            for item in dataset.items
+        )
+        for other_department, other_document_id in restricted.items():
+            if department == other_department:
+                continue
+            assert any(
+                item.eval_user_email == account.email
+                and item.target_doc_id == other_document_id
+                and item.is_acl_negative
+                and other_document_id in item.must_not_doc_ids
+                for item in dataset.items
+            )
+
+
+def test_new_restricted_pdf_fixtures_contain_the_facts_used_by_acl_cases():
+    import fitz
+
+    corpus = _load_module("corpus")
+    specs = {spec.slug: spec for spec in corpus.CATALOG}
+    expected = {
+        "legal-templates": ("contract-redline", "legal-review"),
+        "security-controls": ("rotation window", "24 hours"),
+        "engineering-release": ("canary window", "30 minutes"),
+    }
+    for slug, phrases in expected.items():
+        pdf = fitz.open(stream=corpus.build_pdf(specs[slug]), filetype="pdf")
+        text = " ".join(page.get_text() for page in pdf).lower()
+        pdf.close()
+        for phrase in phrases:
+            assert phrase in text
+
+
+def test_load_baseline_runs_each_positive_case_as_its_assigned_persona(monkeypatch):
+    load_baseline = _load_module("load_baseline")
+    calls = []
+    questions = [
+        ("eval-hr@docwise.example.com", "What is the L3 salary band?"),
+        ("eval-legal@docwise.example.com", "What does the redline require?"),
+    ]
+    monkeypatch.setattr(
+        load_baseline,
+        "_one_retrieval",
+        lambda email, question: calls.append((email, question)) or 10.0,
+    )
+
+    latencies = load_baseline._run_load(questions, rounds=1, concurrency=1)
+
+    assert latencies == [10.0, 10.0]
+    assert calls == questions
 
 
 def test_context_precision_formula():

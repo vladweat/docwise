@@ -23,6 +23,7 @@ class GoldenCase:
     target_page: int | None = None
     must_not_doc_ids: tuple[str, ...] = ()
     kind: str = "positive"
+    eval_user_email: str | None = None
 
     @property
     def is_acl_negative(self) -> bool:
@@ -97,6 +98,11 @@ def _parse_case(entry: object, index: int) -> GoldenCase:
     if kind not in {"positive", "acl_negative"}:
         raise GoldenDatasetError(f"items[{index}].kind must be positive or acl_negative")
     case_id = str(entry.get("id") or f"q-{index + 1}").strip()
+    eval_user_email = entry.get("eval_user_email")
+    if eval_user_email is not None:
+        eval_user_email = str(eval_user_email).strip()
+        if not eval_user_email:
+            raise GoldenDatasetError(f"items[{index}].eval_user_email cannot be empty")
     return GoldenCase(
         id=case_id,
         question=question,
@@ -105,6 +111,7 @@ def _parse_case(entry: object, index: int) -> GoldenCase:
         target_page=page,
         must_not_doc_ids=tuple(must_not),
         kind=kind,
+        eval_user_email=eval_user_email,
     )
 
 
