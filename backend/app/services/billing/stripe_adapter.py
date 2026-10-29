@@ -124,7 +124,7 @@ class StripeBillingPort:
                 timeout=15.0,
             )
         except httpx.HTTPError as exc:
-            logger.warning("Stripe checkout failed: %s", exc)
+            logger.warning("Stripe checkout failed error_type=%s", type(exc).__name__)
             raise BillingUnavailable() from exc
         if response.status_code >= 400:
             logger.warning("Stripe checkout HTTP %s", response.status_code)

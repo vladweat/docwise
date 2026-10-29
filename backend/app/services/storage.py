@@ -154,4 +154,4 @@ def ensure_documents_bucket() -> None:
     try:
         get_object_storage().ensure_private_bucket()
     except Exception as exc:
-        logger.warning("MinIO bucket setup skipped: %s", exc)
+        logger.warning("MinIO bucket setup skipped error_type=%s", type(exc).__name__)

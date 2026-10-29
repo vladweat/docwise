@@ -80,7 +80,9 @@ RLS включена миграцией для `documents` и `document_chunks`.
 
 ## Логи, audit и sensitive data
 
-`RedactingJsonFormatter` и Sentry scrubber маскируют известные sensitive keys и bulk text.
+`RedactingJsonFormatter` маскирует sensitive fields и traceback, оставляя тип исключения для диагностики;
+exception values и сообщения breadcrumbs в Sentry очищаются до отправки. Ошибки инфраструктуры в обычных
+лог-сообщениях записывают тип исключения, но не его текст.
 `rag_audit_logs` хранит query пользователя, chunk UUIDs, latency, tokens, rating и optional
 feedback comment, но не полный chunk text. Один Celery Beat scheduler ежедневно удаляет audit
 строки старше `AUDIT_LOG_RETENTION_DAYS` (default 90); comment удаляется вместе со строкой.

@@ -33,6 +33,8 @@
   готовых документов; запуск всё ещё требует maintenance window, а реальный drill и off-site backup не заявляются.
 - CI запускает Playwright UI flows на отдельном frontend/API fixture; сценарии не заменяют проверку живого
   backend и ingestion worker.
+- Логи и Sentry очищают текст исключений/traceback; тесты проверяют короткие значения, которые не покрывались
+  прежним bulk-text порогом.
 - Evaluation числа в README помечены датой и количеством кейсов; это snapshot, а не SLA.
 
 ## Не считается гарантией

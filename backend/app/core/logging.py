@@ -34,6 +34,10 @@ class RedactingJsonFormatter(jsonlogger.JsonFormatter):
         for key in list(log_record):
             if key.lower() in SENSITIVE_KEYS:
                 log_record[key] = "[redacted]"
+            elif key.lower() in {"exc_info", "exc_text", "stack_info"}:
+                log_record[key] = "[redacted]"
+        if record.exc_info and record.exc_info[0] is not None:
+            log_record["exception_type"] = record.exc_info[0].__name__
         message = log_record.get("message")
         if isinstance(message, str) and len(message) >= LONG_MESSAGE_CHARS:
             log_record["message"] = "[redacted]"

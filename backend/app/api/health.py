@@ -62,25 +62,25 @@ def ready() -> ReadyResponse | JSONResponse:
         check_postgres()
         checks["postgres"] = "ok"
     except Exception as exc:
-        logger.warning("Postgres check failed: %s", exc)
+        logger.warning("Postgres check failed error_type=%s", type(exc).__name__)
 
     try:
         if _check_redis():
             checks["redis"] = "ok"
     except Exception as exc:
-        logger.warning("Redis check failed: %s", exc)
+        logger.warning("Redis check failed error_type=%s", type(exc).__name__)
 
     try:
         if check_pgvector():
             checks["pgvector"] = "ok"
     except Exception as exc:
-        logger.warning("pgvector check failed: %s", exc)
+        logger.warning("pgvector check failed error_type=%s", type(exc).__name__)
 
     try:
         if _check_minio():
             checks["minio"] = "ok"
     except Exception as exc:
-        logger.warning("MinIO check failed: %s", exc)
+        logger.warning("MinIO check failed error_type=%s", type(exc).__name__)
 
     billing = billing_readiness()
     required_ok = all(value == "ok" for value in checks.values())

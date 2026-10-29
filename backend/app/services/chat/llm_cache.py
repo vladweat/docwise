@@ -58,7 +58,7 @@ def redis_get(key: str) -> dict | None:
     try:
         value = get_redis_client().get(key)
     except Exception as exc:
-        logger.warning("Redis cache get failed: %s", exc)
+        logger.warning("Redis cache get failed error_type=%s", type(exc).__name__)
         return None
     if not value:
         return None
@@ -73,7 +73,7 @@ def redis_set(key: str, payload: dict[str, Any]) -> None:
     try:
         get_redis_client().set(key, json.dumps(payload, ensure_ascii=False), ex=LLM_CACHE_TTL_SECONDS)
     except Exception as exc:
-        logger.warning("Redis cache set failed: %s", exc)
+        logger.warning("Redis cache set failed error_type=%s", type(exc).__name__)
 
 
 def delete_org_cache_keys(organization_id: UUID) -> None:
@@ -91,7 +91,11 @@ def delete_org_cache_keys(organization_id: UUID) -> None:
             if cursor == 0:
                 break
     except Exception as exc:
-        logger.warning("Redis cache invalidate failed org_id=%s: %s", organization_id, exc)
+        logger.warning(
+            "Redis cache invalidate failed org_id=%s error_type=%s",
+            organization_id,
+            type(exc).__name__,
+        )
 
 
 def bump_llm_index_generation(db: Session, organization_id: UUID) -> int:

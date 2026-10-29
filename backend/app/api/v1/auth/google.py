@@ -46,7 +46,7 @@ def google_auth(
 
         idinfo = auth_pkg.verify_google_id_token(body.id_token, settings.google_client_id)
     except ValueError as exc:
-        logger.warning("Google token verification failed: %s", exc)
+        logger.warning("Google token verification failed error_type=%s", type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Google ID token",

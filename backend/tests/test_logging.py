@@ -70,3 +70,38 @@ def test_short_messages_stay_plaintext():
     )
     handler.emit(record)
     assert '"message": "ok"' in stream.getvalue()
+
+
+def test_redacts_exception_message_and_traceback_but_keeps_exception_type():
+    try:
+        raise RuntimeError("private document text must never be logged")
+    except RuntimeError:
+        record = logging.LogRecord(
+            "test",
+            logging.ERROR,
+            __file__,
+            1,
+            "request failed",
+            (),
+            __import__("sys").exc_info(),
+        )
+
+    data = _format(record)
+    rendered = json.dumps(data)
+    assert "private document text" not in rendered
+    assert data["exception_type"] == "RuntimeError"
+    assert data.get("exc_info") == "[redacted]"
+
+
+def test_sentry_scrubs_short_exception_and_breadcrumb_messages():
+    from app.core.sentry import before_send
+
+    event = {
+        "exception": {"values": [{"type": "RuntimeError", "value": "private query text"}]},
+        "breadcrumbs": {"values": [{"message": "private answer text"}]},
+    }
+
+    scrubbed = before_send(event)
+    assert scrubbed["exception"]["values"][0]["type"] == "RuntimeError"
+    assert scrubbed["exception"]["values"][0]["value"] == "[redacted]"
+    assert scrubbed["breadcrumbs"]["values"][0]["message"] == "[redacted]"

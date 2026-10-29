@@ -22,7 +22,7 @@ def _looks_sensitive(text: str) -> bool:
 
 
 def _scrub(value: Any, key: str | None = None) -> Any:
-    if key and key.lower() in SENSITIVE_KEYS:
+    if key and key.lower() in SENSITIVE_KEYS | {"message", "formatted", "value"}:
         return "[redacted]"
     if isinstance(value, str):
         return "[redacted]" if _looks_sensitive(value) else value
