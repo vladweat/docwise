@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { InviteMemberModal } from "@/features/settings/invite-member-modal";
 import { useI18n } from "@/i18n/locale-provider";
-import { accessRoleMessageKey } from "@/lib/access-roles";
+import { accessRoleMessageKey, humanizeAccessTag } from "@/lib/access-roles";
 import { ApiRequestError } from "@/lib/api";
 import { userFacingApiMessage } from "@/lib/quota";
 import { formatDateTime } from "@/lib/format";
@@ -85,7 +85,13 @@ export function TeamSection({
                       </TableCell>
                       <TableCell className="text-slate-400">
                         {member.departments.length > 0
-                          ? member.departments.map((d) => t(accessRoleMessageKey(d))).join(", ")
+                          ? member.departments
+                              .map((department) =>
+                                accessRoleMessageKey(department)
+                                  ? t(accessRoleMessageKey(department)!)
+                                  : humanizeAccessTag(department),
+                              )
+                              .join(", ")
                           : "—"}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-slate-400">

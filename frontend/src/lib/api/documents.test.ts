@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { patchDocumentAccess } from "@/lib/api/documents";
+import { fetchDocumentAccessOptions, patchDocumentAccess } from "@/lib/api/documents";
 
 const apiFetch = vi.fn();
 
@@ -21,5 +21,13 @@ describe("patchDocumentAccess", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ access_roles: ["hr", "all"] }),
     });
+  });
+});
+
+describe("fetchDocumentAccessOptions", () => {
+  it("loads the roles and departments configured for the current organization", async () => {
+    apiFetch.mockResolvedValue({ roles: ["admin", "employee", "manager"], departments: ["finance", "hr"] });
+    await fetchDocumentAccessOptions();
+    expect(apiFetch).toHaveBeenCalledWith("/documents/access-options");
   });
 });

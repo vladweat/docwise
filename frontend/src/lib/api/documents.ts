@@ -1,4 +1,9 @@
-import type { DocumentListResponse, DocumentResponse, DocumentStatusResponse } from "@/types/document";
+import type {
+  DocumentAccessOptions,
+  DocumentListResponse,
+  DocumentResponse,
+  DocumentStatusResponse,
+} from "@/types/document";
 
 import { apiFetch } from "./client";
 
@@ -11,6 +16,10 @@ export async function fetchDocuments(
 
 export async function fetchDocumentStatus(documentId: string): Promise<DocumentStatusResponse> {
   return apiFetch<DocumentStatusResponse>(`/documents/${documentId}/status`);
+}
+
+export async function fetchDocumentAccessOptions(): Promise<DocumentAccessOptions> {
+  return apiFetch<DocumentAccessOptions>("/documents/access-options");
 }
 
 export async function uploadDocument(file: File, accessRoles: string[]): Promise<DocumentResponse> {

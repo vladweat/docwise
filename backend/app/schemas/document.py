@@ -30,6 +30,11 @@ class DocumentListResponse(BaseModel):
     offset: int
 
 
+class DocumentAccessOptions(BaseModel):
+    roles: list[str]
+    departments: list[str]
+
+
 class DocumentAccessUpdate(BaseModel):
     access_roles: list[str] = Field(min_length=1)
 

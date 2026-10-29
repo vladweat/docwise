@@ -9,13 +9,14 @@ import {
   type DragEvent,
   type FormEvent,
 } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload } from "lucide-react";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AccessRolesField } from "@/features/documents/access-roles-field";
+import { AccessAudiencePreview } from "@/features/documents/access-audience-preview";
 import {
   Dialog,
   DialogContent,
@@ -25,8 +26,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/locale-provider";
-import { allowedRolesForUser, rolesOverlap } from "@/lib/access-roles";
-import { ApiRequestError, uploadDocument } from "@/lib/api";
+import { canManageKnowledgeBase } from "@/lib/access-roles";
+import { ApiRequestError, fetchDocumentAccessOptions, uploadDocument } from "@/lib/api";
 import { userFacingApiMessage } from "@/lib/quota";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/stores/toast-store";
@@ -48,8 +49,13 @@ export function DocumentUploadModal({
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
+  const accessOptionsQuery = useQuery({
+    queryKey: ["document-access-options", user?.organization_id],
+    queryFn: fetchDocumentAccessOptions,
+    enabled: open && canManageKnowledgeBase(user),
+  });
   const [file, setFile] = useState<File | null>(null);
-  const [roles, setRoles] = useState<string[]>(["all"]);
+  const [roles, setRoles] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +80,7 @@ export function DocumentUploadModal({
 
   function resetAndClose() {
     setFile(null);
-    setRoles(["all"]);
+    setRoles([]);
     setError(null);
     setDragging(false);
     mutation.reset();
@@ -119,9 +125,6 @@ export function DocumentUploadModal({
     if (!file || roles.length === 0 || mutation.isPending) return;
     mutation.mutate();
   }
-
-  const allowed = user ? allowedRolesForUser(user) : ["all"];
-  const visibleAfterUpload = rolesOverlap(roles, allowed);
 
   return (
     <Dialog
@@ -168,9 +171,19 @@ export function DocumentUploadModal({
 
           <AccessRolesField
             roles={roles}
+            roleOptions={accessOptionsQuery.data?.roles ?? []}
+            departments={accessOptionsQuery.data?.departments ?? []}
+            isLoading={accessOptionsQuery.isLoading}
             onChange={setRoles}
-            showOverlapWarning={!visibleAfterUpload && roles.length > 0}
           />
+          {accessOptionsQuery.isError ? (
+            <Alert variant="destructive">
+              {accessOptionsQuery.error instanceof ApiRequestError
+                ? accessOptionsQuery.error.message
+                : t("errors.loadAccessOptionsFailed")}
+            </Alert>
+          ) : null}
+          <AccessAudiencePreview roles={roles} user={user} />
 
           {error ? <Alert variant="destructive">{error}</Alert> : null}
 
@@ -178,7 +191,16 @@ export function DocumentUploadModal({
             <Button type="button" variant="ghost" onClick={resetAndClose} disabled={mutation.isPending}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={!file || roles.length === 0 || mutation.isPending}>
+            <Button
+              type="submit"
+              disabled={
+                !file ||
+                roles.length === 0 ||
+                accessOptionsQuery.isLoading ||
+                accessOptionsQuery.isError ||
+                mutation.isPending
+              }
+            >
               {mutation.isPending ? t("common.uploading") : t("common.upload")}
             </Button>
           </DialogFooter>

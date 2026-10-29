@@ -12,7 +12,10 @@ from app.core.deps import get_current_user, get_db, require_kb_admin
 from app.core.principal import Principal
 from app.core.rate_limit import enforce_rate_limit
 from app.models.document import DocumentStatus
+from app.models.organization import OrganizationMembership
+from app.models.user import UserRole
 from app.schemas.document import (
+    DocumentAccessOptions,
     DocumentAccessUpdate,
     DocumentListResponse,
     DocumentResponse,
@@ -44,6 +47,27 @@ def get_storage() -> ObjectStorage:
 def require_upload_admin(current_user: Principal = Depends(require_kb_admin)) -> Principal:
     enforce_rate_limit("upload", str(current_user.id), get_settings().rate_limit_upload_per_minute)
     return current_user
+
+
+@router.get(
+    "/access-options",
+    response_model=DocumentAccessOptions,
+    summary="Access tags available in the current organization",
+)
+def document_access_options_endpoint(
+    db: Session = Depends(get_db),
+    current_user: Principal = Depends(require_kb_admin),
+) -> DocumentAccessOptions:
+    rows = (
+        db.query(OrganizationMembership.departments)
+        .filter(OrganizationMembership.organization_id == current_user.organization_id)
+        .all()
+    )
+    departments = sorted({department for (values,) in rows for department in values or []})
+    return DocumentAccessOptions(
+        roles=sorted(role.value for role in UserRole),
+        departments=departments,
+    )
 
 
 @router.post(

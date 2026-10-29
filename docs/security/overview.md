@@ -22,6 +22,10 @@ flowchart LR
 организации. Клиентские поля `organization_id`, `org_id`, `user_id`, `access_roles` и
 `document_ids` не являются источником полномочий.
 
+Чтение документа не получает admin-override: роль `admin` управляет организацией, но читает документ только
+если совпадает с одним из его `access_roles`. Тег `all` открыт всей организации и должен использоваться отдельно;
+на загрузке и ACL update backend отклоняет его сочетание с другими тегами.
+
 ## Аутентификация
 
 - API v1 принимает host-only cookies `dw_access` и `dw_refresh`; Bearer auth не реализован.

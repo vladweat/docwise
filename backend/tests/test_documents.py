@@ -137,9 +137,12 @@ def _upload(
 
 
 def test_parse_access_roles_json_and_repeated():
-    assert parse_access_roles('["HR", "all"]') == ["hr", "all"]
-    assert parse_access_roles(["finance", "finance", "all"]) == ["finance", "all"]
+    assert parse_access_roles('["HR", "finance"]') == ["hr", "finance"]
+    assert parse_access_roles(["finance", "finance"]) == ["finance"]
     assert parse_access_roles("hr, finance") == ["hr", "finance"]
+    assert parse_access_roles(["all"]) == ["all"]
+    with pytest.raises(BadRequestError):
+        parse_access_roles(["all", "hr"])
     with pytest.raises(BadRequestError) as exc:
         parse_access_roles([])
     assert exc.value.status_code == 400
@@ -152,13 +155,13 @@ def test_upload_returns_201_pending_and_enqueues(admin_client: TestClient, stora
         lambda document_id: enqueued.append(document_id),
     )
     content = _pdf("upload-ok")
-    response = _upload(admin_client, filename="Policy.pdf", content=content, roles=["all", "hr"])
+    response = _upload(admin_client, filename="Policy.pdf", content=content, roles=["admin", "hr"])
     assert response.status_code == 201
     body = response.json()
     UUID(body["id"])
     assert body["title"] == "Policy.pdf"
     assert body["status"] == "pending"
-    assert body["access_roles"] == ["all", "hr"]
+    assert body["access_roles"] == ["admin", "hr"]
     assert body["file_size_bytes"] == len(content)
     assert body["total_pages"] == 1
     assert enqueued == [UUID(body["id"])]
@@ -210,6 +213,36 @@ def test_upload_requires_admin_or_manager(storage: FakeStorage):
     assert response.status_code == 201
     assert response.json()["status"] == "pending"
     assert response.json()["total_pages"] == 1
+
+
+def test_access_options_are_dynamic_and_scoped_to_the_current_organization(admin_client: TestClient):
+    _register_user("employee", ["hr", "legal"], admin_client=admin_client)
+
+    other_admin = TestClient(app)
+    other_admin.post(
+        "/api/v1/auth/register",
+        json=register_payload(_unique_email(), organization_name="Other Docs Org"),
+    )
+    _register_user("employee", ["sales"], admin_client=other_admin)
+
+    own_options = admin_client.get("/api/v1/documents/access-options")
+    other_options = other_admin.get("/api/v1/documents/access-options")
+
+    assert own_options.status_code == 200
+    assert own_options.json() == {
+        "roles": ["admin", "employee", "manager"],
+        "departments": ["hr", "legal"],
+    }
+    assert other_options.status_code == 200
+    assert other_options.json()["departments"] == ["sales"]
+
+
+def test_access_options_requires_admin_or_manager(admin_client: TestClient):
+    manager = _register_user(UserRole.manager.value, admin_client=admin_client)
+    employee = _register_user(UserRole.employee.value, admin_client=admin_client)
+
+    assert manager.get("/api/v1/documents/access-options").status_code == 200
+    assert employee.get("/api/v1/documents/access-options").status_code == 403
 
 
 def test_upload_unauthenticated(storage: FakeStorage):
@@ -476,10 +509,10 @@ def test_upload_json_access_roles_field(admin_client: TestClient, storage: FakeS
         admin_client,
         filename="Policy.pdf",
         content=_pdf("json-roles"),
-        roles='["all","engineering"]',
+        roles='["admin","engineering"]',
     )
     assert response.status_code == 201
-    assert response.json()["access_roles"] == ["all", "engineering"]
+    assert response.json()["access_roles"] == ["admin", "engineering"]
 
 
 def test_upload_rate_limit(admin_client: TestClient, storage: FakeStorage, monkeypatch):

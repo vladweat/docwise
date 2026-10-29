@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/locale-provider";
-import { ACCESS_ROLE_OPTIONS, accessRoleMessageKey } from "@/lib/access-roles";
+import { ACCESS_DEPARTMENT_OPTIONS, accessRoleMessageKey } from "@/lib/access-roles";
 import { ApiRequestError, createOrganizationInvite } from "@/lib/api";
 import { userFacingApiMessage } from "@/lib/quota";
 import { useToastStore } from "@/stores/toast-store";
@@ -27,10 +27,6 @@ const INVITE_ROLES = [
   { value: "manager", messageKey: "settings.inviteRoleManager" as const },
   { value: "admin", messageKey: "settings.inviteRoleAdmin" as const },
 ];
-
-const DEPARTMENT_OPTIONS = ACCESS_ROLE_OPTIONS.filter(
-  (item) => !["all", "admin", "manager", "employee"].includes(item.value),
-);
 
 export function InviteMemberModal({
   open,
@@ -140,7 +136,7 @@ export function InviteMemberModal({
             <fieldset>
               <legend className="text-sm font-medium">{t("settings.inviteDepartments")}</legend>
               <div className="mt-2 flex flex-wrap gap-2">
-                {DEPARTMENT_OPTIONS.map((item) => {
+                {ACCESS_DEPARTMENT_OPTIONS.map((item) => {
                   const checked = departments.includes(item.value);
                   return (
                     <label key={item.value} className="flex items-center gap-1.5 text-xs text-slate-300">
@@ -154,7 +150,7 @@ export function InviteMemberModal({
                           );
                         }}
                       />
-                      {t(accessRoleMessageKey(item.value))}
+                      {t(accessRoleMessageKey(item.value)!)}
                     </label>
                   );
                 })}

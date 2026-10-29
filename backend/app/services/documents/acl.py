@@ -104,4 +104,6 @@ def parse_access_roles(raw: list[str] | str | None) -> list[str]:
 
     if not normalized:
         raise BadRequestError("access_roles is required")
+    if "all" in normalized and len(normalized) > 1:
+        raise BadRequestError("The all access tag cannot be combined with other tags")
     return normalized

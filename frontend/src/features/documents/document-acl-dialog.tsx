@@ -1,10 +1,11 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { AccessRolesField } from "@/features/documents/access-roles-field";
+import { AccessAudiencePreview } from "@/features/documents/access-audience-preview";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/locale-provider";
-import { allowedRolesForUser, rolesOverlap } from "@/lib/access-roles";
-import { ApiRequestError, patchDocumentAccess } from "@/lib/api";
+import { canManageKnowledgeBase, normalizeAccessRoles } from "@/lib/access-roles";
+import { ApiRequestError, fetchDocumentAccessOptions, patchDocumentAccess } from "@/lib/api";
 import { userFacingApiMessage } from "@/lib/quota";
 import { useToastStore } from "@/stores/toast-store";
 import type { DocumentResponse } from "@/types/document";
@@ -33,12 +34,17 @@ export function DocumentAclDialog({
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const pushToast = useToastStore((state) => state.push);
+  const accessOptionsQuery = useQuery({
+    queryKey: ["document-access-options", user?.organization_id],
+    queryFn: fetchDocumentAccessOptions,
+    enabled: Boolean(document) && canManageKnowledgeBase(user),
+  });
   const [roles, setRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (document) {
-      setRoles([...document.access_roles]);
+      setRoles(normalizeAccessRoles(document.access_roles));
       setError(null);
     }
   }, [document]);
@@ -63,12 +69,15 @@ export function DocumentAclDialog({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!document || roles.length === 0 || mutation.isPending) return;
+    if (
+      !document ||
+      roles.length === 0 ||
+      accessOptionsQuery.isLoading ||
+      accessOptionsQuery.isError ||
+      mutation.isPending
+    ) return;
     mutation.mutate();
   }
-
-  const allowed = user ? allowedRolesForUser(user) : ["all"];
-  const visibleAfterSave = rolesOverlap(roles, allowed);
 
   return (
     <Dialog
@@ -87,15 +96,33 @@ export function DocumentAclDialog({
           </DialogHeader>
           <AccessRolesField
             roles={roles}
+            roleOptions={accessOptionsQuery.data?.roles ?? []}
+            departments={accessOptionsQuery.data?.departments ?? []}
+            isLoading={accessOptionsQuery.isLoading}
             onChange={setRoles}
-            showOverlapWarning={!visibleAfterSave && roles.length > 0}
           />
+          {accessOptionsQuery.isError ? (
+            <Alert variant="destructive">
+              {accessOptionsQuery.error instanceof ApiRequestError
+                ? accessOptionsQuery.error.message
+                : t("errors.loadAccessOptionsFailed")}
+            </Alert>
+          ) : null}
+          <AccessAudiencePreview roles={roles} user={user} />
           {error ? <Alert variant="destructive">{error}</Alert> : null}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose} disabled={mutation.isPending}>
               {t("common.cancel")}
             </Button>
-            <Button type="submit" disabled={roles.length === 0 || mutation.isPending}>
+            <Button
+              type="submit"
+              disabled={
+                roles.length === 0 ||
+                accessOptionsQuery.isLoading ||
+                accessOptionsQuery.isError ||
+                mutation.isPending
+              }
+            >
               {mutation.isPending ? "…" : t("common.save")}
             </Button>
           </DialogFooter>

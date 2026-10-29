@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { useI18n } from "@/i18n/locale-provider";
-import { accessRoleMessageKey } from "@/lib/access-roles";
+import { accessRoleMessageKey, humanizeAccessTag, normalizeAccessRoles } from "@/lib/access-roles";
 import { fetchDocumentStatus } from "@/lib/api";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import { useToastStore } from "@/stores/toast-store";
@@ -104,9 +104,9 @@ export function DocumentRow({
       <TableCell className="text-slate-400">{doc.total_pages ?? "—"}</TableCell>
       <TableCell>
         <div className="flex flex-wrap items-center gap-1">
-          {doc.access_roles.map((role) => (
+          {normalizeAccessRoles(doc.access_roles).map((role) => (
             <Badge key={role} variant="outline">
-              {t(accessRoleMessageKey(role))}
+              {accessRoleMessageKey(role) ? t(accessRoleMessageKey(role)!) : humanizeAccessTag(role)}
             </Badge>
           ))}
           {canManage ? (

@@ -50,6 +50,7 @@ export {
 
 export {
   deleteDocument,
+  fetchDocumentAccessOptions,
   fetchDocumentStatus,
   fetchDocuments,
   patchDocumentAccess,
