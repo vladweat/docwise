@@ -1,72 +1,74 @@
-# Auth and ACL
+# Аутентификация и ACL
 
-Related: [tenancy.md](tenancy.md), [retrieval.md](../pipeline/retrieval.md), [data-model.md](data-model.md).
+Основной клиентский механизм — cookie session. Организация берётся из текущей сессии; роль и отделы читаются
+из `organization_memberships`. Другие границы — в [tenancy](tenancy.md) и [security](../security/overview.md).
 
-Two layers: **organization** (session `org_id`) and **roles/departments** inside it. Roles do not isolate companies.
+## Сессия и обновление токена
 
-## Session
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant API as FastAPI
+  participant DB as PostgreSQL
+  participant R as Redis
+  Browser->>API: login / refresh
+  API->>DB: user + current membership
+  API->>R: refresh jti/session state
+  API-->>Browser: HttpOnly dw_access + dw_refresh cookies
+  Browser->>API: protected request
+  API->>DB: validate active session + membership
+```
 
-v1 — cookie session, cookies `dw_access` / `dw_refresh` (see [decisions.md](../engineering/decisions.md) ADR-007).
+- `dw_access` действует 15 минут; `dw_refresh` — 7 дней.
+- JWT включает `sub`, текущий `org_id`, `typ`, `exp`; refresh token также имеет `jti`.
+- Роль и отделы не являются источником полномочий из JWT: они повторно читаются из БД.
+- Login/register/Google возвращают user JSON и ставят cookies; access token в JSON не возвращается.
+- Bearer auth в v1 не поддерживается.
+- Logout отзывает текущую сессию; смена/сброс пароля отзывает сессии пользователя.
+- `/health` и `/ready` публичны; остальные protected API требуют cookie session, кроме публичных auth/SSO/webhook routes.
 
-- Login / register / Google return user JSON and set cookies; no `access_token` in body. SSO ACS sets the same cookies, no token in JSON.
-- Access JWT lives **15 minutes** (`ACCESS_TOKEN_EXPIRE_MINUTES`); refresh — 7 days. Client on `401` calls `POST /auth/refresh` once and retries.
-- Access/refresh JWT: `sub`, current membership `org_id`, `exp`, `typ`; refresh also `jti`. **No `role` in token** — source of truth is `organization_memberships`, `GET /auth/me` reads membership from DB.
-- Access token includes current membership `org_id`; `GET /auth/me` returns org + membership role. Org switch — `POST /auth/switch-organization` (own membership only), new cookies. On hostname bound to an org, switching to another org is forbidden ([ADR-015](../engineering/decisions.md)).
-- `GET /health` and `GET /ready` without auth. Rest of `/api/v1/*` — `get_current_user` (cookie only).
-- CSRF: with cross-site cookies (`SameSite=None`) mutations require allowlisted `Origin` or `X-Requested-With: Docwise`. Origin allowlist includes canonical frontend **and** verified hostname of current org.
-- Manage KB (upload, delete, change `access_roles`): `require_kb_admin` — `admin` or `manager` of **current org**. Employee denial HTTP `403` with code `auth.forbidden` and a safe message (same response shape as `require_admin`; role not revealed). Invites, billing, SSO, domain, inspect — `require_admin` only. Retrieval / list / status / raw **still** filter by `org_id` + document ACL, no admin override and no cross-org read.
+## CSRF, Origin и hostname
 
-Do not accept `access_roles`, `user_id`, `document_ids`, `org_id` / `organization_id` from the body as authority.
+При `COOKIE_SAMESITE=none` mutating API requests требуют разрешённый `Origin`/`Referer` либо
+`X-Requested-With: Docwise`. CORS допускает настроенный origin и проверенный hostname организации.
+Cookies host-only, без parent `Domain`.
 
-## User roles
+Если `Host` закреплён за tenant, он должен совпадать с `org_id` сессии. Непроверенный hostname не закрепляет org.
 
-Roles and departments live on `organization_memberships` (one person, different roles per org).
+## Роли и действия
 
-| Membership role | Meaning |
+| Роль membership | Права |
 | --- | --- |
-| `admin` | Manage KB, invites, billing, SSO and domain **for this org**; `POST /search/inspect` when `ENABLE_SEARCH_INSPECT` (retrieval still `org_id` + document ACL, no override) |
-| `manager` | KB for this org: upload, delete, change ACL. Invites / billing / SSO / domain / inspect — `403` |
-| `employee` | Base employee. KB write and inspect — `403` |
+| `admin` | Knowledge Base, invites, billing, SSO, domain, Inspect при включённом флаге |
+| `manager` | Upload/delete/ACL для Knowledge Base; не управляет пользователями и billing |
+| `employee` | Чтение разрешённых документов, chat и свои сессии |
 
-Plus `departments: string[]` (`engineering`, `hr`, `finance`, …) on the same membership.
+`admin` и `manager` также имеют `departments[]` — например, `hr` и `finance`.
+UI может скрывать кнопки, но API всегда проверяет права повторно.
 
-Platform operator with access to customer corpora is not part of the product.
+## Разрешённые document roles
 
-## SSO / SAML
-
-Canonical: [ADR-014](../engineering/decisions.md). Plan gate — [billing.md](billing.md).
-
-- Connector (`organization_sso_connections`) belongs to one org. Routes `/api/v1/auth/sso/{slug}/login` and `…/acs`: `{slug}` → that org, not assertion attribute.
-- SP-initiated in v1; ACS accepts IdP-initiated if metadata matches. Success → `dw_access` / `dw_refresh` with connector `org_id`.
-- JIT (if enabled on connector): create/find `users` by email and membership **only in that org**. Email is global: person already in Globex may join Acme; do not change Globex roles. Seats quota → `402`. Without JIT — existing membership or invite only.
-- `organizations.sso_enforced`: password and Google cannot select this org as current; `POST /auth/switch-organization` without fresh SSO assertion (session flag / short redis key) → denied. Otherwise SSO is bypassed via another company.
-- IdP group → `role` / `departments` mapping — JSON/table edited by org-admin. Do not write groups into `documents.access_roles`. Do not replace `org_id`.
-- Email without verified equivalent — denied, same as Google.
-- Local Compose: `SSO_PROVIDER=dev` enables a **development-only fixture assertion**, not a real SAML/OIDC exchange. The public demo sets `SSO_PROVIDER=disabled`; public login/ACS routes return `404` there. Plan without SSO entitlement → `403` on connector upsert, not “wrong IdP”.
-
-На текущем runtime это единственный реализованный provider: при `SSO_PROVIDER != dev`
-публичные login/ACS routes не подключают SAML/OIDC adapter и отвечают `404`. Поля connector
-модели и целевой flow не означают готовую production-интеграцию с IdP.
-
-Google OIDC remains consumer login for plans without SSO. Not a SAML replacement.
-
-## Building `allowed_roles` for search
-
-```
-allowed_roles = { membership.role } ∪ set(membership.departments) ∪ { "all" }
+```text
+allowed_roles = {membership.role} ∪ departments ∪ {"all"}
 ```
 
-Filter (both conjuncts):
+Каждая document list/raw/status и обе поисковые ветки используют текущую организацию и пересечение ролей:
 
 ```sql
 WHERE organization_id = :current_org
-  AND access_roles && ARRAY['employee', 'hr', 'all']::text[]
+  AND access_roles && :allowed_roles
 ```
 
-Document with `access_roles = ["hr"]` is visible to a user **in this org** who has `hr` in `role` or `departments`. Document `["all"]` is visible to all members **of this organization**, not all logged-in SaaS users.
+Org-admin не обходит внутреннюю ACL: HR-only документ требует `hr` в membership role или departments.
+При изменении тегов обновляются `documents.access_roles` и все chunks этого документа.
 
-Document role literals (admin UI tags): `admin`, `manager`, `employee`, departments (`hr`, `finance`, …), plus `all` / UI label **General**.
+## SSO: проектное решение и runtime
 
-ACL change on a file: update `documents` **and** all `document_chunks` rows for that file (or full re-upsert). Otherwise the index lies.
+Идеальная модель: connector принадлежит одной org, его slug определяет tenant; assertion не может назначить org.
+JIT-membership, если включена, создаёт membership только в этой org.
 
-HTTP surfaces that apply this filter (list, raw, chat, inspect, cache, billing): see the surfaces table in [tenancy.md](tenancy.md#surfaces-with-one-rule).
+**Что доступно сейчас:** `SSO_PROVIDER=dev` включает development fixture и не выполняет настоящий SAML/OIDC обмен.
+Публичный demo задаёт `SSO_PROVIDER=disabled`; login/ACS там возвращают `404`. Производственного IdP adapter нет.
+Google login — отдельный consumer OIDC-вариант, не замена корпоративному SSO.
+
+SSO и plan gates: [billing](billing.md), [ADR-014](../engineering/decisions.md#adr-014-sso-org-from-connector-not-assertion).

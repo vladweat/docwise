@@ -1,74 +1,63 @@
-# Plans, quotas, and billing
+# Планы, квоты и billing
 
-Canonical commercial envelope after shared tenancy ([tenancy.md](tenancy.md)). Decision: [ADR-013](../engineering/decisions.md). SSO: [auth.md](auth.md).
+Plan, quotas и entitlements хранятся на записи organization в PostgreSQL. Payment provider обновляет это состояние;
+ни Stripe, ни plan не являются источником tenant/ACL. Связанные темы: [tenancy](tenancy.md), [auth](auth.md), [ADR-013](../engineering/decisions.md).
 
-Plan, quotas, and `sso` / `custom_domain` flags live in **Postgres on the organization**. Payment provider only writes these fields. Retrieval, upload, and ACL **do not** call Stripe and do not weaken `organization_id` + `access_roles`.
+## Три разных ограничения
 
-## Quotas ≠ rate limit
-
-| Mechanism | Purpose | Code |
+| Механизм | Для чего | HTTP |
 | --- | --- | --- |
-| Rate limit | anti-abuse: IP / `user.id` per minute | `429` |
-| Organization quota | commercial limit per period | `402` |
-| Plan entitlement | feature not in plan (SSO, custom domain) | `403` |
+| Rate limit | Ограничить частоту запросов | `429` |
+| Organization quota | Лимит по seats/pages/tokens | `402` |
+| Plan entitlement | Функция не включена в plan (SSO/domain) | `403` |
 
-Do not use `404` for **own** quota. Foreign org still not confirmed (`404` as for file outside ACL).
+Для своей организации не следует маскировать исчерпанную квоту как `404`; чужая organization не подтверждается.
 
-## Plans
+## Тарифы
 
-Literals: `starter` \| `team` \| `enterprise`. Numbers — env config (below — Compose guideline). New org after register — `starter`.
+Значения ниже — defaults Compose; их можно переопределить environment variables.
 
-| | Starter | Team | Enterprise |
-| --- | --- | --- | --- |
-| Seats (`organization_memberships`) | 3 | 15 | 100 |
-| Indexed pages (`documents.total_pages`, statuses except `failed`) | 200 | 2 000 | 20 000 |
-| Chat tokens per period (`rag_audit_logs.tokens_used`) | 100 000 | 1 000 000 | 10 000 000 |
-| SSO / SAML | no | no | yes |
-| Custom domain | no | no | yes |
+| Возможность | Starter | Team | Enterprise |
+| --- | ---: | ---: | ---: |
+| Seats | 3 | 15 | 100 |
+| Indexed pages | 200 | 2 000 | 20 000 |
+| Chat tokens за период | 100 000 | 1 000 000 | 10 000 000 |
+| SSO / custom domain | нет | нет | да |
 
-Do not bill embeddings separately: cost is per page. Storage GB — soft guideline, not a hard limit.
+Период token quota хранится в `current_period_start/end` и по умолчанию равен 30 дням.
+Seats и pages — текущий объём; они не сбрасываются по периоду. Storage GB — soft guideline, не hard limit.
 
-Token window — `organizations.current_period_start` / `current_period_end` (default 30 days from org creation, `PLAN_PERIOD_DAYS`). Expired window rolls forward on quota check. Pages and seats — current state, not reset with period.
+## Где проверяются квоты
 
-### Where to enforce
+- **Seats:** до приглашения/JIT membership.
+- **Pages:** upload проверяет объявленное число страниц/разделов; после parsing проверяется итоговый объём.
+- **Tokens:** chat проверяет квоту до retrieval и LLM.
 
-- **Seats:** invite and JIT SSO, before creating membership.
-- **Pages:** `POST /documents/upload`, if current page sum already ≥ cap → `402` without enqueueing Celery. After parse, if document `total_pages` would push org over cap → `failed` + quota `last_error`, delete chunks, remove MinIO bytes (as ingest error). Do not leave `ready` over cap.
-- **Tokens:** `POST /chat/stream` **before** retrieval and LLM. Exhausted → SSE `type: error` with same meaning as HTTP `402` (fixed phrase). Do not call embedder or write foreign chunk ids.
+Превышение квоты не ставит ingestion задачу и не передаёт вопрос в LLM.
+Пользователь видит общее сообщение о квоте без plan details другой организации.
 
-Org-admin sees usage in settings. Employee at limit sees “organization quota exceeded”, no billing numbers and no hint of foreign files.
+## Provider и demo режим
 
-`organizations.status = suspended`: login to this org rejected. Billing `past_due` / cancel → same `suspended`. Plan change does not read another org’s corpus and does not bypass inner ACL.
+| `BILLING_PROVIDER` | Поведение |
+| --- | --- |
+| `dev` | Без платежей; admin меняет plan/status через UI/API |
+| `stripe` | Checkout, customer portal и webhooks; нужны credentials и доступ к Stripe |
 
-## Provider (`BILLING_PROVIDER`)
+Публичное демо использует `BILLING_PROVIDER=dev` даже в `ENVIRONMENT=production`.
+`/ready` показывает состояние `dev`, что является явным demo-режимом. Stripe без keys делает billing readiness degraded.
 
-Single interface: current subscription, plan change, cancel, `past_due`. Quota handlers read org rows only.
+`POST /api/v1/billing/dev/simulate` работает только в `dev` и для admin текущей organization.
+Он не может менять состояние чужого tenant.
 
-| Value | When | Money |
-| --- | --- | --- |
-| `dev` (Compose default and non-`production`) | local, CI, portfolio without payment processing | none. Org-admin changes plan via API/UI |
-| `stripe` | when account and network to `api.stripe.com` exist | Checkout + Customer Portal + webhooks |
+## Stripe
 
-Stripe **test keys do not replace** `dev`: they still need account and Stripe access. From some regions this is often impossible — portfolio and CI acceptance use `dev`.
+Карта хранится у provider; приложение сохраняет customer/subscription IDs в organization row.
+Webhook проверяет подпись и идемпотентность по `event.id` в `billing_events`.
+Webhook не читает document corpus и не записывает chunk text.
 
-`stripe` adapter in code is fine; live `api.stripe.com` not required in CI. YooKassa and other processors — separate provider on the same port.
+## Запрещённые источники полномочий
 
-`ENVIRONMENT=production` and `BILLING_PROVIDER=dev`: explicit choice (demo VPS), `/ready` marks billing as `dev`. `BILLING_PROVIDER=stripe` without keys → billing in `/ready` not `ok` (`degraded`), app need not crash. Do not call Stripe “just in case” when `dev`.
-
-## Dev billing
-
-Org-admin screen (**Dev billing** badge): pick plan, “activate”, “past due”, “cancel”. Same `plan` / `billing_status` / `status` transitions as webhook would.
-
-`POST /api/v1/billing/dev/simulate` — only `BILLING_PROVIDER=dev`, only **current** org from session, only `require_admin`. Else `404` (like disabled inspect). Cannot simulate Globex from Acme session.
-
-## Stripe (optional)
-
-Checkout + Portal. Do not store cards. `stripe_customer_id` / `stripe_subscription_id` on org, not in JWT or chat body. Webhooks: `checkout.session.completed` (bind via `client_reference_id`), `customer.subscription.updated|deleted`, `invoice.paid`, `invoice.payment_failed`. Org after checkout — only by Stripe id on org row, not `metadata.organization_id`. Signature, idempotency via `event.id` in `billing_events`. Price → plan mapping. Only org-admin of **current** org pays. Webhook does not read corpus or log chunk text.
-
-## Forbidden
-
-- Client `plan` / `org_id` as quota or ACL source.
-- LLM cache without `org_id`; plan not needed in cache key.
-- Platform-admin viewing usage or all customer corpora.
-- `402`/`403` that confirm file or org existence outside session.
-- Enable SSO or custom domain for org whose plan lacks it (even via dev-simulate foreign tenant — not in session).
+- Не брать tenant/ACL из `organization_id`, `plan` или `access_roles` в client body.
+- Не менять квоты на основании provider metadata, пока её связь с текущей org не проверена.
+- Не использовать payment state для обхода `organization_id` или `access_roles`.
+- Не включать SSO/custom domain, если у текущей org нет entitlement.

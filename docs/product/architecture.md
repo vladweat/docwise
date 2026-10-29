@@ -1,86 +1,94 @@
-# Docwise architecture
+# Архитектура Docwise
 
-Product requirements: [srs.md](srs.md). Deviations from draft spec: [decisions.md](../engineering/decisions.md). Target deploy: shared B2B SaaS ([tenancy.md](../platform/tenancy.md)).
+Docwise — shared B2B SaaS для поиска и вопросов по документам. Несколько организаций используют один стек;
+данные каждой организации и ACL документов ограничивают все пути чтения. Продуктовые требования — в [SRS](srs.md),
+архитектурные решения — в [ADR](../engineering/decisions.md), эксплуатационные ограничения — в [operations](../operations/operations.md).
 
-## Components
+## Компоненты
 
 ```mermaid
 flowchart TB
-  subgraph client [Next.js Frontend]
-    UI[Split-screen chat + PDF viewer]
-    Admin[Knowledge Base admin]
+  subgraph client [Браузер]
+    Chat[Чат и PDF viewer]
+    Admin[Knowledge Base и Inspect]
   end
-
-  subgraph api [FastAPI]
-    Upload[Documents API]
-    Chat[Search / Chat SSE]
-    Inspect[Search inspect]
+  subgraph web [Приложение]
+    Next[Next.js]
+    API[FastAPI]
+    Worker[Celery worker]
   end
+  Queue[(Redis)]
+  DB[(PostgreSQL<br/>pgvector + FTS)]
+  Files[(S3-compatible storage)]
+  Model[OpenAI-compatible API]
 
-  subgraph async [Celery worker]
-    Parse[PyMuPDF / pdfplumber]
-    Chunk[Structure-aware chunking]
-    Embed[FastEmbed 384-d + FTS tsvector]
-  end
-
-  PG[(PostgreSQL + pgvector)]
-  S3[(MinIO / S3)]
-  Redis[(Redis)]
-  LLM[OpenAI-compatible API]
-
-  UI --> Chat
-  Admin --> Upload
-  Upload --> PG
-  Upload --> S3
-  Upload --> Redis
-  Redis --> Parse
-  Parse --> Chunk --> Embed --> PG
-  Chat --> PG
-  Chat --> LLM
-  Inspect --> PG
-  UI --> Upload
+  Chat --> Next --> API
+  Admin --> Next
+  API -->|tenant + role filters| DB
+  API -->|разрешённый Top-4| Model
+  API -->|чтение оригинала| Files
+  API --> Queue --> Worker
+  Worker --> DB
+  Worker --> Files
 ```
 
-| Component | Responsibility |
+| Компонент | За что отвечает |
 | --- | --- |
-| Next.js | Chat, footnotes, embedded PDF, KB admin |
-| FastAPI | Auth, current org in session, upload, statuses, SSE chat, inspect, file delivery |
-| Celery | Heavy parsing, chunking, embeddings, chunk upsert in Postgres |
-| PostgreSQL + pgvector | Users, organizations and memberships, documents, sessions, audit, dense chunk vectors + FTS |
-| MinIO | Original file bytes |
-| Redis | Celery broker/result backend, refresh sessions, rate limits, locks and cache |
+| Next.js | Чат, список сессий, PDF/DOCX viewer, администрирование базы знаний |
+| FastAPI | Auth, tenant context, загрузка, поиск, SSE chat, inspect и выдача файлов |
+| Celery | Извлечение текста, chunking, embeddings и индексация |
+| PostgreSQL | Организации, пользователи, документы, сессии, audit, vectors и FTS |
+| Redis | Celery broker/result backend, refresh sessions, limits, locks и LLM cache |
+| S3 storage | Оригиналы файлов; локально MinIO, в публичном demo Garage |
+| LLM | OpenAI-compatible HTTP API; отдельного Anthropic adapter в репозитории нет |
 
-LLM-клиент в `backend/app/services/chat/llm.py` реализует OpenAI-compatible HTTP.
-Отдельного Anthropic adapter в репозитории нет.
+## Загрузка и индексация
 
-## Flow A — document upload
+```mermaid
+flowchart LR
+  Upload[Upload PDF/DOCX] --> API[FastAPI: проверка org, ACL, quota]
+  API --> DB[(Postgres: pending)]
+  API --> S3[(S3: original)]
+  API --> Q[(Redis / Celery)]
+  Q --> Worker[Extract → page/section chunks → embed]
+  Worker --> DB2[(Chunks: vector + FTS + ACL)]
+  Worker --> Ready[ready или failed]
+```
 
-1. Org-admin of current org uploads PDF/DOCX and selects `access_roles[]` (inner tags, not company id).
-2. API computes SHA-256, checks unique `(org_id, file_hash)`, stores object in MinIO with org prefix, row in `documents` (`pending`, session `org_id`).
-3. Task `ingestion.process_document` with `document_id` is enqueued.
-4. Worker: page extraction → section/page chunks → dense embedding; FTS (`search_vector`) in Postgres → upsert `document_chunks` (copy document `org_id` and ACL) → `status = ready` or `failed`.
+API сохраняет оригинал и ставит задачу в очередь; тяжёлый parsing не выполняется в HTTP request.
+Промежуточные стадии видны через `GET /documents/{id}/status`. Подробности, включая retry и recovery:
+[ingestion](../pipeline/ingestion.md).
 
-Detail: [ingestion.md](../pipeline/ingestion.md).
+## Вопрос и ответ
 
-## Flow B — chat question
+```mermaid
+flowchart LR
+  Question[Вопрос + cookie session] --> Resolve[Определить org и роли]
+  Resolve --> SQL[Dense и FTS с org + ACL]
+  SQL --> Fuse[RRF → rerank → Top-4]
+  Fuse --> LLM[LLM только с разрешённым контекстом]
+  LLM --> Stream[SSE tokens и метаданные]
+  Stream --> Viewer[Цитата открывает страницу/раздел]
+```
 
-1. Client sends `POST /api/v1/chat/stream` (cookie session).
-2. Session yields `org_id`, role and departments. SQL ACL on every dense and FTS query — [auth.md](../platform/auth.md), [tenancy.md](../platform/tenancy.md).
-3. Dense Top-25 + FTS Top-25 → RRF → Top-15 → cross-encoder → threshold 0.25 → Top-4.
-4. First SSE event: citations, then answer tokens, then metrics.
-5. UI opens PDF on footnote page and highlights fragment.
+Для нового uncached чата backend создаёт сессию после успешного retrieval, но **до** генерации:
+ранний SSE `meta` содержит `session_id`, а `message_id` ещё `null`. Затем идут citations, token events
+и финальный `meta` с ID сообщения и usage. Ошибка до успешного retrieval не создаёт пустую сессию.
+Полный порядок и ACL — в [описании retrieval](../pipeline/retrieval.md).
 
-Detail: [retrieval.md](../pipeline/retrieval.md). Data the user cannot access never enters the prompt.
+## Точки контроля доступа
 
-## Flow C — inspect
+1. `organization_id` определяется текущей аутентифицированной сессией.
+2. Dense и FTS фильтруются по организации и `access_roles` в SQL до fusion.
+3. Тот же ACL применяется к спискам, статусу и выдаче исходного файла.
+4. LLM и audit не получают chunks, недоступные пользователю.
 
-1. Org-admin with `ENABLE_SEARCH_INSPECT` sends `POST /api/v1/search/inspect`.
-2. Same hybrid retrieval under session `org_id` + SQL ACL. Flag off → `404`; not org-admin → `403`.
-3. Response: dense / sparse / rrf / reranked lists with scores and previews.
-4. Row in `rag_audit_logs` (chunk UUIDs after reranker, no text; with `organization_id`).
+RLS включена для corpus-таблиц, но действует только когда runtime использует отдельную non-superuser роль
+`docwise_rls`. Она дополняет прикладные фильтры, а не заменяет их: [tenancy](../platform/tenancy.md),
+[security](../security/overview.md).
 
-## Boundaries
+## Границы продукта
 
-In scope: PDF (priority), DOCX where possible; roles and departments **inside** org; plans/quotas/SSO/custom domain behind ports ([billing.md](../platform/billing.md)).
-
-Out of scope: platform operator console, SCIM, live payment as a deploy requirement, online file editing, tool-calling agents outside corpus, training custom embeddings. Full FR and OOS lists: [srs.md](srs.md).
+В текущем коде реализованы PDF и DOCX, роли/отделы внутри организации, планы/quotas и dev billing.
+В публичном демо SSO отключён, Garage — одноузловой, observability ограничена healthchecks и логами.
+Kubernetes, HA и реальный SAML/OIDC provider не входят в текущую runtime-конфигурацию.

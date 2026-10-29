@@ -1,8 +1,29 @@
-# Data model
+# Модель данных
 
-Two layers in one Postgres: user/org/file/chat tables and chunk index with pgvector. Company isolation — `org_id` ([tenancy.md](tenancy.md)). Chunk ACL mirrors `documents.access_roles`; chunk `org_id` mirrors document. Primary keys — **UUID** (`gen_random_uuid()` / SQLAlchemy `uuid4`). Roles and filter: [auth.md](auth.md).
+Два слоя данных находятся в PostgreSQL: пользователи, организации, документы и чат, а также индекс фрагментов
+с pgvector. Организацию изолирует `organization_id` ([tenancy.md](tenancy.md)); ACL фрагмента копирует
+`documents.access_roles`, а его `organization_id` — организацию документа. Основные ключи — **UUID**
+(`gen_random_uuid()` / SQLAlchemy `uuid4`). Роли и фильтрация описаны в [auth.md](auth.md).
 
-Shared SaaS model: users are global; roles and departments on membership. Alembic migration `007` moved legacy `users.role` / `users.departments` to `organization_memberships`.
+Пользователь может состоять в нескольких организациях. Роль и отделы хранятся в
+`organization_memberships`; миграция Alembic `007` перенесла туда прежние `users.role` и
+`users.departments`.
+
+## Связи верхнего уровня
+
+```mermaid
+erDiagram
+  users ||--o{ organization_memberships : member
+  organizations ||--o{ organization_memberships : has
+  organizations ||--o{ documents : owns
+  documents ||--o{ document_chunks : indexed_as
+  organizations ||--o{ chat_sessions : owns
+  chat_sessions ||--o{ chat_messages : contains
+  organizations ||--o{ rag_audit_logs : records
+  documents ||--o{ storage_deletions : cleanup
+```
+
+Детали колонок ниже сгруппированы по таблицам; точные типы и constraints определяют Alembic migrations.
 
 ## PostgreSQL
 

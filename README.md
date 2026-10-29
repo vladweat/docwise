@@ -2,173 +2,106 @@
 
 [![CI](https://github.com/vladweat/docwise/actions/workflows/ci.yml/badge.svg)](https://github.com/vladweat/docwise/actions/workflows/ci.yml)
 
-RAG-сервис для общих баз знаний PDF/DOCX: FastAPI, PostgreSQL/pgvector, Celery и Next.js.
-Hybrid retrieval использует dense и FTS-поиск, RRF, cross-encoder rerank, ссылки на
-страницы/разделы и SQL access control до передачи контекста в LLM.
+**Docwise — корпоративный поиск по PDF и DOCX с ответами, которые можно проверить по источнику.**
+Проект показывает полный путь от загрузки документов и разграничения доступа до hybrid search,
+LLM-ответа и подсветки цитаты в PDF.
 
-Модель: **shared B2B SaaS** — несколько организаций в одном стеке. Изоляция основана на
-`organization_id` и document `access_roles`, применяемых к dense и FTS до fusion, rerank и
-generation. Compose задаёт отдельную non-superuser runtime role для RLS и bind-ит dev ports
-на loopback; runtime-состояние VM после следующего deploy нужно проверить. См.
-[tenancy](docs/platform/tenancy.md) и
-[security](docs/security/overview.md).
+[Открыть публичное демо](https://docwise.wvzl.site) · [Документация](docs/README.md) · [Отчёт оценки RAG](reports/rag_benchmark.md)
 
-## Why not naive RAG
+## Что показывает проект
 
-| Pain | Naive RAG | Docwise |
-| --- | --- | --- |
-| PDF structure | Fixed-size splits break tables | Page/section-bounded chunks; meta header before embed |
-| Access leaks | Filter in the prompt | SQL `organization_id` + `access_roles` on dense and FTS before RRF |
-| Trust | Paragraph with no source | Citations `{doc_id, page, snippet}` + PDF highlight; refuse if Top-4 empty |
+- **Hybrid retrieval:** dense search и Postgres FTS объединяются через RRF, затем cross-encoder выбирает контекст для ответа.
+- **Доступ до LLM:** `organization_id` и `access_roles` фильтруют обе поисковые ветки до reranking и генерации.
+- **Проверяемые ответы:** цитата ведёт к странице PDF или разделу DOCX; при недостатке разрешённого контекста система отказывает.
+- **Полный цикл документов:** загрузка → Celery ingestion → поиск → чат; администратор может увидеть этапы поиска в `/inspect`.
 
-Corpus-wide search in Postgres (not chat over one uploaded file). Details: [docs/product/architecture.md](docs/product/architecture.md), [docs/pipeline/retrieval.md](docs/pipeline/retrieval.md).
-
-## Architecture
+## Как устроен поток
 
 ```mermaid
-flowchart TB
-  subgraph client [Next.js]
-    UI[Split-screen chat + PDF viewer]
-    Admin[Knowledge base admin]
-  end
+flowchart LR
+  User[Пользователь] --> UI[Next.js: чат и viewer]
+  UI --> API[FastAPI]
+  API -->|org + role ACL в SQL| Search[Dense + Postgres FTS]
+  Search --> RRF[RRF → rerank → Top-4]
+  RRF -->|только разрешённые chunks| LLM[OpenAI-compatible API]
+  LLM --> SSE[SSE: ранний meta → citations → tokens]
+  SSE --> UI
+  UI -->|открыть страницу и фрагмент| PDF[PDF viewer]
 
-  subgraph api [FastAPI]
-    Upload[Documents API]
-    Chat[Chat SSE]
-    Inspect[Search inspect]
-  end
-
-  subgraph worker [Celery]
-    Parse[PyMuPDF / pdfplumber / python-docx]
-    Chunk[Page-bounded chunking]
-    Embed[FastEmbed 384-d + FTS tsvector]
-  end
-
-  PG[(PostgreSQL + pgvector)]
-  S3[(MinIO)]
-  Redis[(Redis)]
-  LLM[OpenAI-compatible API]
-
-  UI --> Chat
-  Admin --> Upload
-  Upload --> PG
-  Upload --> S3
-  Upload --> Redis
-  Redis --> Parse
-  Parse --> Chunk --> Embed --> PG
-  Chat --> PG
-  Chat --> LLM
-  Inspect --> PG
-  UI --> Upload
+  Admin[Загрузка документа] --> API
+  API --> Store[(PostgreSQL + S3)]
+  API --> Queue[(Redis / Celery)]
+  Queue --> Worker[Извлечь → разбить → embedding]
+  Worker --> Store
 ```
 
-**Chat pipeline:** session roles → SQL ACL → pgvector Top-25 **and** Postgres FTS Top-25 → RRF (`k=60`) → cross-encoder rerank → Top-4 → SSE (`citations` → `token` → `meta` → `[DONE]`).
+**Граница доступа:** организация определяется аутентифицированной сессией. Теги `access_roles`
+работают внутри организации. Ни тело запроса, ни подсказка для LLM не задают права доступа.
+Подробнее — [модель tenancy](docs/platform/tenancy.md) и [безопасность](docs/security/overview.md).
 
-## Stack
+## Короткий сценарий демо
 
-| Layer | Tech |
+В [публичном демо](https://docwise.wvzl.site) можно показать:
+
+1. Войти как сотрудник и найти правило в handbook — ответ содержит цитату и открывает страницу PDF.
+2. Спросить о закрытой HR-информации — сотрудник получает отказ без подтверждения содержимого файла.
+3. Войти как HR и задать тот же вопрос — разрешённый источник появляется в ответе.
+4. Открыть `/inspect` под администратором организации и пройти путь dense/FTS → RRF → rerank.
+
+Демо использует синтетические документы. SSO в публичном профиле отключён; `BILLING_PROVIDER=dev`,
+а Garage работает как одноузловое хранилище. Это демонстрация продукта и архитектуры, не HA production-конфигурация.
+Порядок запуска и ограничения описаны в [руководстве публичного демо](docs/operations/public-demo.md).
+
+## Оценка качества
+
+В сохранённом прогоне от 2026-09-22 использовано **35 кейсов**: 28 положительных и 7 проверок ACL.
+Target document/page hit rate — `1.000`, Faithfulness — `1.000`, Context Precision — `0.994`,
+Answer Relevance — `0.776`; ограниченные документы не попали в Top-4 ни в одном из 7 отрицательных кейсов.
+Это результат конкретного benchmark-прогона, а не гарантия качества на произвольных данных.
+
+Подробности, датасет и release gates: [evaluation](docs/product/evaluation.md) и [полный отчёт](reports/rag_benchmark.md).
+
+## Технологии
+
+| Часть | Технологии |
 | --- | --- |
-| Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 **sync Session** |
-| Queue | Redis 7, Celery 5 |
-| Data | PostgreSQL 15 + pgvector (`vector(384)` cosine; FTS `tsvector` + GIN) |
-| Parse | PyMuPDF, pdfplumber; DOCX via `python-docx` |
-| ML | fastembed `bge-small-en-v1.5` + `bge-reranker-base`; LLM via OpenAI-compatible HTTP |
-| Frontend | Next.js 15, React 19, TypeScript 5, Tailwind 4, shadcn/ui, pdf.js |
-| Infra | Docker Compose, MinIO, GitHub Actions |
+| API и фоновые задачи | Python 3.12, FastAPI, SQLAlchemy 2, Celery |
+| Данные и очередь | PostgreSQL 15 + pgvector/FTS, Redis, MinIO или S3-compatible storage |
+| Ingestion | PyMuPDF, pdfplumber, python-docx, FastEmbed |
+| Поиск и генерация | Dense + FTS, RRF, cross-encoder, OpenAI-compatible API |
+| Интерфейс | Next.js 15, React 19, TypeScript, Tailwind, PDF.js |
+| Доставка | Docker Compose, GitHub Actions |
 
-## Eval
+## Запуск локально
 
-Golden set (35 cases) through the same hybrid path as production. Latest: Faithfulness 1.000, Context Precision 0.994, page hit rate 1.000; 0 ACL leaks on 7 restricted-document questions. Release gates and how to run: [docs/product/evaluation.md](docs/product/evaluation.md). Full report: [reports/rag_benchmark.md](reports/rag_benchmark.md). Optional CI: [`.github/workflows/eval.yml`](.github/workflows/eval.yml).
-
-## Запуск demo
-
-**Quickstart (~15 min):** copy env → `make deps` → `make up` → `make demo` → open UI. Chat needs `OPENAI_API_KEY` (or any OpenAI-compatible endpoint) in `.env`; see [`.env.example`](.env.example).
+Нужны Docker Compose, Python 3.12, Node.js 20 и интернет для первичной установки зависимостей.
+Для генерации ответов нужен OpenAI-compatible API key; не добавляйте его в Git.
 
 ```bash
-cp .env.example .env          # set OPENAI_API_KEY (or any OpenAI-compatible endpoint) for chat
-make deps                     # backend/.venv + FastEmbed ONNX + frontend/node_modules
-make up                       # postgres, redis, minio, backend, worker, frontend
-curl -fsS http://localhost:8001/ready | python3 -m json.tool
-make demo                     # Demo org: 3 users + 12 PDFs (all / hr / finance)
+cp .env.example .env       # задайте SECRET_KEY; LLM key — если нужен чат
+make deps                  # backend venv, модели и frontend dependencies
+make up
+curl -fsS http://localhost:8001/ready
+make demo                  # synthetic organization, 3 users, 12 PDF
 ```
 
-Open http://localhost:3001 — on localhost the login screen has **Войти как сотрудник / HR / admin**. Cookies `dw_*` are host-only. Tenant host `{slug}.localhost:3001` talks to `{slug}.localhost:8001`.
+Интерфейс: `http://localhost:3001`. Локальный сценарий, тесты и восстановление описаны в
+[руководстве разработки](docs/development/getting-started.md).
 
-| User | Password | Sees in the KB |
-| --- | --- | --- |
-| `employee@docwise.example.com` | `demo-employee-pass` | eight `all` PDFs |
-| `hr@docwise.example.com` | `demo-hr-pass` | those eight **plus** HR compensation / recruiting / people PDFs |
-| `admin@docwise.example.com` | `demo-admin-pass` | same retrieval ACL as membership; KB upload + `/inspect` |
+## Материалы проекта
 
-`Finance-Q4-Memo.pdf` is `finance` only — neither demo employee nor HR can open it.
+| Для кого | Начать здесь |
+| --- | --- |
+| Интервьюер / обзор проекта | [архитектура](docs/product/architecture.md) → [retrieval](docs/pipeline/retrieval.md) → [evaluation](docs/product/evaluation.md) |
+| Разработчик | [локальный запуск](docs/development/getting-started.md) → [API](docs/engineering/api.md) → [решения (ADR)](docs/engineering/decisions.md) |
+| Эксплуатация | [operations](docs/operations/operations.md) → [public demo](docs/operations/public-demo.md) → [технический долг](docs/maintenance/technical-debt.md) |
 
-**ACL walkthrough:**
+Полный указатель — [docs/README.md](docs/README.md). Скриншоты UI находятся ниже.
 
-1. Employee: “What are the core working hours at Docwise?” → handbook citation → PDF highlight.
-2. Employee: “What is the individual contributor L3 salary band in USD?” → refuse.
-3. Log out → HR → same salary question → `72000`–`88000` USD from `HR-Compensation.pdf`.
-4. Org-admin `/inspect`: dense / FTS / RRF / reranked under the same SQL filters.
+## Интерфейс
 
-Script: `eval/seed_demo.py`. Re-seed: `make demo-fresh`. Full reset: `make demo-fresh-volumes`.
-
-### Fast frontend loop
-
-```bash
-make deps-frontend    # once
-make up-fast          # API on :8001
-cd frontend && API_BASE_URL=http://localhost:8001 npm run dev
-```
-
-Open http://localhost:3000. After edits under `backend/app/services/ingestion/` or `worker/`, run `make restart-worker`.
-
-**Sample files:** `backend/.venv/bin/python samples/export-sample-documents.py` → [samples/documents/](samples/documents/).
-
-## Screenshots
-
-| Chat + citation | PDF highlight | ACL refuse | Inspect |
+| Чат и цитата | Переход к странице PDF | ACL-отказ | Этапы поиска |
 | --- | --- | --- | --- |
-| ![Chat with citation](docs/portfolio/screenshots/01-chat-citation.png) | ![PDF highlight](docs/portfolio/screenshots/02-pdf-highlight.png) | ![ACL refuse](docs/portfolio/screenshots/03-acl-refuse.png) | ![Inspect stages](docs/portfolio/screenshots/04-inspect-pipeline.png) |
+| ![Чат с цитатой](docs/portfolio/screenshots/01-chat-citation.png) | ![Подсветка PDF](docs/portfolio/screenshots/02-pdf-highlight.png) | ![Отказ по ACL](docs/portfolio/screenshots/03-acl-refuse.png) | ![Этапы retrieval](docs/portfolio/screenshots/04-inspect-pipeline.png) |
 
-Regenerate: [docs/portfolio/screenshots/README.md](docs/portfolio/screenshots/README.md) or `node scripts/capture-portfolio-screenshots.mjs`.
-
-## Проверки и CI
-
-На каждый push/PR CI запускает **ruff** + **mypy**, полный **pytest** без live LLM,
-frontend `tsc` / vitest / lint / build и неблокирующий supply-chain advisory.
-
-```bash
-make lint            # ruff + mypy
-make test-smoke      # fast subset (~3 min); full suite: make test
-make test
-make typecheck       # frontend tsc --noEmit
-make test-frontend   # vitest
-```
-
-## Layout
-
-```
-backend/          # FastAPI + Celery worker
-frontend/         # Next.js 15 App Router
-eval/             # golden set, Ragas runner, demo seed
-docs/             # product, platform, pipeline, engineering (see docs/README.md)
-reports/          # rag_benchmark.md
-.github/workflows/ci.yml
-```
-
-## Документация
-
-| Doc | Contents |
-| --- | --- |
-| [docs/README.md](docs/README.md) | Index and reading order |
-| [docs/development/getting-started.md](docs/development/getting-started.md) | Local setup and verified commands |
-| [docs/development/configuration.md](docs/development/configuration.md) | Environment variables |
-| [docs/operations/operations.md](docs/operations/operations.md) | Operations, backup and recovery |
-| [docs/security/overview.md](docs/security/overview.md) | Trust boundaries and security limitations |
-| [docs/maintenance/technical-debt.md](docs/maintenance/technical-debt.md) | Prioritized risks |
-| [docs/product/srs.md](docs/product/srs.md) | Product requirements |
-| [docs/product/architecture.md](docs/product/architecture.md) | Components and flows |
-| [docs/platform/tenancy.md](docs/platform/tenancy.md) | Shared SaaS org isolation |
-| [docs/platform/auth.md](docs/platform/auth.md) | Session, roles, ACL assembly |
-| [docs/pipeline/retrieval.md](docs/pipeline/retrieval.md) | Hybrid search, SSE, inspect |
-| [docs/engineering/api.md](docs/engineering/api.md) | HTTP contract |
-| [docs/engineering/decisions.md](docs/engineering/decisions.md) | ADRs |
+Скриншоты: [как пересоздать](docs/portfolio/screenshots/README.md).

@@ -28,11 +28,13 @@ Pydantic Settings и Compose; переменные в `docker-compose.yml` мо�
 `MINIO_ROOT_PASSWORD` читаются Compose-сервисами, а не `Settings`. Значения по умолчанию в
 Compose предназначены только для локальной среды.
 
-`DOCWISE_RLS_SESSION_ROLE` читается в `app.core.rls`, хотя отсутствует в `Settings` и
-`.env.example`. Если оно не задано, а `DATABASE_URL` использует PostgreSQL superuser, RLS
-может обходиться. Для production необходимо отдельно создать минимально привилегированную
-роль, выдать ей требуемые права и проверить `SET LOCAL ROLE`; готового production runbook в
-публичном репозитории нет.
+`DOCWISE_RLS_SESSION_ROLE` читается напрямую в `app.core.rls`, поэтому не входит в `Settings`.
+Base и public-demo Compose передают `docwise_rls` API, worker и Beat. Одноразовый `db-migrate`
+создаёт/проверяет роль и grants перед запуском этих процессов. Вне поддерживаемых Compose
+профилей оператор должен настроить эту роль и проверить `SET LOCAL ROLE` сам.
+
+Не подключайте runtime как PostgreSQL superuser без этой переменной: superuser всегда обходит RLS.
+Подробнее: [tenancy.md](../platform/tenancy.md#postgresql-rls).
 
 ## Auth, cookies и tenancy
 
@@ -141,8 +143,10 @@ Compose задаёт backend:
   привязаны к loopback, backend работает с `--reload`.
 - **Test/CI:** PostgreSQL и Redis services, отдельная `docwise_test`, MinIO не поднимается,
   LLM key пуст, внешние вызовы замоканы или исключены.
-- **Production:** OpenAPI и inspect по умолчанию выключены; default `SECRET_KEY` блокирует
+- **Public demo:** `ENVIRONMENT=production`, RLS session role и отдельный migration job; TLS и
+  закрытые внутренние ports добавляет `docker-compose.public-demo.yml`. `SSO_PROVIDER=disabled`,
+  `BILLING_PROVIDER=dev`, storage — одноузловой Garage.
+- **Other production:** OpenAPI и inspect по умолчанию выключены; default `SECRET_KEY` блокирует
   startup. Compose запускает миграции отдельно и использует non-superuser RLS session role;
-  публичный demo overlay отдельно настраивает TLS и закрытые внутренние порты; он не является
-  полноценной production orchestration и не содержит
-  production SSO adapter или secret manager.
+  нужно отдельно обеспечить TLS, secrets, backup/recovery, network policy, monitoring и настоящий
+  identity/payment provider, если это требуется продукту.

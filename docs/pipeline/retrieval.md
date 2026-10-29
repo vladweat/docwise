@@ -1,81 +1,90 @@
-# Search and generation (Retrieval)
+# Поиск и генерация ответа
 
-Step order is fixed. Skipping reranker or RBAC filter on a “happy path” is not allowed.
+Retrieval соединяет внутренний ACL с hybrid search: система сначала ограничивает доступные chunks в SQL,
+и только затем объединяет результаты, rerank-ит их и вызывает LLM.
 
-## Step 1. RBAC in SQL (before LLM)
+## Поток поиска
 
-Session yields current `organization_id` and `allowed_roles` ([auth.md](../platform/auth.md); org wall — [tenancy.md](../platform/tenancy.md)). Apply both conjuncts on **every** dense and FTS query before RRF, rerank, or the LLM. Do not filter “later in prompt”. Original download (`GET .../raw`) uses the same semantics on the `documents` row.
+```mermaid
+flowchart LR
+  Q[Вопрос] --> Scope[org_id + allowed_roles]
+  Scope --> Dense[Dense Top-25]
+  Scope --> FTS[Postgres FTS Top-25]
+  Dense --> RRF[RRF, k=60]
+  FTS --> RRF
+  RRF --> Pool[Top-15]
+  Pool --> Rank[Cross-encoder rerank]
+  Rank --> Cut[Порог 0.25 → Top-4]
+  Cut -->|только разрешённый контекст| LLM[LLM]
+```
 
-## Step 2. Hybrid search
+| Этап | Что делает |
+| --- | --- |
+| ACL | Ограничивает обе SQL-ветки по текущей организации и `access_roles && allowed_roles` |
+| Dense | Возвращает до 25 близких embeddings из pgvector |
+| FTS | Независимо возвращает до 25 совпадений PostgreSQL full-text search |
+| RRF | Объединяет ранги dense и FTS, не смешивая score разных шкал (`k=60`) |
+| Rerank | Пересчитывает релевантность cross-encoder для пула до 15 кандидатов |
+| Top-4 | После threshold (default `0.25`) максимум четыре chunks попадают в prompt |
 
-Do not load full corpus into RAM for BM25. Search — SQL Top-K with ACL on every query.
+Значения задаются константами и настройками в `backend/app/services/retrieval/`; RLS-границы и
+tenant scope — в [tenancy](../platform/tenancy.md). Если после threshold не осталось chunks,
+система возвращает фиксированный отказ без вызова LLM.
 
-Dense: query embedding, Top-25, cosine (`embedding <=> query`), ACL filter. HNSW index is global; before query `SET LOCAL hnsw.iterative_scan` (`relaxed_order`) and `hnsw.max_scan_tuples` (`HNSW_MAX_SCAN_TUPLES`, default 20000) so org/ACL filter does not truncate neighbors. Capacity and Redis SPOF — [nfr.md](../product/nfr.md#capacity-and-scaling-v1-guidelines).
-2. **Sparse / FTS:** Top-25 independent of dense, Postgres `tsvector` (`simple`) + GIN, same `organization_id` and `access_roles && allowed_roles`.
-3. **RRF** (`k = 60`) — `reciprocal_rank_fusion` without formula change:
+## Контекст для LLM и цитаты
 
-\[
-RRF(d) = \sum_{m \in \{\text{dense},\ \text{sparse}\}} \frac{1}{60 + \mathrm{rank}_m(d)}
-\]
+- Dense/FTS используют embedding text с заголовком документа и страницы/раздела.
+- Rerank и prompt получают исходный `content`, без служебного заголовка.
+- Prompt содержит только Top-4 после ACL и rerank.
+- Цитата ссылается на страницу PDF или раздел DOCX; фиктивный номер страницы для DOCX не добавляется.
+- Audit хранит query, IDs chunks после rerank, latency и usage, но не текст chunks.
 
-Document missing from one list contributes only from methods where it appears. Result: **Top-15**.
+Подготовка текста, границы страниц и формат embedding описаны в [ingestion](ingestion.md).
 
-## Step 3. Cross-encoder rerank
+## SSE чата
 
-Model: `BAAI/bge-reranker-base` (fastembed). Pairs `(query, document_chunks.content)` — same text sent to LLM prompt (no meta header `[Document: …]`, dense embed only at ingest).
+`POST /api/v1/chat/stream` отдаёт JSON events в строках `data: ...\n\n`.
 
-- Drop score **< 0.25** (configurable threshold, `RERANK_THRESHOLD`, default 0.25). Raw bge-reranker logit passed through sigmoid to `(0, 1)`.
-- LLM context: **Top-4**.
+```mermaid
+sequenceDiagram
+  participant UI as Frontend
+  participant API as FastAPI
+  participant DB as PostgreSQL
+  participant LLM as LLM
+  UI->>API: POST query + optional session_id
+  API->>DB: ACL-filtered retrieval
+  opt Новый uncached чат, retrieval успешен
+    API->>DB: Создать ChatSession
+    API-->>UI: meta(session_id, message_id=null)
+  end
+  API-->>UI: citations
+  API->>LLM: Разрешённый Top-4
+  LLM-->>UI: token events
+  API->>DB: Сохранить turn и audit
+  API-->>UI: финальный meta(message_id, usage), [DONE]
+```
 
-Empty list after threshold → refusal per step 4, no creative completion.
+| Событие | Содержание |
+| --- | --- |
+| Ранний `meta` | Только для нового uncached чата после успешного retrieval: `session_id`, `message_id: null` |
+| `citations` | Источники, доступные текущему пользователю |
+| `token` | Фрагмент ответа; может приходить несколько раз |
+| Финальный `meta` | `session_id`, `message_id`, `cached`, usage и стоимость, если известны |
+| `error` | Без stack trace, чужих имён документов и текста недоступных chunks |
+| `[DONE]` | Завершение потока |
 
-## Step 4. Generation without hallucination
+Порядок в новом uncached потоке: **ранний `meta` → citations → tokens → финальный `meta` → `[DONE]`**.
+У существующей сессии и cache hit раннего `meta` нет. При cache hit ответ сохраняется до отправки citations/token.
+Для новых сессий UI может обновить URL и список чатов ещё до генерации ответа.
 
-System prompt (meaning required, wording may be bilingual):
+## Кэш
 
-> You are a corporate AI assistant. Answer strictly from the provided context.
-> If the answer is not in the context, say: «В предоставленных документах нет информации по данному вопросу.» Do not invent facts.
-> Every fact must cite document and page as `[Title.pdf, page N]`. Lists and tables — Markdown.
-
-Only Top-4 chunks in context: text, title, page, chunk_id.
-
-## Step 5. SSE
-
-Endpoint: `POST /api/v1/chat/stream`. SSE protocol: lines `data: <json>\n\n`, final `data: [DONE]` (see [api.md](../engineering/api.md)).
-
-| Order | `type` | Data |
-| --- | --- | --- |
-| 1 | `citations` | `{citations: [{doc_id, doc_title, page, snippet}, ...]}` |
-| 2 | `token` | `{content}` — text deltas |
-| 3 | `meta` | `{tokens_used, cached, session_id, message_id, ...}` then `[DONE]` |
-| error | `error` | `{content}` without stack and without foreign filenames |
-
-Citations **before** tokens so UI can open PDF immediately. LLM cache (`llm_cache:{version}:{org_id}:{generation}:{roles_hash}:{question_hash}`) must include current org `org_id`, index generation, and canonical `allowed_roles`; cache warmed for admin or another org is not served. Cache hit: `tokens_used` in audit null. PATCH ACL / DELETE / ready ingest bump `organizations.llm_index_generation` and invalidate org keys.
-
-After answer: row in `chat_messages` + `rag_audit_logs` (see below).
-
-## Retrieval audit
-
-Every successful retrieval pass (chat and inspect) writes `rag_audit_logs`:
-
-| Field | Chat | Inspect |
-| --- | --- | --- |
-| `query` | question | question |
-| `user_id` | caller | caller |
-| `organization_id` | current org | current org |
-| `retrieved_chunk_ids` | UUID PK Top-4 after reranker | same |
-| `latency_ms` | yes | yes |
-| `tokens_used` | from LLM; on cache hit — null | null |
-| `session_id` / `message_id` | chat turn | null |
-| `feedback` | `POST /chat/feedback` `+1`/`-1` | null |
-
-`retrieved_chunk_ids` — canonical UUID strings only. Chunk text, `snippet`, `embed_text` not written to table (log may later be visible to same user). Non-UUID values dropped, not stored.
+Ключ ответа включает версию, `organization_id`, поколение индекса и канонический набор `allowed_roles`.
+Это запрещает использовать ответ другой организации или пользователя с иным ACL. ACL change, удаление
+документа и завершение ingestion обновляют поколение индекса; см. [data model](../platform/data-model.md).
 
 ## Inspect
 
-`POST /api/v1/search/inspect` — same four stages as chat, with scores. Contract: [api.md](../engineering/api.md).
-
-- Org-admin only + `ENABLE_SEARCH_INSPECT` (off by default in production → `404`).
-- Same SQL `organization_id = :current_org AND access_roles && allowed_roles`. Admin without `hr` in `allowed_roles` does not see `access_roles = ['hr']`. Foreign org not confirmed.
-- `limit` trims **response** (default 15 per list), does not rebuild pipeline Top-K.
-- `snippet` in JSON — preview of **visible** chunks. Hidden document: empty list, no id/title.
+Org-admin может посмотреть списки `dense`, `sparse`, `rrf` и `reranked` через
+`POST /api/v1/search/inspect`. Inspect повторно использует те же tenant и ACL-фильтры: роль admin
+не даёт доступа к HR chunks без `hr`. Подробный HTTP-контракт — [engineering/api.md](../engineering/api.md).

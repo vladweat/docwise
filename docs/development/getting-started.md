@@ -28,13 +28,22 @@ curl -fsS http://localhost:8001/ready | python3 -m json.tool
 make demo
 ```
 
+```mermaid
+flowchart LR
+  Prepare[make deps] --> Migrate[db-migrate]
+  Migrate --> Services[API + worker + frontend]
+  Services --> Ready[/ready]
+  Ready --> Seed[make demo]
+```
+
 Интерфейс доступен на `http://localhost:3001`, API — на `http://localhost:8001`.
 MinIO API и console используют `9000` и `9001`; PostgreSQL и Redis — `5432` и `6379`.
 Эти порты опубликованы Compose на хосте и не должны без firewall выставляться наружу.
 
-`make up` собирает и запускает `postgres`, `redis`, `minio`, `backend`, `celery-worker`,
-`celery-beat` и `frontend`. При старте backend автоматически выполняет `alembic upgrade head` и создаёт
-закрытый bucket MinIO. Для явного запуска миграций после старта:
+`make up` собирает и запускает `postgres`, `redis`, `minio`, `db-migrate`, `backend`, `celery-worker`,
+`celery-beat` и `frontend`. Единственный `db-migrate` создаёт/проверяет runtime RLS role и применяет
+`alembic upgrade head` до старта API/worker. Backend отдельно проверяет и создаёт закрытый bucket MinIO.
+Для явного запуска миграций:
 
 ```bash
 make migrate
