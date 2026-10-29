@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { DEMO_ACCOUNTS, DEMO_EMPLOYEE_EMAIL, DEMO_HR_EMAIL } from "@/features/auth/demo-accounts";
+import {
+  DEMO_ACCOUNTS,
+  DEMO_EMPLOYEE_EMAIL,
+  DEMO_HR_EMAIL,
+  demoLoginsAvailable,
+  initialLoginVariant,
+} from "@/features/auth/demo-accounts";
 import { chatSuggestionKeysFor, isDemoOrganization } from "@/features/chat/lib/chat-suggestions";
 import type { UserResponse } from "@/types/auth";
 
@@ -26,6 +32,26 @@ describe("demo accounts", () => {
       DEMO_HR_EMAIL,
       "admin@docwise.example.com",
     ]);
+  });
+
+  it("opens the demo tab for a public demo profile", () => {
+    expect(initialLoginVariant({ publicDemo: true, demoLogins: true, requestedMode: null })).toBe("demo");
+    expect(initialLoginVariant({ publicDemo: true, demoLogins: true, requestedMode: "standard" })).toBe("standard");
+  });
+
+  it("opens demo mode from the explicit query only when demo logins are enabled", () => {
+    expect(initialLoginVariant({ publicDemo: false, demoLogins: true, requestedMode: "demo" })).toBe("demo");
+    expect(initialLoginVariant({ publicDemo: false, demoLogins: false, requestedMode: "demo" })).toBe("standard");
+    expect(initialLoginVariant({ publicDemo: false, demoLogins: true, requestedMode: null })).toBe("standard");
+  });
+
+  it("resolves demo availability consistently on the server and in the browser", () => {
+    expect(demoLoginsAvailable({ flag: "true", hostname: "demo.example.com" })).toBe(true);
+    expect(demoLoginsAvailable({ flag: "false", hostname: "localhost" })).toBe(false);
+    expect(demoLoginsAvailable({ flag: undefined, hostname: "localhost" })).toBe(true);
+    expect(demoLoginsAvailable({ flag: undefined, hostname: "127.0.0.1" })).toBe(true);
+    expect(demoLoginsAvailable({ flag: undefined, hostname: "demo.example.com" })).toBe(false);
+    expect(demoLoginsAvailable({ flag: undefined, hostname: null })).toBe(false);
   });
 });
 

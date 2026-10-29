@@ -6,6 +6,33 @@ export const DEMO_HR_PASSWORD = "demo-hr-pass";
 export const DEMO_ADMIN_PASSWORD = "demo-admin-pass";
 
 export type DemoPersona = "employee" | "hr" | "admin";
+export type LoginVariant = "standard" | "demo";
+
+export function demoLoginsAvailable({
+  flag,
+  hostname,
+}: {
+  flag: string | undefined;
+  hostname: string | null;
+}): boolean {
+  if (flag === "true") return true;
+  if (flag === "false") return false;
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+export function initialLoginVariant({
+  publicDemo,
+  demoLogins,
+  requestedMode,
+}: {
+  publicDemo: boolean;
+  demoLogins: boolean;
+  requestedMode: string | null;
+}): LoginVariant {
+  if (demoLogins && requestedMode === "standard") return "standard";
+  if (publicDemo || (demoLogins && requestedMode === "demo")) return "demo";
+  return "standard";
+}
 
 export const DEMO_ACCOUNTS: {
   persona: DemoPersona;
@@ -42,11 +69,8 @@ export const DEMO_ACCOUNTS: {
 ];
 
 export function showDemoLogins(): boolean {
-  const flag = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS;
-  if (flag === "true") return true;
-  if (flag === "false") return false;
-  if (typeof window === "undefined") return false;
-  return window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const hostname = typeof window === "undefined" ? null : window.location.hostname;
+  return demoLoginsAvailable({ flag: process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS, hostname });
 }
 
 /** Public demo VPS: demo buttons + no self-serve registration in the login UI. */

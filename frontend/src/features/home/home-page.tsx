@@ -5,6 +5,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { WelcomePage } from "@/features/marketing/welcome-page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n/locale-provider";
+import { resolveHomeView } from "@/features/home/home-view";
 
 function HomeLoading() {
   const { t } = useI18n();
@@ -16,10 +17,17 @@ function HomeLoading() {
   );
 }
 
-export function HomePage() {
+export function HomePage({
+  hasSessionCookie,
+  demoAvailable,
+}: {
+  hasSessionCookie: boolean;
+  demoAvailable: boolean;
+}) {
   const { isAuthenticated, loading } = useAuth();
+  const homeView = resolveHomeView({ isAuthenticated, loading, hasSessionCookie });
 
-  if (loading) return <HomeLoading />;
-  if (!isAuthenticated) return <WelcomePage />;
+  if (homeView === "loading") return <HomeLoading />;
+  if (homeView === "landing") return <WelcomePage demoAvailable={demoAvailable} />;
   return <ChatWorkspace />;
 }

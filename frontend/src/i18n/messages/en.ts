@@ -13,6 +13,52 @@ export const en = {
     titleInspect: "Inspect — Docwise",
     titleWelcome: "Docwise",
   },
+  landing: {
+    eyebrow: "Search across company knowledge",
+    title: "Answers from your documents. With access controls and sources.",
+    intro:
+      "Docwise finds answers in PDF and DOCX files, respects each employee’s access, and shows where every answer comes from.",
+    demoCta: "Try the demo",
+    signInCta: "Sign in",
+    trustPdf: "PDF and DOCX",
+    trustAcl: "Permissions before generation",
+    trustSources: "Citations open the source",
+    previewLabel: "An answer with a citation and its source open",
+    heroAlt: "Docwise chat with an answer and a highlighted passage in a PDF",
+    proofEyebrow: "More than search",
+    proofTitle: "One question. Different answers based on access.",
+    proofIntro:
+      "An employee cannot retrieve restricted HR content, even when asking about it directly. HR can see an answer grounded in an allowed document.",
+    employeeLabel: "Employee",
+    employeeTitle: "Restricted document stays hidden",
+    employeeText: "The system refuses without revealing what the HR file contains.",
+    hrLabel: "HR",
+    hrTitle: "An allowed source is found",
+    hrText: "The same question leads HR to a permitted citation and document page.",
+    refusalAlt: "Docwise refuses an employee’s question about a restricted HR document",
+    capabilitiesEyebrow: "How Docwise works",
+    capabilitiesTitle: "From a file to an answer you can verify",
+    capabilityAccessTitle: "Access checked first",
+    capabilityAccessText:
+      "Organization and role filters run in PostgreSQL before ranking and before context reaches the language model.",
+    capabilitySearchTitle: "Two search methods work together",
+    capabilitySearchText:
+      "Vector and full-text results are fused, then a reranker selects the most relevant passages.",
+    capabilitySourcesTitle: "Sources next to the answer",
+    capabilitySourcesText:
+      "A citation opens the right PDF page and highlights the passage; DOCX answers point to a section.",
+    inspectEyebrow: "Search transparency",
+    inspectTitle: "Show how an answer was found",
+    inspectText:
+      "Inspect reveals the query path: dense and full-text results, fusion, reranking, and answer context.",
+    inspectAlt: "Docwise Inspect screen showing retrieval stages",
+    finalTitle: "Try the scenario yourself",
+    finalText:
+      "In the demo, ask the same question as an employee and as HR to see how access changes the result.",
+    finalCta: "Start the demo",
+    footnote: "The demo uses synthetic documents and accounts.",
+    footerProduct: "Corporate document search with access controls.",
+  },
   welcome: {
     title: "Enterprise document Q&A",
     subtitle: "Hybrid search with SQL access control before the LLM. Every answer cites the source page.",

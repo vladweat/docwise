@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { en } from "@/i18n/messages/en";
 import { ru } from "@/i18n/messages/ru";
-import { translate } from "@/i18n/messages";
+import { translate, type Locale, type MessageKey } from "@/i18n/messages";
 
 function messageLeafKeys(obj: object, prefix = ""): string[] {
   const keys: string[] = [];
@@ -32,5 +32,15 @@ describe("translate", () => {
 
   it("keeps en and ru message keys in parity", () => {
     expect(messageLeafKeys(en).sort()).toEqual(messageLeafKeys(ru).sort());
+  });
+
+  it("provides a localized landing headline and demo action", () => {
+    for (const locale of ["ru", "en"] satisfies Locale[]) {
+      for (const key of ["landing.title", "landing.demoCta"] as const) {
+        const value = translate(locale, key as MessageKey);
+        expect(value).not.toBe(key);
+        expect(value.trim().length).toBeGreaterThan(0);
+      }
+    }
   });
 });

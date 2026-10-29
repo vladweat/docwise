@@ -3,7 +3,14 @@
 import { FormEvent, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { DEMO_ACCOUNTS, publicDemoProfile, showDemoLogins, type DemoPersona } from "@/features/auth/demo-accounts";
+import {
+  DEMO_ACCOUNTS,
+  initialLoginVariant,
+  publicDemoProfile,
+  showDemoLogins,
+  type DemoPersona,
+  type LoginVariant,
+} from "@/features/auth/demo-accounts";
 import { useAuth } from "@/features/auth/auth-provider";
 import { GoogleSignInButton } from "@/features/auth/google-sign-in-button";
 import { useI18n } from "@/i18n/locale-provider";
@@ -16,8 +23,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type AuthMode = "login" | "register";
-type LoginVariant = "standard" | "demo";
-
 const DEMO_PERSONA_LABEL: Record<DemoPersona, MessageKey> = {
   employee: "auth.demoPersonaEmployee",
   hr: "auth.demoPersonaHr",
@@ -31,7 +36,13 @@ export function AuthPanel() {
   const publicDemo = publicDemoProfile();
   const demoLogins = showDemoLogins();
   const [mode, setMode] = useState<AuthMode>("login");
-  const [loginVariant, setLoginVariant] = useState<LoginVariant>(publicDemo ? "demo" : "standard");
+  const [loginVariant, setLoginVariant] = useState(() =>
+    initialLoginVariant({
+      publicDemo,
+      demoLogins,
+      requestedMode: searchParams.get("mode"),
+    }),
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [organizationName, setOrganizationName] = useState("");
