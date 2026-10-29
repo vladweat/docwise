@@ -1,0 +1,13 @@
+{$DOCWISE_DOMAIN} {
+	encode zstd gzip
+
+	route {
+		@register path /api/v1/auth/register
+		respond @register 404
+
+		@api path /api/* /health /ready
+		reverse_proxy @api backend:8000
+
+		reverse_proxy frontend:3000
+	}
+}

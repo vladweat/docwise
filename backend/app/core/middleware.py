@@ -2,10 +2,10 @@
 
 from fastapi import HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.csrf import enforce_csrf
+from app.core.errors import api_error_response
 from app.services.org.domains import origin_allowed
 
 
@@ -25,5 +25,9 @@ class CsrfMiddleware(BaseHTTPMiddleware):
         try:
             enforce_csrf(request)
         except HTTPException as exc:
-            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+            return api_error_response(
+                exc.status_code,
+                "security.csrf_failed",
+                "CSRF check failed",
+            )
         return await call_next(request)

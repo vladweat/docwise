@@ -17,7 +17,7 @@ from app.models.organization import Organization, OrganizationMembership
 from app.models.user import User, UserRole
 from app.services.retrieval import dense_search
 from app.services.org.sso import SSO_NOT_IN_PLAN, SSO_REQUIRED
-from helpers import register_payload, set_org_plan, wipe_app_tables
+from helpers import api_error_message, register_payload, set_org_plan, wipe_app_tables
 
 SSO_JSON = {"X-Requested-With": "Docwise", "Accept": "application/json"}
 
@@ -98,8 +98,8 @@ def test_starter_cannot_upsert_sso_connector():
         json={"jit_enabled": True, "sso_enforced": False},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == SSO_NOT_IN_PLAN
-    assert "idp" not in response.json()["detail"].lower()
+    assert api_error_message(response) == SSO_NOT_IN_PLAN
+    assert "idp" not in api_error_message(response).lower()
     assert http.get("/api/v1/organizations/sso").status_code == 403
 
 
@@ -132,7 +132,7 @@ def test_enterprise_upsert_and_sp_initiated_login():
     assert slug in login.headers["location"]
     missing = http.get("/api/v1/auth/sso/no-such-org/login", follow_redirects=False)
     assert missing.status_code == 404
-    assert missing.json()["detail"] == "Not found"
+    assert api_error_message(missing) == "Not found"
 
 
 def test_acs_uses_connector_org_not_assertion_body():
@@ -274,7 +274,7 @@ def test_sso_enforced_blocks_password_google_and_switch(monkeypatch):
     assert logged.json()["organization_name"] == "Acme"
     blocked = login_client.post("/api/v1/auth/switch-organization", json={"organization_id": str(globex_org)})
     assert blocked.status_code == 403
-    assert blocked.json()["detail"] == SSO_REQUIRED
+    assert api_error_message(blocked) == SSO_REQUIRED
 
     fresh = TestClient(app)
     assert _acs(fresh, slug, shared_email).status_code == 200
@@ -353,7 +353,7 @@ def test_plan_without_sso_hides_connector_as_not_found():
     assert login.status_code == 404
     acs = _acs(guest, slug, email)
     assert acs.status_code == 404
-    assert acs.json()["detail"] == "Not found"
+    assert api_error_message(acs) == "Not found"
 
 
 def test_sso_globex_cannot_list_or_raw_acme_all_document():

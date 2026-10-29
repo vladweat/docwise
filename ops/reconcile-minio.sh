@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # List (and optionally remove) MinIO objects with no matching documents.file_path row.
-# Compares bucket keys to Postgres after the delete contract: DB commit first, then S3.
+# Compares bucket keys to live document paths and the durable storage-deletion outbox.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,7 +17,7 @@ Usage: $(basename "$0") [--delete]
 
 Requires: docker compose with postgres and minio running (see: make up).
 
-Orphans usually come from MinIO delete failing after DELETE /documents/{id} committed.
+  Pending document deletions stay in the outbox until their MinIO cleanup succeeds.
 Avoid --delete during heavy upload traffic (brief window between put_object and DB commit).
 EOF
 }
@@ -51,6 +51,9 @@ POSTGRES_USER="${POSTGRES_USER:-docwise}"
 POSTGRES_DB="${POSTGRES_DB:-docwise_db}"
 MINIO_ROOT_USER="${MINIO_ROOT_USER:-docwise}"
 MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-change_this_in_prod}"
+MC_ENDPOINT="${MC_ENDPOINT:-http://minio:9000}"
+MC_ACCESS_KEY="${MC_ACCESS_KEY:-$MINIO_ROOT_USER}"
+MC_SECRET_KEY="${MC_SECRET_KEY:-$MINIO_ROOT_PASSWORD}"
 S3_BUCKET="${S3_BUCKET:-documents}"
 MINIO_MC_IMAGE="${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z}"
 
@@ -68,7 +71,11 @@ echo "==> Loading documents.file_path from Postgres"
 docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A \
   -c "SELECT file_path FROM documents ORDER BY file_path" \
   | grep -v '^$' \
-  | sort -u >"$WORKDIR/db.txt"
+  | sort -u >"$WORKDIR/documents.txt"
+docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -A \
+  -c "SELECT file_path FROM documents UNION SELECT object_key FROM storage_deletions ORDER BY 1" \
+  | grep -v '^$' \
+  | sort -u >"$WORKDIR/expected.txt"
 
 NETWORK="$(docker compose ps -q postgres | head -1 | xargs docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')"
 if [[ -z "$NETWORK" ]]; then
@@ -81,7 +88,7 @@ docker run --rm \
   --network "$NETWORK" \
   --entrypoint /bin/sh \
   "$MINIO_MC_IMAGE" \
-  -c "mc alias set local http://minio:9000 '$MINIO_ROOT_USER' '$MINIO_ROOT_PASSWORD' && mc ls -r --json local/$S3_BUCKET" \
+  -c "mc alias set local '$MC_ENDPOINT' '$MC_ACCESS_KEY' '$MC_SECRET_KEY' && mc ls -r --json local/$S3_BUCKET" \
   | python3 -c '
 import json
 import sys
@@ -99,10 +106,10 @@ for line in sys.stdin:
 ' \
   | sort -u >"$WORKDIR/s3.txt"
 
-DB_COUNT="$(wc -l <"$WORKDIR/db.txt" | tr -d ' ')"
+DB_COUNT="$(wc -l <"$WORKDIR/documents.txt" | tr -d ' ')"
 S3_COUNT="$(wc -l <"$WORKDIR/s3.txt" | tr -d ' ')"
-comm -23 "$WORKDIR/s3.txt" "$WORKDIR/db.txt" >"$WORKDIR/orphans.txt"
-comm -13 "$WORKDIR/s3.txt" "$WORKDIR/db.txt" >"$WORKDIR/missing.txt"
+comm -23 "$WORKDIR/s3.txt" "$WORKDIR/expected.txt" >"$WORKDIR/orphans.txt"
+comm -13 "$WORKDIR/s3.txt" "$WORKDIR/documents.txt" >"$WORKDIR/missing.txt"
 ORPHAN_COUNT="$(wc -l <"$WORKDIR/orphans.txt" | tr -d ' ')"
 MISSING_COUNT="$(wc -l <"$WORKDIR/missing.txt" | tr -d ' ')"
 

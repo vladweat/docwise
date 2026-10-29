@@ -22,7 +22,7 @@ from app.models.organization import Organization, OrganizationStatus
 from app.services.billing import billing_readiness, get_billing_port
 from app.services.billing.stripe_adapter import StripeBillingPort
 from app.services.org.quotas import QUOTA_EXCEEDED
-from helpers import make_org, register_payload, wipe_app_tables
+from helpers import api_error_message, make_org, register_payload, wipe_app_tables
 from pdf_fixtures import tagged_pdf_bytes
 
 WHSEC = "whsec_test_docwise"
@@ -121,7 +121,7 @@ def test_dev_change_plan_writes_postgres_not_other_org():
         json={"plan": "team", "organization_id": str(globex_org)},
     )
     assert response.status_code == 404
-    assert response.json()["detail"] == "Not Found"
+    assert api_error_message(response) == "Not Found"
     db = SessionLocal()
     assert db.get(Organization, globex_org).plan == "starter"
     assert db.get(Organization, _org_id(acme)).plan == "starter"
@@ -154,7 +154,7 @@ def test_simulate_set_plan_and_foreign_org_is_404():
         json={"action": "set_plan", "plan": "enterprise", "organization_id": str(globex_id)},
     )
     assert blocked.status_code == 404
-    assert blocked.json()["detail"] == "Not Found"
+    assert api_error_message(blocked) == "Not Found"
     db = SessionLocal()
     assert db.get(Organization, globex_id).plan == "starter"
     assert db.get(Organization, globex_id).status == OrganizationStatus.active.value
@@ -185,7 +185,7 @@ def test_employee_simulate_is_404():
     assert registered.status_code == 201
     response = employee.post("/api/v1/billing/dev/simulate", json={"action": "cancel"})
     assert response.status_code == 404
-    assert response.json()["detail"] == "Not Found"
+    assert api_error_message(response) == "Not Found"
 
 
 def test_simulate_unauthenticated_is_401():
@@ -207,7 +207,7 @@ def test_past_due_and_cancel_suspend_org_login():
     assert http.get("/api/v1/auth/me").status_code == 401
     login = TestClient(app).post("/api/v1/auth/login", json={"email": email, "password": "securepass123"})
     assert login.status_code == 403
-    assert login.json()["detail"] == "Organization is suspended"
+    assert api_error_message(login) == "Organization is suspended"
 
     http2, _ = _register("Globex")
     globex_id = _org_id(http2)
@@ -225,7 +225,7 @@ def test_simulate_disabled_when_provider_is_stripe(monkeypatch):
     _set_stripe_env(monkeypatch, secret="", webhook="")
     response = http.post("/api/v1/billing/dev/simulate", json={"action": "cancel"})
     assert response.status_code == 404
-    assert response.json()["detail"] == "Not Found"
+    assert api_error_message(response) == "Not Found"
 
 
 def test_stripe_without_keys_ready_and_plan_503(monkeypatch):
@@ -293,7 +293,7 @@ def test_quotas_still_work_when_stripe_provider(monkeypatch):
             data={"access_roles": ["all"]},
         )
         assert blocked.status_code == 402
-        assert blocked.json()["detail"] == QUOTA_EXCEEDED
+        assert api_error_message(blocked) == QUOTA_EXCEEDED
         allowed = globex.post(
             "/api/v1/documents/upload",
             files={"file": ("ok.pdf", tagged_pdf_bytes("stripe-ok"), "application/pdf")},

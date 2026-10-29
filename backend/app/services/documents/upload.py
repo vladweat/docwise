@@ -20,6 +20,7 @@ from app.core.errors import (
 )
 from app.core.principal import Principal
 from app.models.document import Document, DocumentStatus
+from app.models.storage_deletion import StorageDeletion
 from app.services.ingestion.format import DOCX_MEDIA, PDF_MAGIC, detect_format
 from app.services.documents.acl import parse_access_roles
 from app.services.ingestion.docx_parser import estimate_docx_quota_units
@@ -146,15 +147,13 @@ def create_document_from_upload(
         db.commit()
     except IntegrityError:
         db.rollback()
-        try:
-            storage.delete_object(key)
-        except StorageError:
-            logger.warning("MinIO cleanup failed after hash conflict key=%s", key)
         duplicate = (
             db.query(Document.id)
             .filter(Document.organization_id == org_id, Document.file_hash == digest)
             .first()
         )
+        db.add(StorageDeletion(object_key=key))
+        db.commit()
         if duplicate is not None:
             raise ConflictError(DUPLICATE_HASH_DETAIL)
         raise
@@ -163,13 +162,10 @@ def create_document_from_upload(
     try:
         enqueue_ingestion(document.id)
     except Exception as exc:
-        logger.warning("Celery enqueue failed document_id=%s: %s", document.id, exc)
+        logger.warning("Celery enqueue failed document_id=%s error_type=%s", document.id, type(exc).__name__)
+        db.add(StorageDeletion(object_key=key))
         db.delete(document)
         db.commit()
-        try:
-            storage.delete_object(key)
-        except StorageError:
-            logger.warning("MinIO cleanup failed after enqueue error key=%s", key)
         raise UnavailableError("Ingestion queue unavailable") from exc
 
     logger.info(

@@ -17,6 +17,8 @@ Pydantic Settings и Compose; переменные в `docker-compose.yml` мо�
 | `CELERY_BROKER_URL` | `redis://redis:6379/0` | Broker Celery |
 | `CELERY_RESULT_BACKEND` | `redis://redis:6379/0` | Result backend Celery |
 | `S3_ENDPOINT` | `http://localhost:9000` | MinIO/S3 endpoint |
+| `S3_REGION` | `us-east-1` | S3 signing region |
+| `S3_BUCKET_POLICY_SUPPORTED` | `true` | Whether readiness enforces private-bucket S3 policy checks |
 | `S3_ACCESS_KEY` | `docwise` | S3 access key; секрет в production |
 | `S3_SECRET_KEY` | placeholder | S3 secret; обязательно заменить |
 | `S3_BUCKET` | `documents` | Закрытый bucket оригиналов |
@@ -46,11 +48,12 @@ Compose предназначены только для локальной сре
 | `CORS_ORIGINS` | localhost origins | Список разрешённых origins через запятую |
 | `FRONTEND_URL` | пусто | Публичный frontend URL; иначе первый CORS origin |
 | `PLATFORM_HOST_SUFFIXES` | `localhost,docwise.app` | Разрешённые suffix для tenant hostnames |
-| `SSO_PROVIDER` | `dev` | Реализованный runtime provider — только fixture `dev` |
+| `SSO_PROVIDER` | `dev` | Только fixture `dev`; production SAML/OIDC adapter отсутствует |
 | `SSO_FRESH_TTL_SECONDS` | `900` | TTL признака свежего SSO в Redis |
 
-Production SAML/OIDC adapter в коде отсутствует: значение `SSO_PROVIDER`, отличное от `dev`,
-не подключает внешний IdP и публичные SSO routes возвращают `404`.
+Production SAML/OIDC adapter в коде отсутствует: любое значение `SSO_PROVIDER`, отличное от
+`dev`, не подключает внешний IdP и публичные SSO routes возвращают `404`. Публичный demo
+явно отключает fixture.
 
 ## Upload, retrieval и LLM
 
@@ -60,6 +63,8 @@ Production SAML/OIDC adapter в коде отсутствует: значени�
 | `RATE_LIMIT_UPLOAD_PER_MINUTE` | `10` | Upload limit на user ID |
 | `RATE_LIMIT_CHAT_PER_MINUTE` | `30` | Chat limit на user ID |
 | `RATE_LIMIT_AUTH_PER_MINUTE` | `20` | Login/register/google limit на IP |
+| `RATE_LIMIT_TRUST_X_FORWARDED_FOR` | `false` | Использовать XFF только за настроенным proxy; включать лишь если API недоступен напрямую |
+| `AUDIT_LOG_RETENTION_DAYS` | `90` | Срок хранения retrieval audit и feedback comments; минимум 1 день |
 | `RERANK_THRESHOLD` | `0.25` | Минимальный sigmoid score reranker |
 | `HNSW_ITERATIVE_SCAN` | `relaxed_order` | PostgreSQL pgvector scan mode |
 | `HNSW_MAX_SCAN_TUPLES` | `20000` | Лимит HNSW iterative scan |
@@ -69,8 +74,16 @@ Production SAML/OIDC adapter в коде отсутствует: значени�
 | `ENABLE_SEARCH_INSPECT` | вычисляется | Если не задано: включено не в production, выключено в production |
 
 Клиент в `app.services.chat.llm` использует OpenAI-compatible HTTP. Отдельного Anthropic
-adapter нет. При недоступности Redis rate limiting работает fail-open; это эксплуатационный
-компромисс, а не гарантия защиты.
+adapter нет. При настроенном лимите недоступность Redis возвращает HTTP 503: ограничение не
+пропускает запрос fail-open. `X-Forwarded-For` игнорируется, пока явно не включён
+`RATE_LIMIT_TRUST_X_FORWARDED_FOR`; public demo включает его только при закрытом порте API и
+единственном публичном ingress через Caddy. Caddy по умолчанию очищает входящие значения
+X-Forwarded-* от недоверенного клиента.
+
+Backend зависимости устанавливаются из `backend/requirements.lock`. Чтобы обновить pins после
+изменения `requirements.txt`, создайте временный Python 3.12 venv, установите в нём ranges из
+`requirements.txt` и запишите `python -m pip freeze --all > requirements.lock`; затем проверьте
+lock-файл чистой установкой. Сборочный скрипт использует только lock-файл.
 
 ## Планы и billing
 
@@ -102,7 +115,7 @@ Stripe считается настроенным только при налич�
 | Переменная | Default | Назначение |
 | --- | --- | --- |
 | `SENTRY_DSN` | пусто | Включает Sentry SDK; без DSN интеграция no-op |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8001` в Compose | Browser API URL, встраивается при frontend build |
+| `API_BASE_URL` | `http://localhost:8001` в Compose | Runtime API origin, передаётся frontend server при старте контейнера |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | пусто | Публичный Google client ID, встраивается при build |
 | `NEXT_PUBLIC_SHOW_DEMO_LOGINS` | не задано | Явно показывает demo login; localhost показывается автоматически |
 
@@ -124,10 +137,12 @@ Compose задаёт backend:
 
 ## Профили среды
 
-- **Local/Compose:** `BILLING_PROVIDER=dev`, `SSO_PROVIDER=dev`, inspect включён, опубликованы
-  внутренние порты, backend работает с `--reload`.
+- **Local/Compose:** `BILLING_PROVIDER=dev`, `SSO_PROVIDER=dev`, inspect включён, host ports
+  привязаны к loopback, backend работает с `--reload`.
 - **Test/CI:** PostgreSQL и Redis services, отдельная `docwise_test`, MinIO не поднимается,
   LLM key пуст, внешние вызовы замоканы или исключены.
 - **Production:** OpenAPI и inspect по умолчанию выключены; default `SECRET_KEY` блокирует
-  startup. Репозиторий не содержит завершённой production orchestration, TLS, secret manager,
-  production SSO adapter или подтверждённой настройки non-superuser RLS.
+  startup. Compose запускает миграции отдельно и использует non-superuser RLS session role;
+  публичный demo overlay отдельно настраивает TLS и закрытые внутренние порты; он не является
+  полноценной production orchestration и не содержит
+  production SSO adapter или secret manager.

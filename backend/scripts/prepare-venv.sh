@@ -27,8 +27,7 @@ echo "Creating venv with $PYTHON ..."
 "$PYTHON" -m venv .venv
 
 VENV_PY="$(pwd)/.venv/bin/python"
-"$VENV_PY" -m pip install -U pip
-"$VENV_PY" -m pip install -r requirements.txt
+"$VENV_PY" -m pip install -r requirements.lock
 
 mkdir -p .libs .models
 if [ ! -f .libs/libgomp.so.1 ]; then

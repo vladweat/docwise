@@ -16,7 +16,9 @@
    [модель данных](platform/data-model.md).
 3. [Ingestion](pipeline/ingestion.md) и [retrieval](pipeline/retrieval.md).
 4. [API](engineering/api.md), [auth](platform/auth.md) и [security](security/overview.md).
-5. [Эксплуатация](operations/operations.md) и [технический долг](maintenance/technical-debt.md).
+5. [Эксплуатация](operations/operations.md), [публичное демо](operations/public-demo.md),
+   [обзор проблемных мест](maintenance/repository-review-2026-10-29.md)
+   и [технический долг](maintenance/technical-debt.md).
 
 ## Каталог
 
@@ -27,9 +29,9 @@
 | `pipeline/` | Ingestion и hybrid retrieval |
 | `engineering/` | HTTP contract, ADR и Python conventions |
 | `development/` | Запуск, тестирование и environment variables |
-| `operations/` | Compose deployment, health, backup/restore и troubleshooting |
+| `operations/` | Compose deployment, [публичное демо](operations/public-demo.md), health, backup/restore и troubleshooting |
 | `security/` | Trust boundaries, auth и подтверждённые ограничения |
-| `maintenance/` | Risk register и [аудит документации](maintenance/documentation-audit.md) |
+| `maintenance/` | [Обзор проблемных мест](maintenance/repository-review-2026-10-29.md), risk register и [аудит документации](maintenance/documentation-audit.md) |
 | `portfolio/screenshots/` | Артефакты для корневого README |
 
 Ключевые инварианты: tenant isolation по `organization_id`, SQL ACL до LLM и

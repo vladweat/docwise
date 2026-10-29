@@ -1,6 +1,20 @@
 # API specification
 
-Base prefix: `/api/v1`. Format: JSON, errors in body `{ "detail": "..." }` (FastAPI style). Auth: httpOnly cookies `dw_access` / `dw_refresh` only (see [auth.md](../platform/auth.md)). Bearer not accepted in v1. JSON identifiers — UUID strings.
+Base prefix: `/api/v1`. Format: JSON. HTTP errors use `{ "error": { "code", "message", "details?" } }`. Auth: httpOnly cookies `dw_access` / `dw_refresh` only (see [auth.md](../platform/auth.md)). Bearer not accepted in v1. JSON identifiers — UUID strings.
+
+## Errors
+
+All API HTTP failures, including authentication/authorization, CSRF, FastAPI exceptions,
+request validation, and unhandled server errors use one envelope:
+
+```json
+{"error":{"code":"request.validation","message":"Request validation failed","details":{"issues":[{"location":["body","query"],"code":"missing"}]}}}
+```
+
+`details.issues` contains only field locations and validator codes; submitted values and
+internal exception text are omitted. Unhandled errors return a generic `500`. During rollout,
+the frontend client accepts both this envelope and legacy `{ "detail": ... }` responses.
+Streaming errors after SSE headers are sent use the chat event format described below.
 
 All `/api/v1/*` endpoints except login/register/google, `GET/POST /auth/sso/{slug}/*` and Stripe webhook require cookie session. Document lists and search chunks limited to current organization and ACL ([tenancy.md](../platform/tenancy.md)). Fields `org_id` / `organization_id` / `access_roles` / `document_ids` in chat and search bodies are not authority.
 
@@ -48,9 +62,9 @@ Content-Type: multipart/form-data
 ```
 
 Fields: `file` (PDF or DOCX), `access_roles` (repeated field or JSON list). `admin` or `manager` of current org (`require_kb_admin`).  
-Response `201`: document metadata (`content_format`: `pdf` \| `docx`), `status: pending`, `total_pages` — for PDF file `page_count`; for DOCX count of logical sections (quota), no text extraction in handler. Duplicate SHA-256 `file_hash` **in this org** → `409` `{ "detail": "Document with this file hash already exists" }` without existing record body (avoid leaking `id`/`title` outside ACL and confirming foreign tenant). Unique `(organization_id, file_hash)`. No text extraction in handler: bytes to MinIO (org prefix), `pending` row with session `organization_id`, Celery `ingestion.process_document`.
+Response `201`: document metadata (`content_format`: `pdf` \| `docx`), `status: pending`, `total_pages` — for PDF file `page_count`; for DOCX count of logical sections (quota), no text extraction in handler. Duplicate SHA-256 `file_hash` **in this org** → `409` with code `resource.conflict` and no existing record body (avoid leaking `id`/`title` outside ACL and confirming foreign tenant). Unique `(organization_id, file_hash)`. No text extraction in handler: bytes to MinIO (org prefix), `pending` row with session `organization_id`, Celery `ingestion.process_document`.
 
-Size limit: `UPLOAD_MAX_BYTES` (default 50 MiB) → `413`. Unsupported format → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` by `user.id`. Plan page quota: occupied (including `pending`/`processing`) plus incoming file units (PDF pages or DOCX sections) > cap → `402` `{ "detail": "Organization quota exceeded" }` without Celery. Do not use `404` for own quota.
+Size limit: `UPLOAD_MAX_BYTES` (default 50 MiB) → `413`. Unsupported format → `400`. Rate limit: `RATE_LIMIT_UPLOAD_PER_MINUTE` by `user.id`. Plan page quota: occupied (including `pending`/`processing`) plus incoming file units (PDF pages or DOCX sections) > cap → `402` with code `billing.payment_required`, without Celery. Do not use `404` for own quota.
 
 ```http
 GET /api/v1/documents
@@ -72,13 +86,13 @@ PATCH /api/v1/documents/{id}
 Content-Type: application/json
 ```
 
-Body: `{ "access_roles": ["hr", "admin"] }`. `require_kb_admin` (admin or manager). One transaction updates `documents.access_roles` and all `document_chunks.access_roles` for file (no re-embed). Empty list → `422`. Missing document → `404` with same `detail`. Employee cannot. Retrieval after ACL change sees new chunk roles immediately.
+Body: `{ "access_roles": ["hr", "admin"] }`. `require_kb_admin` (admin or manager). One transaction updates `documents.access_roles` and all `document_chunks.access_roles` for file (no re-embed). Empty list → `422`. Missing document → `404` with code `resource.not_found`. Employee cannot. Retrieval after ACL change sees new chunk roles immediately.
 
 ```http
 DELETE /api/v1/documents/{id}
 ```
 
-Cascade: Postgres row first (document + chunks), then MinIO object. `require_kb_admin` (admin or manager). `204`. Missing document → `404` with same `detail` as read; delete does not require ACL intersection (KB management). If MinIO unavailable after commit, list is consistent; object may be orphaned.
+Cascade: Postgres document/chunks delete and `storage_deletions` outbox insert commit in one transaction. `require_kb_admin` (admin or manager). `204`. Missing document → `404` with code `resource.not_found`; delete does not require ACL intersection (KB management). A scheduled worker deletes the private MinIO object and removes the outbox row; failures remain queued for retry and are visible to ops checks.
 
 ```http
 GET /api/v1/documents/{id}/raw
@@ -126,7 +140,7 @@ Sessions of current user **in current org**: `{ items: [{id, title, created_at, 
 GET /api/v1/chat/sessions/{id}
 ```
 
-Session messages (`id`, `role`, `content`, `sources`, `created_at`). No rights / no row / other org → `404` with same `detail`, without confirming foreign session.
+Session messages (`id`, `role`, `content`, `sources`, `created_at`). No rights / no row / other org → `404` with code `resource.not_found`, without confirming foreign session.
 
 ```http
 DELETE /api/v1/chat/sessions/{id}
@@ -138,9 +152,10 @@ Deletes session of current user **in current org** with messages (Postgres `ON D
 POST /api/v1/chat/feedback
 ```
 
-Body: `{ "message_id": "<uuid>", "rating": 1 | -1, "comment": "..." }`. Текущая реализация
-записывает только `rating` в `rag_audit_logs.feedback`; `comment` валидируется схемой, но не
-сохраняется. Own **assistant** messages only. Success `204`. Foreign / user message → `404`.
+Body: `{ "message_id": "<uuid>", "rating": 1 | -1, "comment": "..." }`. `comment` is
+optional, trimmed, limited to 2000 characters, and stored in `rag_audit_logs.feedback_comment`;
+blank comments become `null`. Own **assistant** messages only. Success `204`. Foreign / user
+message → `404`. Feedback comments follow the audit retention period.
 
 ## Inspect (admin)
 
@@ -185,13 +200,13 @@ Each hit: `chunk_id` (stable string), `document_id` (UUID), `page`, `score`, `sn
 
 Writes `rag_audit_logs`: `query`, `user_id`, `retrieved_chunk_ids` (chunk UUID PKs **after** reranker), `latency_ms`. `session_id` / `message_id` / `tokens_used` — null. JSONB UUID strings only, not chunk body.
 
-| Condition | Code | `detail` |
+| Condition | HTTP | `error.code` |
 | --- | --- | --- |
-| No cookie session | `401` | `Not authenticated` |
-| `ENABLE_SEARCH_INSPECT` off | `404` | `Not Found` (even for admin; endpoint not advertised) |
-| Not `admin` of current org (flag on) | `403` | `Admin access required` |
-| Empty `query` / `limit` out of range | `422` | Pydantic validation |
-| Embed / rerank failure | `503` | `Search inspect failed` (no filenames) |
+| No cookie session | `401` | `auth.unauthorized` |
+| `ENABLE_SEARCH_INSPECT` off | `404` | `resource.not_found` (even for admin; endpoint not advertised) |
+| Not `admin` of current org (flag on) | `403` | `auth.forbidden` |
+| Empty `query` / `limit` out of range | `422` | `request.validation` |
+| Embed / rerank failure | `503` | `service.unavailable` (no filenames) |
 
 ### Flag `ENABLE_SEARCH_INSPECT`
 
@@ -214,7 +229,7 @@ Body: `{ "email", "password", "organization_name" }` or `{ "email", "password", 
 POST /api/v1/auth/switch-organization
 ```
 
-Body: `{ "organization_id": "<uuid>" }`. Only if membership exists. Reissues cookies with new `org_id`. Foreign id → `404` (no list of available orgs in `detail`). If `Host` bound to other org → deny, no cookie change.
+Body: `{ "organization_id": "<uuid>" }`. Only if membership exists. Reissues cookies with new `org_id`. Foreign id → `404` (no list of available orgs in error). If `Host` bound to other org → deny, no cookie change.
 
 ```http
 GET  /api/v1/organizations/members
@@ -241,7 +256,7 @@ POST /api/v1/billing/plan
 POST /api/v1/billing/dev/simulate
 ```
 
-Body: `{ "action": "set_plan" | "past_due" | "cancel" | "activate", "plan": "enterprise" }`. Only `BILLING_PROVIDER=dev` **and** org-admin of current org. Else `404` `{ "detail": "Not Found" }` (like disabled inspect). Does not accept `organization_id`.
+Body: `{ "action": "set_plan" | "past_due" | "cancel" | "activate", "plan": "enterprise" }`. Only `BILLING_PROVIDER=dev` **and** org-admin of current org. Else `404` with code `resource.not_found` (like disabled inspect). Does not accept `organization_id`.
 
 ```http
 POST /api/v1/billing/webhooks/stripe
@@ -256,7 +271,7 @@ GET  /api/v1/auth/sso/{slug}/login
 POST /api/v1/auth/sso/{slug}/acs
 ```
 
-`{slug}` → connector org. No connector / no entitlement → `404` (do not confirm foreign slug separately from “no SSO”). ACS success — Set-Cookie `dw_*`; POST IdP/form → redirect to frontend; `X-Requested-With: Docwise` → `UserResponse` like login (Compose fixture). Body `SSO_PROVIDER=dev`: `{ "email", "email_verified", "groups" }`. Fields `organization_id` / `org_id` in assertion ignored. Bearer not accepted.
+`{slug}` → connector org. No connector / no entitlement → `404` (do not confirm foreign slug separately from “no SSO”). If `SSO_PROVIDER != dev`, login/ACS return `404`; the public demo sets `disabled`. In local Compose only, the dev fixture ACS accepts `{ "email", "email_verified", "groups" }` and must not be treated as a real IdP. Fixture fields `organization_id` / `org_id` in assertion are ignored. Bearer not accepted.
 
 ```http
 GET  /api/v1/organizations/sso

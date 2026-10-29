@@ -22,7 +22,7 @@ from app.services.org.domains import (
     origin_allowed,
     resolve_bound_organization,
 )
-from helpers import register_payload, set_org_plan, wipe_app_tables
+from helpers import api_error_message, register_payload, set_org_plan, wipe_app_tables
 
 
 @pytest.fixture(autouse=True)
@@ -75,7 +75,7 @@ def test_starter_cannot_put_custom_hostname():
     http, _email = _register("Acme")
     response = http.put("/api/v1/organizations/domain", json={"hostname": "kb.acme.example"})
     assert response.status_code == 403
-    assert response.json()["detail"] == DOMAIN_NOT_IN_PLAN
+    assert api_error_message(response) == DOMAIN_NOT_IN_PLAN
     listed = http.get("/api/v1/organizations/domain")
     assert listed.status_code == 200
     body = listed.json()
@@ -122,7 +122,7 @@ def test_put_other_org_platform_hostname_does_not_bind():
     acme_slug = _slug_for(acme)
     taken = globex.put("/api/v1/organizations/domain", json={"hostname": f"{acme_slug}.docwise.app"})
     assert taken.status_code == 409
-    assert taken.json()["detail"] == HOSTNAME_IN_USE
+    assert api_error_message(taken) == HOSTNAME_IN_USE
     assert "acme" not in taken.text.lower()
     assert globex.get("/api/v1/organizations/domain").json()["custom_hostname"] is None
 
@@ -180,7 +180,7 @@ def test_hostname_unique_across_orgs():
     assert acme.put("/api/v1/organizations/domain", json={"hostname": "shared.docs.example"}).status_code == 200
     taken = globex.put("/api/v1/organizations/domain", json={"hostname": "shared.docs.example"})
     assert taken.status_code == 409
-    assert taken.json()["detail"] == HOSTNAME_IN_USE
+    assert api_error_message(taken) == HOSTNAME_IN_USE
     assert "acme" not in taken.text.lower()
 
 
@@ -218,7 +218,7 @@ def test_platform_host_pins_session_and_blocks_switch():
         headers=_host(slug),
     )
     assert blocked.status_code == 403
-    assert blocked.json()["detail"] == HOST_SWITCH_DENIED
+    assert api_error_message(blocked) == HOST_SWITCH_DENIED
     assert globex.cookies.get(ACCESS_COOKIE) == before
     me = globex.get("/api/v1/auth/me", headers=_host(slug))
     assert me.status_code == 200
@@ -275,7 +275,7 @@ def test_host_pin_does_not_replace_sql_org_filter():
     slug = _slug_for(acme)
     raw = acme.get(f"/api/v1/documents/{doc_id}/raw", headers=_host(slug))
     assert raw.status_code == 404
-    assert raw.json()["detail"] == "Document not found"
+    assert api_error_message(raw) == "Document not found"
     assert "GlobexAll.pdf" not in raw.text
 
 
@@ -318,7 +318,7 @@ def test_register_new_org_on_pinned_host_is_denied():
         headers=_host(slug),
     )
     assert created.status_code == 403
-    assert "Cannot create an organization on this host" in created.json()["detail"]
+    assert "Cannot create an organization on this host" in api_error_message(created)
 
 
 def test_csrf_allows_verified_custom_origin(monkeypatch):
@@ -356,7 +356,7 @@ def test_csrf_rejects_unverified_origin_as_allowlist(monkeypatch):
             headers={"Origin": "https://pending.acme.example"},
         )
         assert blocked.status_code == 403
-        assert blocked.json()["detail"] == "CSRF check failed"
+        assert api_error_message(blocked) == "CSRF check failed"
     finally:
         get_settings.cache_clear()
 

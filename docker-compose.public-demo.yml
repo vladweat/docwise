@@ -1,0 +1,126 @@
+services:
+  postgres:
+    ports: !override []
+    volumes: !override
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    ports: !override []
+    restart: unless-stopped
+
+  celery-beat:
+    volumes: !override []
+    environment:
+      DOCWISE_RLS_SESSION_ROLE: docwise_rls
+    restart: unless-stopped
+
+  minio:
+    image: dxflrs/garage:v2.5.0
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: GK${S3_ACCESS_KEY:-${MINIO_ROOT_USER:-docwise}}
+      GARAGE_DEFAULT_SECRET_KEY: ${S3_SECRET_KEY:-${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}}
+      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET:-documents}
+    volumes: !override
+      - garage_data:/var/lib/garage
+      - ${DOCWISE_GARAGE_CONFIG:-./ops/public-demo/garage.local.toml}:/etc/garage.toml:ro
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    ports: !override []
+    restart: unless-stopped
+
+  backend:
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports: !override []
+    volumes: !override
+      - ./eval:/eval:ro
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      FRONTEND_URL: https://${DOCWISE_DOMAIN:-docwise.wvzl.site}
+      CORS_ORIGINS: https://${DOCWISE_DOMAIN:-docwise.wvzl.site}
+      COOKIE_SAMESITE: none
+      COOKIE_SECURE: "true"
+      DOCWISE_RLS_SESSION_ROLE: docwise_rls
+      EMBEDDING_MODEL_PATH: /opt/models
+      ENABLE_SEARCH_INSPECT: ${ENABLE_SEARCH_INSPECT:-true}
+      S3_ENDPOINT: http://minio:3900
+      S3_ACCESS_KEY: GK${S3_ACCESS_KEY:-${MINIO_ROOT_USER:-docwise}}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}}
+      S3_BUCKET: ${S3_BUCKET:-documents}
+      S3_REGION: garage
+      S3_BUCKET_POLICY_SUPPORTED: "false"
+      RATE_LIMIT_TRUST_X_FORWARDED_FOR: "true"
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-90}
+      SSO_PROVIDER: disabled
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  celery-worker:
+    command: python -m celery -A worker.celery_app worker -l info --concurrency=1
+    ports: !override []
+    volumes: !override []
+    environment:
+      DOCWISE_RLS_SESSION_ROLE: docwise_rls
+      EMBEDDING_MODEL_PATH: /opt/models
+      S3_ENDPOINT: http://minio:3900
+      S3_ACCESS_KEY: GK${S3_ACCESS_KEY:-${MINIO_ROOT_USER:-docwise}}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}}
+      S3_BUCKET: ${S3_BUCKET:-documents}
+      S3_REGION: garage
+      S3_BUCKET_POLICY_SUPPORTED: "false"
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-90}
+    restart: unless-stopped
+
+  db-migrate:
+    volumes: !override []
+
+  frontend:
+    ports: !override []
+    build:
+      args:
+        NEXT_PUBLIC_SHOW_DEMO_LOGINS: "true"
+    environment:
+      API_BASE_URL: https://${DOCWISE_DOMAIN:-docwise.wvzl.site}
+      NEXT_PUBLIC_SHOW_DEMO_LOGINS: "true"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOCWISE_DOMAIN: ${DOCWISE_DOMAIN:-docwise.wvzl.site}
+    volumes:
+      - ./ops/public-demo/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+  garage_data:

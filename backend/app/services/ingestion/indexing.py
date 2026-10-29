@@ -18,7 +18,11 @@ from app.services.org.quotas import assert_ingest_pages_allowed
 
 
 class IngestionError(Exception):
-    """Download or indexing failed; the worker maps this to `failed` + `last_error`."""
+    """Terminal document parsing or indexing failure with a safe message."""
+
+
+class RetryableIngestionError(IngestionError):
+    """Transient infrastructure failure that Celery may retry."""
 
 
 @dataclass(frozen=True)
@@ -93,7 +97,7 @@ def _index_parsed(
     try:
         vectors = embed_texts(texts, embedder=embedder)
     except EmbeddingError as exc:
-        raise IngestionError(str(exc)) from exc
+        raise RetryableIngestionError("Embedding service failed") from exc
 
     count = _insert_chunks(db, document, chunks, vectors)
     return IndexResult(chunk_count=count, total_pages=total_pages)
@@ -113,7 +117,7 @@ def index_pdf(
     try:
         parsed = parse_pdf(pdf_bytes)
     except PdfParserError as exc:
-        raise IngestionError(str(exc)) from exc
+        raise IngestionError("PDF parsing failed") from exc
 
     pdf_pages = parsed.total_pages
     if pdf_pages is None:
@@ -133,6 +137,6 @@ def index_docx(
     try:
         parsed = parse_docx(docx_bytes)
     except DocxParserError as exc:
-        raise IngestionError(str(exc)) from exc
+        raise IngestionError("DOCX parsing failed") from exc
 
     return _index_parsed(db, document, parsed, embedder=embedder, total_pages=None)

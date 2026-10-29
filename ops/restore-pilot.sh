@@ -44,6 +44,66 @@ if [[ ! -d "$BACKUP_DIR/minio" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$BACKUP_DIR/manifest.txt" ]]; then
+  echo "error: missing $BACKUP_DIR/manifest.txt; refusing restore without revision metadata" >&2
+  exit 1
+fi
+if [[ ! -f "$BACKUP_DIR/checksums.sha256" ]]; then
+  echo "error: missing $BACKUP_DIR/checksums.sha256; refusing restore without integrity metadata" >&2
+  exit 1
+fi
+echo "==> Verify backup checksums before stopping services"
+if ! (cd "$BACKUP_DIR" && sha256sum --check --status checksums.sha256); then
+  echo "error: backup checksum mismatch; refusing restore" >&2
+  exit 1
+fi
+BACKUP_ALEMBIC_REVISION="$(sed -n 's/^alembic_revision=//p' "$BACKUP_DIR/manifest.txt" | tail -n 1)"
+if [[ -z "$BACKUP_ALEMBIC_REVISION" ]]; then
+  echo "error: backup manifest has no Alembic revision; refusing restore" >&2
+  exit 1
+fi
+
+if [[ ! -x "$ROOT/backend/.venv/bin/python" ]]; then
+  echo "error: backend/.venv is required to validate backup schema compatibility" >&2
+  exit 1
+fi
+echo "==> Validate backup Alembic revision before stopping services"
+(
+  cd "$ROOT/backend"
+  PYTHONPATH="$ROOT/backend" .venv/bin/python - "$BACKUP_ALEMBIC_REVISION" <<'PY'
+import sys
+
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
+script = ScriptDirectory.from_config(Config("alembic.ini"))
+backup_revisions = [value for value in sys.argv[1].split(",") if value]
+known = {revision.revision for revision in script.walk_revisions()}
+current_ancestry = set()
+for head in script.get_heads():
+    pending = [head]
+    while pending:
+        revision_id = pending.pop()
+        if revision_id in current_ancestry:
+            continue
+        current_ancestry.add(revision_id)
+        revision = script.get_revision(revision_id)
+        if revision is None or revision.down_revision is None:
+            continue
+        if isinstance(revision.down_revision, str):
+            pending.append(revision.down_revision)
+        else:
+            pending.extend(revision.down_revision)
+unknown = sorted(set(backup_revisions) - known)
+disconnected = sorted(set(backup_revisions) - current_ancestry)
+if not backup_revisions or unknown or disconnected:
+    details = unknown or disconnected or ["empty"]
+    print("error: backup schema revision is unknown or not an ancestor of current Alembic heads: " + ",".join(details), file=sys.stderr)
+    raise SystemExit(1)
+print("Backup revision is an ancestor of the current Alembic head(s).")
+PY
+)
+
 if [[ -f .env ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -55,11 +115,14 @@ POSTGRES_USER="${POSTGRES_USER:-docwise}"
 POSTGRES_DB="${POSTGRES_DB:-docwise_db}"
 MINIO_ROOT_USER="${MINIO_ROOT_USER:-docwise}"
 MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-change_this_in_prod}"
+MC_ENDPOINT="${MC_ENDPOINT:-http://minio:9000}"
+MC_ACCESS_KEY="${MC_ACCESS_KEY:-$MINIO_ROOT_USER}"
+MC_SECRET_KEY="${MC_SECRET_KEY:-$MINIO_ROOT_PASSWORD}"
 S3_BUCKET="${S3_BUCKET:-documents}"
 MINIO_MC_IMAGE="${MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z}"
 
-echo "==> Stopping writers (backend, celery-worker, frontend)"
-docker compose stop backend celery-worker frontend 2>/dev/null || true
+echo "==> Stopping writers and schedulers"
+docker compose stop backend celery-worker celery-beat frontend db-migrate 2>/dev/null || true
 
 if [[ "$WIPE_VOLUMES" == 1 ]]; then
   echo "==> Wiping compose volumes (destructive)"
@@ -99,7 +162,7 @@ docker run --rm \
   -v "$BACKUP_DIR/minio:/backup:ro" \
   --entrypoint /bin/sh \
   "$MINIO_MC_IMAGE" \
-  -c "mc alias set local http://minio:9000 '$MINIO_ROOT_USER' '$MINIO_ROOT_PASSWORD' && mc mb --ignore-existing local/$S3_BUCKET && mc mirror --overwrite /backup local/$S3_BUCKET"
+  -c "mc alias set local '$MC_ENDPOINT' '$MC_ACCESS_KEY' '$MC_SECRET_KEY' && mc mb --ignore-existing local/$S3_BUCKET && mc mirror --overwrite --remove /backup local/$S3_BUCKET"
 
 echo "==> Starting stack"
 docker compose up -d
@@ -107,6 +170,8 @@ docker compose up -d
 echo "==> Waiting for /ready"
 for _ in $(seq 1 90); do
   if curl -sf http://localhost:8001/ready >/dev/null 2>&1; then
+    echo "==> Review ingestion recovery candidates (dry-run)"
+    docker compose exec -T backend python /app/scripts/requeue_stale_ingestion.py
     echo "==> Restore complete from $BACKUP_DIR"
     exit 0
   fi

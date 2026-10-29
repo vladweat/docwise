@@ -77,6 +77,7 @@ class ObjectStorage:
             host,
             access_key=settings.s3_access_key,
             secret_key=settings.s3_secret_key,
+            region=settings.s3_region,
             secure=secure,
         )
 
@@ -89,6 +90,8 @@ class ObjectStorage:
     def bucket_is_ready(self) -> bool:
         if not self._client.bucket_exists(self.bucket):
             return False
+        if not get_settings().s3_bucket_policy_supported:
+            return True
         try:
             policy = self._client.get_bucket_policy(self.bucket)
         except S3Error as exc:
@@ -129,6 +132,8 @@ class ObjectStorage:
             raise StorageError(f"delete_object failed: {exc.code}") from exc
 
     def _strip_public_policy(self) -> None:
+        if not get_settings().s3_bucket_policy_supported:
+            return
         try:
             policy = self._client.get_bucket_policy(self.bucket)
         except S3Error as exc:

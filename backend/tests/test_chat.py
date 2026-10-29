@@ -166,7 +166,7 @@ def test_stream_unknown_session_is_404():
         json={"query": "travel cap?", "session_id": str(uuid4())},
     )
     assert response.status_code == 404
-    assert "not found" in response.json()["detail"].lower()
+    assert "not found" in response.json()["error"]["message"].lower()
 
 
 def test_stream_sse_order_and_citation_shape(monkeypatch):
@@ -430,7 +430,7 @@ def test_sessions_are_private(monkeypatch):
     assert other.get("/api/v1/chat/sessions").json()["total"] == 0
     hidden = other.get(f"/api/v1/chat/sessions/{session_id}")
     assert hidden.status_code == 404
-    assert "not found" in hidden.json()["detail"].lower()
+    assert "not found" in hidden.json()["error"]["message"].lower()
     stolen = other.post(
         "/api/v1/chat/stream",
         json={"query": "follow up", "session_id": session_id},

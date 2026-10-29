@@ -309,6 +309,7 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec],
 def seed_corpus(*, email: str | None = None, password: str | None = None) -> dict:
     """Upsert fixture PDFs and the employee eval user, then run real `index_pdf`."""
     from app.core.database import SessionLocal
+    from app.core.rls import bind_session_rls
     from app.models.user import UserRole
     from app.services.storage import get_object_storage
 
@@ -316,6 +317,7 @@ def seed_corpus(*, email: str | None = None, password: str | None = None) -> dic
     eval_password = password or os.environ.get("EVAL_USER_PASSWORD") or DEFAULT_EVAL_PASSWORD
 
     db = SessionLocal()
+    bind_session_rls(db, bypass=True)
     storage = get_object_storage()
     storage.ensure_private_bucket()
     try:
@@ -390,9 +392,11 @@ def _seed_foreign_org(db, storage) -> UUID:
 def seed_demo() -> dict:
     """Upsert demo users and the six-PDF catalog (all / hr / finance ACLs)."""
     from app.core.database import SessionLocal
+    from app.core.rls import bind_session_rls
     from app.services.storage import get_object_storage
 
     db = SessionLocal()
+    bind_session_rls(db, bypass=True)
     storage = get_object_storage()
     storage.ensure_private_bucket()
     try:

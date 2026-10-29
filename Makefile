@@ -1,4 +1,4 @@
-.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend restart-worker demo-fresh demo-fresh-volumes backup-pilot restore-pilot restore-drill reconcile-minio check-pilot-alerts load-baseline test test-quick test-smoke test-frontend lint typecheck health weekly-rhythm migrate eval eval-retrieval demo
+.PHONY: venv embeddings deps deps-frontend up up-fast up-frontend down build logs logs-frontend restart-worker demo-fresh demo-fresh-volumes backup-pilot restore-pilot restore-drill requeue-stale-ingestion reconcile-minio check-pilot-alerts load-baseline test test-quick test-smoke test-frontend lint typecheck health weekly-rhythm migrate eval eval-retrieval demo
 
 # Шаг 1 (нужен интернет): скачать зависимости backend + frontend
 deps: venv embeddings deps-frontend
@@ -78,7 +78,7 @@ test-frontend:
 	cd frontend && npm test
 
 migrate:
-	docker compose exec backend python -m alembic upgrade head
+	docker compose run --rm db-migrate
 
 health:
 	curl -s http://localhost:8001/health | python3 -m json.tool
@@ -95,6 +95,10 @@ restore-pilot:
 	@test -n "$(BACKUP_DIR)" || (echo "Usage: make restore-pilot BACKUP_DIR=backups/pilot-latest" && exit 1)
 	bash ops/restore-pilot.sh "$(BACKUP_DIR)"
 
+# Redis is intentionally not backed up; inspect lost/stale ingestion before requeue.
+requeue-stale-ingestion:
+	docker compose exec -T backend python -m scripts.requeue_stale_ingestion $(ARGS) $(if $(filter 1,$(APPLY)),--apply,)
+
 # Local acceptance: backup → wipe volumes → restore → health (destructive)
 restore-drill:
 	bash ops/backup-pilot.sh
@@ -108,7 +112,7 @@ else
 	bash ops/reconcile-minio.sh
 endif
 
-# Pilot probes: /ready, Celery depth, failed documents, p95 audit latency (see ops/check-pilot-alerts.sh)
+# Pilot probes: readiness, worker, queue and ingestion state, deletion backlog, retention, and RAG p95.
 check-pilot-alerts:
 	bash ops/check-pilot-alerts.sh
 

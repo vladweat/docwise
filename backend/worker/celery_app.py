@@ -1,9 +1,13 @@
 """Celery app and `ingestion.process_document` task."""
 
 import logging
+import time
 
 from celery import Celery
+from celery.schedules import crontab
 from celery.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
+from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.proxy import apply_internal_no_proxy
@@ -12,10 +16,13 @@ apply_internal_no_proxy()
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
-from app.core.rls import clear_session_rls
 from app.core.redis import release_indexing_lock
+from app.core.rls import clear_session_rls
 from app.core.sentry import capture_pipeline_error, init_sentry
-from app.services.ingestion import persist_ingestion_failure, run_ingestion
+from app.services.ingestion import persist_ingestion_failure, persist_ingestion_retry, run_ingestion
+from app.services.ingestion.indexing import RetryableIngestionError
+from app.services.retention import purge_expired_audit_logs
+from app.services.storage_deletions import process_storage_deletions
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +55,16 @@ celery_app.conf.update(
     task_time_limit=INGEST_TIME_LIMIT,
     task_soft_time_limit=INGEST_SOFT_TIME_LIMIT,
     task_default_retry_delay=30,
+    beat_schedule={
+        "purge-expired-rag-audit-logs-daily": {
+            "task": "maintenance.purge_expired_rag_audit_logs",
+            "schedule": crontab(hour=3, minute=15),
+        },
+        "process-document-storage-deletions-every-five-minutes": {
+            "task": "maintenance.process_document_storage_deletions",
+            "schedule": crontab(minute="*/5"),
+        },
+    },
 )
 
 
@@ -56,7 +73,7 @@ celery_app.conf.update(
     bind=True,
     acks_late=True,
     reject_on_worker_lost=True,
-    autoretry_for=(Exception,),
+    autoretry_for=(RetryableIngestionError, SQLAlchemyError, RedisError),
     dont_autoretry_for=(SoftTimeLimitExceeded, TimeLimitExceeded),
     retry_backoff=True,
     retry_backoff_max=INGEST_RETRY_BACKOFF_MAX,
@@ -68,6 +85,7 @@ celery_app.conf.update(
 def process_document_task(self, document_id: str) -> dict:
     """Index one document. `document_id` is a UUID string (not ChainWise int)."""
     db: Session = SessionLocal()
+    started_at = time.monotonic()
     try:
         logger.info(
             "process_document document_id=%s task_id=%s retries=%s",
@@ -75,17 +93,76 @@ def process_document_task(self, document_id: str) -> dict:
             self.request.id,
             self.request.retries,
         )
-        return run_ingestion(db, document_id)
+        result = run_ingestion(db, document_id)
+        logger.info(
+            "ingestion task finished document_id=%s result=%s duration_ms=%s",
+            document_id,
+            result.get("status", "unknown"),
+            round((time.monotonic() - started_at) * 1000),
+        )
+        return result
     except Exception as exc:
         db.rollback()
+        retryable = isinstance(exc, (RetryableIngestionError, SQLAlchemyError, RedisError))
+        retry_exhausted = self.request.retries >= INGEST_MAX_RETRIES
         try:
-            persist_ingestion_failure(db, document_id, exc)
-        except Exception:
-            logger.exception("failed to persist last_error document_id=%s", document_id)
+            if retryable and not retry_exhausted:
+                persist_ingestion_retry(db, document_id)
+            else:
+                persist_ingestion_failure(db, document_id, exc)
+        except Exception as persist_exc:
+            logger.error(
+                "failed to persist ingestion state document_id=%s error_type=%s",
+                document_id,
+                type(persist_exc).__name__,
+            )
+        # run_ingestion normally releases its lock in finally. This is a safe
+        # owner-checked no-op if the failure happened before acquisition.
         release_indexing_lock(document_id)
-        logger.exception("Failed to ingest document %s: %s", document_id, exc)
-        capture_pipeline_error("ingestion", exc)
+        logger.error(
+            "ingestion task failed document_id=%s error_type=%s retryable=%s retries=%s duration_ms=%s",
+            document_id,
+            type(exc).__name__,
+            retryable,
+            self.request.retries,
+            round((time.monotonic() - started_at) * 1000),
+        )
+        capture_pipeline_error("ingestion", RuntimeError(type(exc).__name__))
         raise
+    finally:
+        clear_session_rls(db)
+        db.close()
+
+
+@celery_app.task(
+    name="maintenance.purge_expired_rag_audit_logs",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=INGEST_RETRY_BACKOFF_MAX,
+    max_retries=INGEST_MAX_RETRIES,
+)
+def purge_expired_rag_audit_logs_task() -> dict[str, int]:
+    """Remove audit rows beyond the configured retention window."""
+    deleted = purge_expired_audit_logs()
+    logger.info("purged expired rag audit logs count=%s", deleted)
+    return {"deleted": deleted}
+
+
+@celery_app.task(
+    name="maintenance.process_document_storage_deletions",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=INGEST_RETRY_BACKOFF_MAX,
+    max_retries=INGEST_MAX_RETRIES,
+)
+def process_document_storage_deletions_task() -> dict[str, int]:
+    """Retry bounded, idempotent MinIO cleanup requests from the database outbox."""
+    db: Session = SessionLocal()
+    try:
+        from app.core.rls import bind_session_rls
+
+        bind_session_rls(db, bypass=True)
+        return process_storage_deletions(db)
     finally:
         clear_session_rls(db)
         db.close()

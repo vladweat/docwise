@@ -21,7 +21,7 @@
 | `docs/platform/data-retention.md` | Retention policy | Верно отмечает отсутствие purge job | Сохранить |
 | `docs/pipeline/ingestion.md` | Worker pipeline | Имя задачи устарело; строгая idempotency заявлена сильнее реализации | Исправить |
 | `docs/pipeline/retrieval.md` | Hybrid retrieval | Соответствует константам и SQL flow | Сохранить |
-| `docs/engineering/api.md` | Ручной HTTP contract | Почти полон; не описывал `GET /`, `preview_snippet`; feedback comment не сохраняется | Дополнить |
+| `docs/engineering/api.md` | Ручной HTTP contract | Описывает HTTP error envelope, runtime delete outbox и routes | Сверять при изменении API |
 | `docs/engineering/decisions.md` | ADR history | ADR-007 содержал устаревший registration statement | Исправить без переписывания истории |
 | `docs/engineering/python-style.md` | Python conventions | Нормативный документ, конфликтов не найдено | Сохранить |
 | `docs/portfolio/screenshots/README.md` | Screenshot workflow | Предлагал повторный `npm init`, хотя package files уже есть | Исправить |
@@ -41,6 +41,40 @@
 - `docs/maintenance/technical-debt.md` — приоритизированный risk register.
 - Этот реестр — точка следующего документационного аудита.
 
+## Добавление от 2026-10-29
+
+- `docs/operations/public-demo.md` и `docker-compose.public-demo.yml` описывают отдельный
+  публичный demo-профиль с Caddy/TLS, внутренними backend-портами и одноразовым созданием
+  RLS session role. Из-за недоступности публичного образа MinIO профиль использует Garage;
+  S3 bucket policy API в Garage не поддержан, поэтому demo-профиль отключает эту проверку.
+  S3 readiness проверяется через authenticated bucket access. Демо рассчитано на synthetic
+  data и не является отказоустойчивым storage deployment. На VM запущены backend, worker,
+  frontend, PostgreSQL, Redis, Garage и Caddy; API readiness прошла, создана роль RLS с
+  `NOSUPERUSER`/`NOBYPASSRLS`, засеяно 12 synthetic documents. DNS разрешается на адрес VM,
+  Let's Encrypt certificate получен; публичные `/`, `/ready` и demo login отвечают `200`,
+  registration закрыта `404`. После ручной смены модели backend/worker пересозданы; внешний
+  `/ready`, demo login и короткий chat stream ответили `200`, stream завершился без error и
+  включал токены с citations. Значения `.env` и текст ответа не выводились.
+- `docs/maintenance/repository-review-2026-10-29.md` фиксирует статический обзор кода и
+  рисков перед подготовкой публичного интервью-демо.
+- Hardening changes from 2026-10-29: rate limit ignores XFF by default and fails closed on
+  Redis errors; ingestion locks compare owner tokens, retry cleanup after transient Redis
+  errors, and a dry-run-first recovery CLI handles lost Redis queue work (failed rows require
+  explicit IDs); backup manifests include Alembic revision and restore checks it before
+  destructive steps; Celery Beat purges audit rows daily; feedback comments persist; public
+  profile disables dev SSO fixture; backend installs pinned `backend/requirements.lock`.
+- Additional reliability changes from 2026-10-29: Compose binds host ports to loopback and
+  configures runtime RLS; one `db-migrate` job precedes API/worker; backup checksums and exact
+  MinIO restore mirroring; worker health and operational queue/outbox checks; transient-only
+  ingestion retries; runtime frontend `API_BASE_URL`; one sanitized API error envelope; a
+  transactional `storage_deletions` outbox. These source changes have not been deployed or
+  runtime-tested. No tests or destructive restore drill were run.
+- Chat-session concurrency change from 2026-10-29: PostgreSQL advisory locks reject a second
+  active stream for the same existing session with the standard HTTP 409 envelope before SSE;
+  different sessions proceed independently. Backend lock/chat tests and frontend localization
+  tests passed in this workspace. The public VM was not updated; ACL/corpus snapshot consistency
+  remains separate technical debt.
+
 ## Канонические источники
 
 | Тема | Источник |
@@ -52,6 +86,7 @@
 | Worker semantics | `backend/worker/celery_app.py`, `app.services.ingestion` |
 | Локальные команды | `Makefile`, затем CI workflows |
 | Frontend versions | `frontend/package-lock.json` |
+| Backend packages | `backend/requirements.lock`, with human-edited ranges in `backend/requirements.txt` |
 | Исторические решения | `docs/engineering/decisions.md` |
 
 ## Известное дублирование
@@ -91,3 +126,16 @@ manager, firewall, backup schedule, реальные IdP/Stripe credentials и p
 | Базовая структура Mermaid blocks | Пройдена для трёх диаграмм |
 | Полный Mermaid CLI parse | Пропущен: CLI отсутствует, новые зависимости не устанавливались |
 | Runtime, pytest, Docker Compose, backup/restore | Пропущены как непропорциональные документационному изменению |
+
+## Проверки hardening от 2026-10-29
+
+| Проверка | Результат |
+| --- | --- |
+| Ruff (`app tests scripts worker`) | Пройдена |
+| Mypy (`app worker scripts/requeue_stale_ingestion.py`) | Пройдена, 102 source files |
+| Python compile (`app`, `worker`, `scripts`, `alembic`) | Пройдена |
+| `bash -n` для backup/restore/setup scripts | Пройдена |
+| `docker compose config --quiet` для base и public-demo | Пройдена; Compose runtime не запускался |
+| `git diff --check` | Пройдена |
+| Pytest / smoke / frontend tests | Не запускались по ограничению сессии |
+| Публичный VM deploy, restore drill, purge task runtime | Не выполнялись |

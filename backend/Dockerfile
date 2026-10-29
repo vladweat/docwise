@@ -17,6 +17,7 @@ COPY alembic.ini .
 COPY alembic ./alembic
 COPY app ./app
 COPY worker ./worker
+COPY scripts ./scripts
 COPY .models /opt/models
 COPY .libs/ /usr/local/lib/
 

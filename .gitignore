@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+ops/public-demo/garage.local.toml
 
 # Python
 __pycache__/

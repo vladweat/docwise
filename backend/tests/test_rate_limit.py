@@ -32,6 +32,7 @@ def test_auth_login_rate_limit(monkeypatch):
     from helpers import register_payload, wipe_app_tables
 
     monkeypatch.setenv("RATE_LIMIT_AUTH_PER_MINUTE", "1")
+    monkeypatch.setenv("RATE_LIMIT_TRUST_X_FORWARDED_FOR", "true")
     get_settings.cache_clear()
     client = TestClient(app)
     email = f"rl-{uuid.uuid4().hex[:8]}@example.com"

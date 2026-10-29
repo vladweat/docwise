@@ -203,11 +203,10 @@ def test_process_document_task_persists_failure_on_exception(monkeypatch):
     with pytest.raises(RuntimeError, match="worker boom"):
         process_document_task.apply(args=["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]).get()
 
-    attempts = process_document_task.max_retries + 1
     doc_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-    assert persisted == [doc_id] * attempts
-    assert released == [doc_id] * attempts
-    assert captured == ["ingestion"] * attempts
+    assert persisted == [doc_id]
+    assert released == [doc_id]
+    assert captured == ["ingestion"]
 
 
 def test_downloads_from_minio_and_marks_ready(db: Session, storage: FakeStorage, locks: set[str]):
@@ -291,25 +290,24 @@ def test_index_failure_sets_last_error_and_deletes_chunks(db: Session, storage: 
     stored = db.get(Document, document.id)
     assert stored is not None
     assert stored.status == DocumentStatus.failed.value
-    assert stored.last_error == "embed boom"
+    assert stored.last_error == "RuntimeError"
     assert stored.ingestion_stage == "parse"
     assert db.query(DocumentChunk).filter_by(document_id=document.id).count() == 0
     assert str(document.id) not in locks
 
 
-def test_missing_minio_object_fails(db: Session, storage: FakeStorage):
+def test_missing_storage_object_is_retryable(db: Session, storage: FakeStorage):
     document = _seed(db, storage)
     storage.objects.clear()
 
-    with pytest.raises(IngestionError, match="Failed to download object"):
+    with pytest.raises(IngestionError, match="Object storage download failed"):
         run_ingestion(db, document.id, storage=storage, index_fn=_index_chunk("hello"))
 
     stored = db.get(Document, document.id)
     assert stored is not None
-    assert stored.status == DocumentStatus.failed.value
-    assert stored.last_error is not None
+    assert stored.status == DocumentStatus.processing.value
+    assert stored.last_error is None
     assert stored.ingestion_stage == "parse"
-    assert "download" in stored.last_error.lower()
 
 
 def test_non_pdf_object_fails(db: Session, storage: FakeStorage):
@@ -355,7 +353,7 @@ def test_status_goes_processing_before_ready(db: Session, storage: FakeStorage):
 
 def test_persist_ingestion_failure_truncates_last_error(db: Session, storage: FakeStorage):
     document = _seed(db, storage)
-    persist_ingestion_failure(db, document.id, RuntimeError("x" * 5000))
+    persist_ingestion_failure(db, document.id, IngestionError("x" * 5000))
     stored = db.get(Document, document.id)
     assert stored is not None
     assert stored.status == DocumentStatus.failed.value
@@ -443,7 +441,7 @@ def test_index_pdf_wraps_embedding_error(db: Session, monkeypatch):
         raise EmbeddingError("Embedding model not found")
 
     monkeypatch.setattr("app.services.ingestion.indexing.embed_texts", boom)
-    with pytest.raises(IngestionError, match="Embedding model not found"):
+    with pytest.raises(IngestionError, match="Embedding service failed"):
         index_pdf(db, document, policy_pdf_bytes())
 
 

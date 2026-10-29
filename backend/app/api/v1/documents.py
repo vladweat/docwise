@@ -155,12 +155,11 @@ def patch_document_access(
     "/{document_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete document (admin or manager)",
-    description="Requires admin or manager. Cascades Postgres rows (document + chunks) and the MinIO object.",
+    description="Requires admin or manager. Deletes Postgres rows transactionally and queues MinIO cleanup.",
 )
 def delete_document_endpoint(
     document_id: UUID,
     db: Session = Depends(get_db),
     current_user: Principal = Depends(require_kb_admin),
-    storage: ObjectStorage = Depends(get_storage),
 ) -> None:
-    delete_document(db, current_user, document_id, storage=storage)
+    delete_document(db, current_user, document_id)

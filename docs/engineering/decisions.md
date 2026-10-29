@@ -72,7 +72,7 @@ With `COOKIE_SAMESITE=none` (SPA on different origin) mutations on `/api/v1` req
 ## ADR-011. Duplicate `file_hash` → 409
 
 **Spec / api.md:** `409` or return existing record.  
-**v1 decision:** `POST /documents/upload` on matching SHA-256 bytes responds `409` with fixed `detail`, without `id`/`title`/ACL of existing document.
+**v1 decision:** `POST /documents/upload` on matching SHA-256 bytes responds `409` with fixed message and `resource.conflict` code, without `id`/`title`/ACL of existing document.
 
 **Why:** unique `file_hash` is source of truth; returning existing row would leak metadata of file user must not see in `GET /documents` (e.g. admin uploaded HR-only PDF). Re-upload same file does not change `access_roles`.
 
@@ -135,3 +135,7 @@ Unverified domain not bound; one hostname — one org. CORS/CSRF allowlist — f
 **Decision:** Product defaults and erasure notes live in [data-retention.md](../platform/data-retention.md). Summary: audit logs **90 days** (when contract requires a purge job); chat until session delete; KB customer-controlled; LLM Redis cache **24 h**. Audit never stores chunk body text. Embedding rotation does not erase audit — private runbook `docs/_private/operations/embedding-model-migration.md`.
 
 **Consequence:** no schema change in ADR-017. When a pilot mandates a shorter audit TTL, add migration-safe purge job + env in the same PR as implementation.
+
+**Implementation status (2026-10-29):** The pilot default now runs a daily Celery Beat purge
+using `AUDIT_LOG_RETENTION_DAYS` (default 90, minimum 1). Migration 016 adds the `created_at`
+index and optional feedback comment column. See [data-retention.md](../platform/data-retention.md).

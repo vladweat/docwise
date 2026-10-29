@@ -13,6 +13,7 @@ from app.models.organization import (
     OrganizationStatus,
 )
 from app.models.sso import OrganizationSsoConnection, SsoProtocol
+from app.models.storage_deletion import StorageDeletion
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -37,4 +38,5 @@ __all__ = [
     "ChatMessage",
     "ChatMessageRole",
     "RagAuditLog",
+    "StorageDeletion",
 ]

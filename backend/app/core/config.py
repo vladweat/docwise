@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     embedding_model_path: str = Field(default="", alias="EMBEDDING_MODEL_PATH")
     s3_endpoint: str = Field(default="http://localhost:9000", alias="S3_ENDPOINT")
+    s3_region: str = Field(default="us-east-1", alias="S3_REGION")
+    s3_bucket_policy_supported: bool = Field(default=True, alias="S3_BUCKET_POLICY_SUPPORTED")
     s3_access_key: str = Field(default="docwise", alias="S3_ACCESS_KEY")
     s3_secret_key: str = Field(default="change_this_in_prod", alias="S3_SECRET_KEY")
     s3_bucket: str = Field(default="documents", alias="S3_BUCKET")
@@ -44,6 +46,11 @@ class Settings(BaseSettings):
     rerank_threshold: float = Field(default=0.25, alias="RERANK_THRESHOLD")
     enable_search_inspect: bool | None = Field(default=None, alias="ENABLE_SEARCH_INSPECT")
     rate_limit_auth_per_minute: int = Field(default=20, alias="RATE_LIMIT_AUTH_PER_MINUTE")
+    rate_limit_trust_x_forwarded_for: bool = Field(
+        default=False,
+        alias="RATE_LIMIT_TRUST_X_FORWARDED_FOR",
+    )
+    audit_log_retention_days: int = Field(default=90, ge=1, alias="AUDIT_LOG_RETENTION_DAYS")
     refresh_token_expire_minutes: int = Field(default=10080, alias="REFRESH_TOKEN_EXPIRE_MINUTES")
     cookie_samesite: str = Field(default="none", alias="COOKIE_SAMESITE")
     cookie_secure: bool = Field(default=True, alias="COOKIE_SECURE")

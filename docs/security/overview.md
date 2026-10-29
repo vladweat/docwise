@@ -51,10 +51,11 @@ WHERE organization_id = :current_org
 автоматического обхода внутреннего ACL. `require_kb_admin` разрешает запись `admin` и
 `manager`; billing, invites, SSO, domain и inspect требуют `admin`.
 
-RLS включена миграцией только для `documents` и `document_chunks`. Она является
-дополнительной защитой и не заменяет application filters. Текущий Compose подключается
-PostgreSQL superuser и не задаёт `DOCWISE_RLS_SESSION_ROLE`; в такой конфигурации RLS нельзя
-считать действующей. Tests создают отдельную session role, но это не production setup.
+RLS включена миграцией для `documents` и `document_chunks`. Compose подключается к PostgreSQL
+через initialization account, но API, worker и Beat устанавливают отдельную
+`docwise_rls` роль через `DOCWISE_RLS_SESSION_ROLE`; `db-migrate` создаёт роль и grants до
+старта этих процессов. Вне Compose роль должна быть настроена отдельно. RLS остаётся
+дополнительной защитой и не заменяет application filters.
 
 ## CSRF и CORS
 
@@ -80,8 +81,9 @@ PostgreSQL superuser и не задаёт `DOCWISE_RLS_SESSION_ROLE`; в так�
 ## Логи, audit и sensitive data
 
 `RedactingJsonFormatter` и Sentry scrubber маскируют известные sensitive keys и bulk text.
-`rag_audit_logs` хранит query пользователя, chunk UUIDs, latency, tokens и feedback, но не
-полный chunk text. Автоматический purge для декларируемого retention period не реализован.
+`rag_audit_logs` хранит query пользователя, chunk UUIDs, latency, tokens, rating и optional
+feedback comment, но не полный chunk text. Один Celery Beat scheduler ежедневно удаляет audit
+строки старше `AUDIT_LOG_RETENTION_DAYS` (default 90); comment удаляется вместе со строкой.
 
 В логах и документации запрещено публиковать:
 
@@ -93,19 +95,20 @@ PostgreSQL superuser и не задаёт `DOCWISE_RLS_SESSION_ROLE`; в так�
 ## Rate limiting
 
 Redis-backed limits применяются к auth по IP, upload и chat по user ID. При ошибке Redis
-реализация пропускает запрос (fail-open). Rate limiting не заменяет WAF, network controls или
-provider quotas.
+запрос отклоняется с HTTP 503 (fail-closed). `X-Forwarded-For` игнорируется по умолчанию;
+его разрешено использовать только при явной настройке доверенного proxy. Public demo включает
+эту настройку только при закрытом backend port и Caddy как единственном ingress. Rate limiting
+не заменяет WAF, network controls или provider quotas.
 
 ## Подтверждённые ограничения
 
 | Severity | Ограничение | Последствие |
 | --- | --- | --- |
-| High | Compose использует PostgreSQL superuser без runtime role | RLS может обходиться; остаются application SQL filters |
-| High | Внутренние data services опубликованы без TLS | Нужен firewall/private network перед внешним deployment |
+| High | Compose migration service работает с DB owner/superuser для DDL и настройки grants | Этот service не обслуживает HTTP; runtime API/worker/Beat используют ограниченную role |
+| High | Внешние deployment вне base/public-demo Compose | Для них нужно отдельно закрыть DB/Redis/S3 ports, настроить TLS/ingress и session role |
 | Medium | Production SSO adapter отсутствует | `dev` fixture нельзя использовать как enterprise SSO |
-| Medium | Rate limit fail-open при отказе Redis | Защита от abuse деградирует |
-| Medium | Один Redis DB для broker/session/cache/locks | Общая зона отказа и отсутствие session continuity после restore |
-| Medium | Автоматического retention purge нет | Audit query может храниться дольше заявленной политики |
+| Medium | Один Redis DB для broker/session/cache/locks | Отказ Redis затрагивает несколько подсистем и прерывает session continuity после restore; rate-limited requests отклоняются с 503 |
+| Medium | Retention, storage outbox и backup recovery требуют runtime проверки | Без worker/Beat cleanup и requeue могут задержаться |
 | Low | OpenAPI скрыт, но routes остаются доступны | Это уменьшает discoverability, но не является access control |
 
 Полная приоритизация и remediation: [technical-debt.md](../maintenance/technical-debt.md).

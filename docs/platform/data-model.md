@@ -160,9 +160,25 @@ Indexes: unique `(organization_id, file_hash)`, unique `(id, organization_id)` (
 | `latency_ms` | Integer | |
 | `tokens_used` | Integer nullable | Chat; inspect — null |
 | `feedback` | SmallInt nullable | `1` / `-1` via `POST /chat/feedback`; own assistant messages only |
-| `created_at` | DateTime | |
+| `feedback_comment` | String(2000) nullable | Optional comment submitted with feedback; same audit retention |
+| `created_at` | DateTime | Indexed for scheduled retention purge |
 
 Written by chat and inspect. Inspect: `session_id` / `message_id` null. No `content` / `snippet` columns. Non-UUID in `retrieved_chunk_ids` dropped. Do not write full chunk text (including restricted) if log may be visible to same user via API.
+
+### `storage_deletions`
+
+Durable outbox for object cleanup after a document and its chunks are removed.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | UUID PK | Cleanup request identity |
+| `object_key` | String(1024) | Trusted key copied from the deleted document row; never returned to a user |
+| `created_at` | DateTime | Bounded worker processes oldest first |
+| `attempts` | Integer | Incremented when storage deletion fails |
+| `last_attempt_at` | DateTime nullable | Operational age/attempt information |
+
+The outbox row is inserted in the same PostgreSQL transaction as the document delete. Celery
+Beat retries MinIO deletion every five minutes; the operation is idempotent.
 
 ## Postgres: `document_chunks` table
 

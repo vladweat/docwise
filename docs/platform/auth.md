@@ -14,7 +14,7 @@ v1 — cookie session, cookies `dw_access` / `dw_refresh` (see [decisions.md](..
 - Access token includes current membership `org_id`; `GET /auth/me` returns org + membership role. Org switch — `POST /auth/switch-organization` (own membership only), new cookies. On hostname bound to an org, switching to another org is forbidden ([ADR-015](../engineering/decisions.md)).
 - `GET /health` and `GET /ready` without auth. Rest of `/api/v1/*` — `get_current_user` (cookie only).
 - CSRF: with cross-site cookies (`SameSite=None`) mutations require allowlisted `Origin` or `X-Requested-With: Docwise`. Origin allowlist includes canonical frontend **and** verified hostname of current org.
-- Manage KB (upload, delete, change `access_roles`): `require_kb_admin` — `admin` or `manager` of **current org**. Employee denial HTTP `403` with `detail: "Admin access required"` (same message as `require_admin`; role not revealed in body). Invites, billing, SSO, domain, inspect — `require_admin` only. Retrieval / list / status / raw **still** filter by `org_id` + document ACL, no admin override and no cross-org read.
+- Manage KB (upload, delete, change `access_roles`): `require_kb_admin` — `admin` or `manager` of **current org**. Employee denial HTTP `403` with code `auth.forbidden` and a safe message (same response shape as `require_admin`; role not revealed). Invites, billing, SSO, domain, inspect — `require_admin` only. Retrieval / list / status / raw **still** filter by `org_id` + document ACL, no admin override and no cross-org read.
 
 Do not accept `access_roles`, `user_id`, `document_ids`, `org_id` / `organization_id` from the body as authority.
 
@@ -42,7 +42,7 @@ Canonical: [ADR-014](../engineering/decisions.md). Plan gate — [billing.md](bi
 - `organizations.sso_enforced`: password and Google cannot select this org as current; `POST /auth/switch-organization` without fresh SSO assertion (session flag / short redis key) → denied. Otherwise SSO is bypassed via another company.
 - IdP group → `role` / `departments` mapping — JSON/table edited by org-admin. Do not write groups into `documents.access_roles`. Do not replace `org_id`.
 - Email without verified equivalent — denied, same as Google.
-- Compose: `SSO_PROVIDER=dev`, fixture assertion. Plan without SSO entitlement → `403` on connector upsert, not “wrong IdP”.
+- Local Compose: `SSO_PROVIDER=dev` enables a **development-only fixture assertion**, not a real SAML/OIDC exchange. The public demo sets `SSO_PROVIDER=disabled`; public login/ACS routes return `404` there. Plan without SSO entitlement → `403` on connector upsert, not “wrong IdP”.
 
 На текущем runtime это единственный реализованный provider: при `SSO_PROVIDER != dev`
 публичные login/ACS routes не подключают SAML/OIDC adapter и отвечают `404`. Поля connector

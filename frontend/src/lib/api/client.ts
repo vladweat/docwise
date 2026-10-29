@@ -1,20 +1,30 @@
 import { tClient } from "@/i18n/client-translate";
 
-const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
+declare global {
+  interface Window {
+    __DOCWISE_RUNTIME_CONFIG__?: { apiBaseUrl?: string };
+  }
+}
+
+const DEFAULT_API_URL = "http://localhost:8001";
 const GENERIC_API_HOSTS = new Set(["localhost", "127.0.0.1"]);
 export const API_V1 = "/api/v1";
 
 /** Same hostname as the page on `{slug}.localhost` / verified CNAME so host-only cookies stick. */
 export function apiUrl(hostname?: string): string {
-  if (typeof window === "undefined" && hostname == null) return CONFIGURED_API_URL;
+  const configured =
+    typeof window === "undefined"
+      ? process.env.API_BASE_URL || DEFAULT_API_URL
+      : window.__DOCWISE_RUNTIME_CONFIG__?.apiBaseUrl || DEFAULT_API_URL;
+  if (typeof window === "undefined" && hostname == null) return configured;
   const host = hostname ?? (typeof window === "undefined" ? "" : window.location.hostname);
-  if (!host || GENERIC_API_HOSTS.has(host)) return CONFIGURED_API_URL;
+  if (!host || GENERIC_API_HOSTS.has(host)) return configured;
   try {
-    const url = new URL(CONFIGURED_API_URL);
+    const url = new URL(configured);
     url.hostname = host;
     return url.origin;
   } catch {
-    return CONFIGURED_API_URL;
+    return configured;
   }
 }
 
@@ -37,13 +47,31 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function parseError(response: Response): Promise<string> {
-  try {
-    const body = await response.json();
-    if (typeof body.detail === "string") return body.detail;
-    if (Array.isArray(body.detail)) {
-      return body.detail.map((item: { msg: string }) => item.msg).join(", ");
+export function parseApiErrorBody(body: unknown, status: number): string {
+  if (body && typeof body === "object") {
+    const payload = body as {
+      error?: { message?: unknown };
+      detail?: unknown;
+    };
+    if (typeof payload.error?.message === "string") return payload.error.message;
+    if (typeof payload.detail === "string") return payload.detail;
+    if (Array.isArray(payload.detail)) {
+      return payload.detail
+        .map((item: unknown) => {
+          if (item && typeof item === "object" && "msg" in item) {
+            return String((item as { msg: unknown }).msg);
+          }
+          return "Request failed";
+        })
+        .join(", ");
     }
+  }
+  return `API error: ${status}`;
+}
+
+export async function parseApiError(response: Response): Promise<string> {
+  try {
+    return parseApiErrorBody(await response.json(), response.status);
   } catch {
     // ignore parse errors
   }
@@ -107,7 +135,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   const response = await authorizedFetch(path, options);
 
   if (!response.ok) {
-    const message = await parseError(response);
+    const message = await parseApiError(response);
     if (response.status === 429) {
       const retry = response.headers.get("Retry-After");
       const suffix = retry ? `. Retry in ${retry}s` : "";
@@ -126,7 +154,7 @@ export async function fetchDocumentRaw(documentId: string): Promise<Blob> {
     if (response.status === 404) {
       throw new ApiRequestError(tClient("errors.documentUnavailable"), 404);
     }
-    throw new ApiRequestError(await parseError(response), response.status);
+    throw new ApiRequestError(await parseApiError(response), response.status);
   }
   return response.blob();
 }

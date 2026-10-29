@@ -8,8 +8,9 @@ Hybrid retrieval использует dense и FTS-поиск, RRF, cross-encode
 
 Модель: **shared B2B SaaS** — несколько организаций в одном стеке. Изоляция основана на
 `organization_id` и document `access_roles`, применяемых к dense и FTS до fusion, rerank и
-generation. Важно: RLS требует отдельной non-superuser runtime role; текущий Compose её не
-настраивает. См. [tenancy](docs/platform/tenancy.md) и
+generation. Compose задаёт отдельную non-superuser runtime role для RLS и bind-ит dev ports
+на loopback; runtime-состояние VM после следующего deploy нужно проверить. См.
+[tenancy](docs/platform/tenancy.md) и
 [security](docs/security/overview.md).
 
 ## Why not naive RAG
@@ -115,7 +116,7 @@ Script: `eval/seed_demo.py`. Re-seed: `make demo-fresh`. Full reset: `make demo-
 ```bash
 make deps-frontend    # once
 make up-fast          # API on :8001
-cd frontend && NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev
+cd frontend && API_BASE_URL=http://localhost:8001 npm run dev
 ```
 
 Open http://localhost:3000. After edits under `backend/app/services/ingestion/` or `worker/`, run `make restart-worker`.

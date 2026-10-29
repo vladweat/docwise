@@ -13,7 +13,7 @@ from app.main import app
 from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDING_DIM, make_chunk_id
 from app.models.user import UserRole
 from app.services.chat import cache_key
-from helpers import register_payload, wipe_app_tables
+from helpers import api_error_message, register_payload, wipe_app_tables
 from pdf_fixtures import tagged_pdf_bytes
 
 
@@ -118,7 +118,7 @@ def test_two_orgs_same_all_tag_do_not_leak_list_or_raw(storage: FakeStorage):
 
     raw = globex.get(f"/api/v1/documents/{doc_id}/raw")
     assert raw.status_code == 404
-    assert raw.json()["detail"] == "Document not found"
+    assert api_error_message(raw) == "Document not found"
     assert "Handbook.pdf" not in raw.text
 
     status_resp = globex.get(f"/api/v1/documents/{doc_id}/status")

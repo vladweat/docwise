@@ -51,5 +51,11 @@ export interface MemberListResponse {
 }
 
 export interface ApiError {
-  detail: string | { msg: string; type: string }[];
+  error: {
+    code: string;
+    message: string;
+    details?: {
+      issues?: { location: (string | number)[]; code: string }[];
+    };
+  };
 }

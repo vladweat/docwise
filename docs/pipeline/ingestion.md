@@ -1,14 +1,26 @@
 # Обработка документов (Ingestion)
 
 Celery task: `ingestion.process_document`, аргумент `document_id`. Redis lock:
-`indexing_lock:{document_id}`. Worker: `acks_late`, prefetch 1, soft/hard limits 20/25 минут,
-до трёх retry с backoff.
+`indexing_lock:{document_id}` хранит уникальный owner token; Lua compare-and-delete не позволяет
+устаревшему worker снять lock нового запуска. TTL — 60 минут, hard task limit — 25 минут.
+Worker: `acks_late`, prefetch 1, soft/hard limits 20/25 минут. До трёх retry с backoff
+применяются только к transient object storage, database, Redis и embedding errors. Ошибки
+формата, парсера и quota terminal: документ остаётся `failed` и требует проверки. Перед
+transient retry worker удаляет partial chunks, возвращает документ в `pending` и фиксирует
+безопасное обобщённое сообщение.
 
 Повторный запуск для того же `document_id` удаляет старые `document_chunks` и записывает
-новые. Это уменьшает дублирование, но не обеспечивает строгую транзакционную идемпотентность
-для MinIO, нескольких commit статуса и аварий worker. Status:
+новые chunks завершаются общим DB commit; statuses/stages фиксируются отдельными commit, а
+MinIO — внешняя система. Поэтому строгой транзакционной идемпотентности для всего pipeline
+нет. Document delete отдельно использует transactional outbox для повторяемой очистки MinIO.
+Status:
 `pending → processing → ready | failed`. Во время `processing` `ingestion_stage` проходит
 `parse → chunk → embed` с commit между этапами для `GET /documents/{id}/status`.
+
+После потери Redis (Celery queue не входит в pilot backup) `make requeue-stale-ingestion`
+показывает pending и processing старше 60 минут в dry-run; `APPLY=1` ставит их в очередь.
+Один вызов ограничен 500 документами, выводятся только статусы и IDs. Рабочий lock безопасно
+отклонит duplicate task.
 
 ## 1. Extraction
 
@@ -55,7 +67,7 @@ Meta header affects dense via embedding; rerank and LLM prompt use `content` (se
 1. Batch dense vectors FastEmbed `BAAI/bge-small-en-v1.5` (384d cosine) on `embed_text`.
 2. `delete` `document_chunks` rows by `document_id`.
 3. Insert: vectors + payload (`document_id`, `organization_id` from document, `chunk_id`, `page_number`, `section_title`, `is_table`, `access_roles` from document, `content`, `token_count`).
-4. `documents.status = ready`. Any exception: `failed` + `last_error`, no “partially ready” index (or explicit rollback delete).
+4. `documents.status = ready`. Terminal exception: `failed` + safe `last_error`; transient exception: remove partial chunks, set `pending`, then bounded Celery retry.
 
 Sparse BM25/FTS — Postgres `search_vector` + GIN, Top-25 independent of dense ([ADR-005](../engineering/decisions.md)).
 

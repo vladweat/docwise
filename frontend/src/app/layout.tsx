@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 
 import { DocumentTitleSync } from "@/components/document-title-sync";
 import { AppHeader } from "@/components/app-header";
@@ -8,6 +9,8 @@ import { QueryProvider } from "@/components/query-provider";
 import { ToastHost } from "@/components/toast-host";
 
 import "./globals.css";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Docwise",
@@ -23,8 +26,20 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const runtimeConfig = JSON.stringify({ apiBaseUrl: process.env.API_BASE_URL ?? "" }).replace(
+    /</g,
+    "\\u003c",
+  );
+
   return (
     <html lang="ru">
+      <head>
+        <Script
+          id="docwise-runtime-config"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: `window.__DOCWISE_RUNTIME_CONFIG__=${runtimeConfig};` }}
+        />
+      </head>
       <body className="flex h-dvh flex-col overflow-hidden">
         <QueryProvider>
           <LocaleProvider>

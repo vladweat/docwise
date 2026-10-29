@@ -11,6 +11,17 @@ from app.core.principal import Principal
 from app.models.organization import Organization, OrganizationMembership, OrganizationPlan, OrganizationStatus
 from app.models.user import User, UserRole
 
+
+def api_error_message(response) -> str:
+    """Assert the stable API error envelope and return its public message."""
+    body = response.json()
+    error = body.get("error")
+    assert isinstance(error, dict)
+    assert isinstance(error.get("code"), str)
+    assert isinstance(error.get("message"), str)
+    return error["message"]
+
+
 WIPE_SQL = """
 TRUNCATE TABLE
     billing_events,

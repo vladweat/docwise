@@ -1,20 +1,7 @@
 import type { ChatSessionDetail, ChatSessionListResponse, ChatStreamEvent } from "@/types/chat";
 import { consumeSseBuffer, parseSseBlock } from "@/lib/sse";
 
-import { ApiRequestError, apiFetch, authorizedFetch } from "./client";
-
-async function parseErrorFromResponse(response: Response): Promise<string> {
-  try {
-    const body = await response.json();
-    if (typeof body.detail === "string") return body.detail;
-    if (Array.isArray(body.detail)) {
-      return body.detail.map((item: { msg: string }) => item.msg).join(", ");
-    }
-  } catch {
-    // ignore
-  }
-  return `API error: ${response.status}`;
-}
+import { ApiRequestError, apiFetch, authorizedFetch, parseApiError } from "./client";
 
 export async function fetchChatSessions(
   limit = 20,
@@ -59,7 +46,7 @@ export async function streamChat(
   });
 
   if (!response.ok) {
-    throw new ApiRequestError(await parseErrorFromResponse(response), response.status);
+    throw new ApiRequestError(await parseApiError(response), response.status);
   }
   if (!response.body) {
     throw new ApiRequestError("Empty chat stream", response.status);

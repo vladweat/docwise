@@ -6,15 +6,22 @@ import logging
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.redis import acquire_indexing_lock, release_indexing_lock
 from app.core.rls import bind_session_rls
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.services.ingestion.format import detect_format
-from app.services.ingestion.indexing import IndexFn, IngestionError, index_docx, index_pdf
+from app.services.ingestion.indexing import (
+    IndexFn,
+    IngestionError,
+    RetryableIngestionError,
+    index_docx,
+    index_pdf,
+)
 from app.services.ingestion.stages import LAST_ERROR_MAX_LEN, STAGE_EMBED, STAGE_PARSE
 from app.services.org.quotas import IngestionQuotaError, assert_ingest_pages_allowed
-from app.services.storage import ObjectStorage, StorageError, get_object_storage
+from app.services.storage import ObjectStorage, get_object_storage
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +59,31 @@ def persist_ingestion_failure(db: Session, document_id: str | UUID, exc: BaseExc
         return
     delete_chunks_for_document(db, doc_uuid)
     document.status = DocumentStatus.failed.value
-    document.last_error = str(exc)[:LAST_ERROR_MAX_LEN]
+    safe_error = str(exc) if isinstance(exc, IngestionError) else type(exc).__name__
+    document.last_error = safe_error[:LAST_ERROR_MAX_LEN]
     db.commit()
     logger.warning(
-        "ingestion failed document_id=%s error=%s",
+        "ingestion failed document_id=%s error_type=%s",
         doc_uuid,
-        document.last_error,
+        type(exc).__name__,
     )
+
+
+def persist_ingestion_retry(db: Session, document_id: str | UUID) -> None:
+    """Leave retryable work pending and remove partial chunks before Celery retries."""
+    try:
+        doc_uuid = document_id if isinstance(document_id, UUID) else UUID(str(document_id))
+    except (ValueError, TypeError, AttributeError):
+        return
+    db.rollback()
+    document = fetch_document_for_ingestion(db, doc_uuid)
+    if document is None:
+        return
+    delete_chunks_for_document(db, doc_uuid)
+    document.status = DocumentStatus.pending.value
+    document.last_error = "Temporary processing error; retry scheduled"
+    document.ingestion_stage = None
+    db.commit()
 
 
 def _indexer_for_bytes(filename: str, content: bytes) -> IndexFn:
@@ -75,7 +100,7 @@ def run_ingestion(
     storage: ObjectStorage | None = None,
     index_fn: IndexFn | None = None,
 ) -> dict:
-    """Process one document. Safe to retry: lock + delete-then-insert chunks."""
+    """Process one document. Safe to retry: owner-safe lock + transactional chunk replacement."""
     try:
         doc_uuid = document_id if isinstance(document_id, UUID) else UUID(str(document_id))
     except (ValueError, TypeError, AttributeError):
@@ -100,8 +125,8 @@ def run_ingestion(
         storage = storage or get_object_storage()
         try:
             file_bytes = storage.get_bytes(document.file_path)
-        except StorageError as exc:
-            raise IngestionError(f"Failed to download object: {exc}") from exc
+        except Exception as exc:
+            raise RetryableIngestionError("Object storage download failed") from exc
 
         if not file_bytes:
             raise IngestionError("Downloaded object is empty")
@@ -157,18 +182,14 @@ def run_ingestion(
         }
     except IngestionQuotaError as exc:
         persist_ingestion_failure(db, doc_uuid, exc)
-        failed = db.get(Document, doc_uuid)
-        if failed is not None and storage is not None:
-            try:
-                storage.delete_object(failed.file_path)
-            except StorageError:
-                logger.warning("MinIO cleanup failed after page quota document_id=%s", doc_uuid)
         logger.warning("ingestion page quota exceeded document_id=%s", doc_uuid)
         return {
             "status": "failed",
             "document_id": str(doc_uuid),
             "detail": str(exc),
         }
+    except (RetryableIngestionError, SQLAlchemyError):
+        raise
     except Exception as exc:
         persist_ingestion_failure(db, doc_uuid, exc)
         raise

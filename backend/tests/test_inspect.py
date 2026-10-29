@@ -23,7 +23,7 @@ from app.services.retrieval import (
     RetrievalResult,
     StageHit,
 )
-from helpers import register_payload, set_membership, wipe_app_tables
+from helpers import api_error_message, register_payload, set_membership, wipe_app_tables
 
 client = TestClient(app)
 
@@ -202,7 +202,7 @@ def test_inspect_disabled_is_404_even_for_admin(monkeypatch):
     http = _register(role=UserRole.admin.value)
     response = http.post("/api/v1/search/inspect", json={"query": "severance"})
     assert response.status_code == 404
-    assert response.json()["detail"] == "Not Found"
+    assert api_error_message(response) == "Not Found"
     assert HR_TITLE not in response.text
     assert HR_TEXT not in response.text
 
@@ -404,5 +404,5 @@ def test_inspect_retrieval_error_does_not_leak_titles(monkeypatch):
     http = _register()
     response = http.post("/api/v1/search/inspect", json={"query": "severance"})
     assert response.status_code == 503
-    assert response.json()["detail"] == "Search inspect failed"
+    assert api_error_message(response) == "Service temporarily unavailable"
     assert HR_TITLE not in response.text

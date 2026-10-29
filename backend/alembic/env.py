@@ -19,6 +19,7 @@ from app.models import (  # noqa: F401
     OrganizationMembership,
     OrganizationSsoConnection,
     RagAuditLog,
+    StorageDeletion,
     User,
 )
 

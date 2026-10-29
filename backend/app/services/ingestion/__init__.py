@@ -4,6 +4,7 @@ from app.services.ingestion.indexing import (
     IndexFn,
     IndexResult,
     IngestionError,
+    RetryableIngestionError,
     index_docx,
     index_pdf,
 )
@@ -17,6 +18,7 @@ from app.services.ingestion.stages import (
 from app.services.ingestion.worker import (
     delete_chunks_for_document,
     persist_ingestion_failure,
+    persist_ingestion_retry,
     run_ingestion,
 )
 
@@ -24,6 +26,7 @@ __all__ = [
     "IndexFn",
     "IndexResult",
     "IngestionError",
+    "RetryableIngestionError",
     "LAST_ERROR_MAX_LEN",
     "STAGE_CHUNK",
     "STAGE_EMBED",
@@ -32,6 +35,7 @@ __all__ = [
     "index_docx",
     "index_pdf",
     "persist_ingestion_failure",
+    "persist_ingestion_retry",
     "run_ingestion",
     "set_ingestion_stage",
 ]

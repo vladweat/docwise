@@ -124,4 +124,4 @@ def chat_feedback(
     db: Session = Depends(get_db),
     current_user: Principal = Depends(get_current_user),
 ) -> None:
-    set_message_feedback(db, current_user, body.message_id, body.rating)
+    set_message_feedback(db, current_user, body.message_id, body.rating, body.comment)

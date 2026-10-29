@@ -17,10 +17,11 @@ from app.core.errors import BadRequestError
 from app.main import app
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
 from app.models.organization import Organization
+from app.models.storage_deletion import StorageDeletion
 from app.models.user import UserRole
 from app.services.documents import parse_access_roles
 from app.services.storage import StorageError
-from helpers import register_payload, set_membership, wipe_app_tables
+from helpers import api_error_message, register_payload, set_membership, wipe_app_tables
 from pdf_fixtures import tagged_pdf_bytes
 
 
@@ -177,7 +178,7 @@ def test_duplicate_file_hash_returns_409_without_existing_payload(admin_client: 
     existing_id = first.json()["id"]
     second = _upload(admin_client, filename="Two.pdf", content=content, roles=["all"])
     assert second.status_code == 409
-    detail = second.json()["detail"]
+    detail = api_error_message(second)
     assert detail == "Document with this file hash already exists"
     assert existing_id not in detail
     assert "One.pdf" not in second.text
@@ -231,12 +232,12 @@ def test_list_and_raw_hide_documents_outside_acl(admin_client: TestClient, stora
 
     status_resp = admin_client.get(f"/api/v1/documents/{doc_id}/status")
     assert status_resp.status_code == 404
-    assert status_resp.json()["detail"] == "Document not found"
+    assert api_error_message(status_resp) == "Document not found"
     assert title not in status_resp.text
 
     raw = admin_client.get(f"/api/v1/documents/{doc_id}/raw")
     assert raw.status_code == 404
-    assert raw.json()["detail"] == "Document not found"
+    assert api_error_message(raw) == "Document not found"
     assert title not in raw.text
     assert raw.headers.get("content-type", "").startswith("application/json")
 
@@ -260,7 +261,7 @@ def test_list_and_raw_hide_documents_outside_acl(admin_client: TestClient, stora
     assert title not in hidden.text
     raw_denied = employee.get(f"/api/v1/documents/{doc_id}/raw")
     assert raw_denied.status_code == 404
-    assert raw_denied.json()["detail"] == "Document not found"
+    assert api_error_message(raw_denied) == "Document not found"
     assert title not in raw_denied.text
 
 
@@ -381,7 +382,11 @@ def test_list_includes_last_error_for_failed_visible_doc(admin_client: TestClien
     assert items[0]["last_error"] == "parser boom"
 
 
-def test_delete_cascades_postgres_and_minio(admin_client: TestClient, storage: FakeStorage):
+def test_delete_cascades_postgres_and_queues_storage_cleanup(
+    admin_client: TestClient,
+    storage: FakeStorage,
+    monkeypatch: pytest.MonkeyPatch,
+):
     response = _upload(admin_client, filename="Policy.pdf", content=_pdf("del"), roles=["hr"])
     assert response.status_code == 201
     doc_id = UUID(response.json()["id"])
@@ -406,10 +411,25 @@ def test_delete_cascades_postgres_and_minio(admin_client: TestClient, storage: F
 
     deleted = admin_client.delete(f"/api/v1/documents/{doc_id}")
     assert deleted.status_code == 204
-    assert path not in storage.objects
     db = SessionLocal()
     assert db.get(Document, doc_id) is None
     assert db.get(DocumentChunk, chunk_id) is None
+    cleanup = db.query(StorageDeletion).filter(StorageDeletion.object_key == path).one()
+    cleanup_id = cleanup.id
+    assert path in storage.objects
+
+    monkeypatch.setattr(
+        "app.services.storage_deletions.get_object_storage",
+        lambda: storage,
+    )
+    from app.services.storage_deletions import process_storage_deletions
+
+    result = process_storage_deletions(db)
+    assert result["deleted"] >= 1
+    assert result["failed"] == 0
+    assert result["remaining"] == 0
+    assert db.get(StorageDeletion, cleanup_id) is None
+    assert path not in storage.objects
     db.close()
 
 
@@ -448,7 +468,7 @@ def test_delete_missing_is_404(admin_client: TestClient, storage: FakeStorage):
     missing = uuid4()
     response = admin_client.delete(f"/api/v1/documents/{missing}")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Document not found"
+    assert api_error_message(response) == "Document not found"
 
 
 def test_upload_json_access_roles_field(admin_client: TestClient, storage: FakeStorage):
@@ -558,7 +578,7 @@ def test_patch_acl_missing_is_404(admin_client: TestClient):
         json={"access_roles": ["hr"]},
     )
     assert response.status_code == 404
-    assert response.json()["detail"] == "Document not found"
+    assert api_error_message(response) == "Document not found"
 
 
 def test_patch_acl_rejects_empty_roles(admin_client: TestClient, storage: FakeStorage):

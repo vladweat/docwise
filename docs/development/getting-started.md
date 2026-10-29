@@ -12,8 +12,9 @@
 - ключ OpenAI-compatible API для генерации ответов. Индексация и retrieval-only проверки
   работают без ключа LLM.
 
-Backend-зависимости заданы диапазонами в `backend/requirements.txt`, точные frontend-версии
-зафиксированы в `frontend/package-lock.json`. Сборка контейнеров выполняется с
+Backend-зависимости устанавливаются по exact pins из `backend/requirements.lock`; исходные
+ranges лежат в `backend/requirements.txt`. Точные frontend-версии зафиксированы в
+`frontend/package-lock.json`. Сборка контейнеров выполняется с
 `build.network: none`, поэтому зависимости и ONNX-модели подготавливаются на хосте заранее.
 
 ## Первый запуск
@@ -31,8 +32,8 @@ make demo
 MinIO API и console используют `9000` и `9001`; PostgreSQL и Redis — `5432` и `6379`.
 Эти порты опубликованы Compose на хосте и не должны без firewall выставляться наружу.
 
-`make up` собирает и запускает `postgres`, `redis`, `minio`, `backend`, `celery-worker` и
-`frontend`. При старте backend автоматически выполняет `alembic upgrade head` и создаёт
+`make up` собирает и запускает `postgres`, `redis`, `minio`, `backend`, `celery-worker`,
+`celery-beat` и `frontend`. При старте backend автоматически выполняет `alembic upgrade head` и создаёт
 закрытый bucket MinIO. Для явного запуска миграций после старта:
 
 ```bash
@@ -56,7 +57,7 @@ make restart-worker
 make deps-frontend
 make up-fast
 cd frontend
-NEXT_PUBLIC_API_URL=http://localhost:8001 npm run dev
+API_BASE_URL=http://localhost:8001 npm run dev
 ```
 
 Dev server будет доступен на `http://localhost:3000`. Переменные `NEXT_PUBLIC_*` в
@@ -109,7 +110,7 @@ make demo-fresh-volumes
 | Chat не генерирует ответ | Проверьте `OPENAI_API_KEY`, а при custom gateway — `OPENAI_BASE_URL` и `OPENAI_MODEL` |
 | Cookie auth не работает между `:3001` и `:8001` | Сверьте `COOKIE_SAMESITE`, `COOKIE_SECURE`, `CORS_ORIGINS` и используемый hostname |
 | Endpoint inspect возвращает `404` | Проверьте `ENABLE_SEARCH_INSPECT`; в production он выключен по умолчанию |
-| Миграция не применяется | Просмотрите backend logs; startup прекращается при ошибке `run_migrations()` |
+| Миграция не применяется | Проверьте `docker compose logs db-migrate`; при ошибке миграции backend и worker не запустятся |
 
 Остановка стека:
 

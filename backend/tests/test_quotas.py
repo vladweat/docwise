@@ -18,7 +18,7 @@ from app.models.document import Document, DocumentChunk, DocumentStatus, make_ch
 from app.models.organization import Organization, OrganizationPlan
 from app.services.ingestion import IndexResult, run_ingestion
 from app.services.org.quotas import QUOTA_EXCEEDED
-from helpers import make_org, register_payload, wipe_app_tables
+from helpers import api_error_message, make_org, register_payload, wipe_app_tables
 from pdf_fixtures import tagged_pdf_bytes
 
 MIN_PDF = tagged_pdf_bytes("min")
@@ -205,8 +205,8 @@ def test_employee_cannot_read_billing():
     for path in ("/api/v1/billing/usage", "/api/v1/billing/subscription"):
         response = employee.get(path)
         assert response.status_code == 403
-        assert "usage" not in response.json()["detail"].lower()
-        assert "quota" not in response.json()["detail"].lower()
+        assert "usage" not in api_error_message(response).lower()
+        assert "quota" not in api_error_message(response).lower()
 
 
 def test_page_quota_402_only_hits_capped_org(storage: FakeStorage, monkeypatch):
@@ -223,7 +223,7 @@ def test_page_quota_402_only_hits_capped_org(storage: FakeStorage, monkeypatch):
 
     blocked = _upload(acme, "over-cap")
     assert blocked.status_code == 402
-    assert blocked.json()["detail"] == QUOTA_EXCEEDED
+    assert api_error_message(blocked) == QUOTA_EXCEEDED
     assert "Existing.pdf" not in blocked.text
     assert queued == []
     assert storage.objects == {}
@@ -269,7 +269,7 @@ def test_upload_402_does_not_confirm_other_org_file(storage: FakeStorage, monkey
 
     blocked = _upload(acme, "another")
     assert blocked.status_code == 402
-    assert blocked.json()["detail"] == QUOTA_EXCEEDED
+    assert api_error_message(blocked) == QUOTA_EXCEEDED
     assert "Secret-Globex" not in blocked.text
     assert "Acme-full" not in blocked.text
     assert secret_hash not in blocked.text
@@ -283,7 +283,7 @@ def test_invite_402_when_seats_exhausted(monkeypatch):
         json={"email": _unique_email("seat"), "role": "employee", "departments": []},
     )
     assert response.status_code == 402
-    assert response.json()["detail"] == QUOTA_EXCEEDED
+    assert api_error_message(response) == QUOTA_EXCEEDED
 
 
 def test_existing_user_invite_402_at_seat_cap(monkeypatch):
@@ -296,7 +296,7 @@ def test_existing_user_invite_402_at_seat_cap(monkeypatch):
         json={"email": globex_email, "role": "employee", "departments": []},
     )
     assert response.status_code == 402
-    assert response.json()["detail"] == QUOTA_EXCEEDED
+    assert api_error_message(response) == QUOTA_EXCEEDED
     me = globex.get("/api/v1/auth/me").json()
     assert len(me["organizations"]) == 1
 
@@ -383,13 +383,16 @@ def test_ingest_over_page_cap_fails_without_ready(storage: FakeStorage, monkeypa
     db.expire_all()
     stored = db.get(Document, document_id)
     assert stored is not None
-    assert stored.status == DocumentStatus.failed.value
-    assert stored.last_error == QUOTA_EXCEEDED
+    stored_status = stored.status
+    stored_last_error = stored.last_error
     chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).count()
-    assert chunks == 0
-    assert key not in storage.objects
-    assert key in storage.deleted
     db.close()
+
+    assert stored_status == DocumentStatus.failed.value
+    assert stored_last_error == "IngestionQuotaError"
+    assert chunks == 0
+    assert key in storage.objects
+    assert key not in storage.deleted
 
 
 def test_failed_pages_do_not_count_toward_upload_cap(storage: FakeStorage, monkeypatch):

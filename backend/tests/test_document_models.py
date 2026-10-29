@@ -1,6 +1,6 @@
 """Document/chunk ORM constraints and ACL columns."""
 
-from pathlib import Path
+import asyncio
 from uuid import uuid4
 
 import pytest
@@ -9,13 +9,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.lifespan import lifespan
 from app.models.document import Document, DocumentChunk, DocumentStatus, make_chunk_id
 from helpers import make_org, wipe_app_tables
-
-APP_DIR = Path(__file__).resolve().parents[1] / "app"
-MAIN_PY = APP_DIR / "main.py"
-LIFESPAN_PY = APP_DIR / "core" / "lifespan.py"
-MIGRATIONS_PY = APP_DIR / "core" / "migrations.py"
 
 
 @pytest.fixture
@@ -41,14 +37,34 @@ def _document(org, **overrides) -> Document:
     return Document(**payload)
 
 
-def test_startup_uses_alembic_not_create_all():
-    main_src = MAIN_PY.read_text()
-    lifespan_src = LIFESPAN_PY.read_text()
-    migrations_src = MIGRATIONS_PY.read_text()
-    for source in (main_src, lifespan_src, migrations_src):
-        assert "create_all" not in source
-    assert "run_migrations" in lifespan_src
-    assert "command.upgrade" in migrations_src
+def test_api_lifespan_does_not_run_schema_migrations(monkeypatch):
+    import app.core.lifespan as lifespan_module
+    from app.main import app
+
+    calls = []
+    monkeypatch.setattr(lifespan_module, "assert_secret_key", lambda: None)
+    monkeypatch.setattr(lifespan_module, "ensure_documents_bucket", lambda: None)
+    monkeypatch.setattr(lifespan_module, "run_migrations", lambda: calls.append("migrate"), raising=False)
+
+    async def start_api():
+        async with lifespan(app):
+            pass
+
+    asyncio.run(start_api())
+
+    assert calls == []
+
+
+def test_migration_cli_bootstraps_runtime_role_before_alembic(monkeypatch):
+    import app.core.migration_cli as migration_cli
+
+    calls = []
+    monkeypatch.setattr(migration_cli, "ensure_rls_runtime_role", lambda: calls.append("role"))
+    monkeypatch.setattr(migration_cli, "run_migrations", lambda: calls.append("migrate"))
+
+    migration_cli.main()
+
+    assert calls == ["role", "migrate"]
 
 
 def test_document_and_chunk_roundtrip(db: Session):

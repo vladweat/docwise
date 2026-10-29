@@ -2,7 +2,6 @@
 
 import logging
 
-import httpx
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -39,13 +38,8 @@ def _check_redis() -> bool:
 
 
 def _check_minio() -> bool:
-    response = httpx.get(
-        f"{settings.s3_endpoint.rstrip('/')}/minio/health/live",
-        timeout=5.0,
-        trust_env=False,
-    )
-    if response.status_code != 200:
-        return False
+    # Authenticate against the configured S3-compatible storage. Vendor-specific
+    # liveness routes (for example MinIO's /minio/health/live) are not portable.
     return get_object_storage().bucket_is_ready()
 
 

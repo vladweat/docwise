@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import NotFoundError
 from app.core.principal import Principal
 from app.models.document import Document, DocumentChunk, DocumentStatus
+from app.models.storage_deletion import StorageDeletion
 from app.schemas.document import (
     DocumentAccessUpdate,
     DocumentListResponse,
@@ -141,27 +142,21 @@ def delete_document(
     db: Session,
     user: Principal,
     document_id: UUID,
-    storage: ObjectStorage | None = None,
 ) -> None:
-    """Cascade delete document row, chunks, object storage, and invalidate LLM cache for the org."""
+    """Delete relational content and durably queue object cleanup in one transaction."""
     document = get_managed_document(db, user, document_id)
 
-    storage = storage or get_object_storage()
     key = document.file_path
     org_id = document.organization_id
 
     from app.services.chat.llm_cache import invalidate_llm_cache
 
+    cleanup = StorageDeletion(object_key=key)
+    db.add(cleanup)
     db.delete(document)
     invalidate_llm_cache(db, org_id)
     db.commit()
-
-    try:
-        storage.delete_object(key)
-    except StorageError:
-        logger.warning("MinIO delete failed after document row removed document_id=%s", document_id)
-
-    logger.info("document deleted id=%s", document_id)
+    logger.info("document deleted; object cleanup queued document_id=%s cleanup_id=%s", document_id, cleanup.id)
 
 
 __all__ = [

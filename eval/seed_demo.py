@@ -7,6 +7,7 @@ Not invoked by default CI: needs a running stack and FastEmbed cache.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -32,12 +33,12 @@ from corpus import (
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-UI = "http://localhost:3001"
+UI = os.environ.get("FRONTEND_URL", "http://localhost:3001").rstrip("/")
 
 WALKTHROUGH = f"""
 Demo is ready. UI: {UI}
 
-Users (local only — do not use these passwords outside Compose):
+Demo credentials (public in this demo; do not reuse these passwords elsewhere):
   {DEMO_EMPLOYEE_EMAIL}   {DEMO_EMPLOYEE_PASSWORD}   role=employee  departments=[]
   {DEMO_HR_EMAIL}         {DEMO_HR_PASSWORD}         role=employee  departments=['hr']
   {DEMO_ADMIN_EMAIL}      {DEMO_ADMIN_PASSWORD}      role=admin     (KB upload)

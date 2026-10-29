@@ -91,7 +91,13 @@ def get_session_detail(db: Session, user: Principal, session_id: UUID) -> ChatSe
     )
 
 
-def set_message_feedback(db: Session, user: Principal, message_id: UUID, rating: int) -> None:
+def set_message_feedback(
+    db: Session,
+    user: Principal,
+    message_id: UUID,
+    rating: int,
+    comment: str | None = None,
+) -> None:
     message = (
         db.query(ChatMessage)
         .join(ChatSession, ChatSession.id == ChatMessage.session_id)
@@ -124,6 +130,8 @@ def set_message_feedback(db: Session, user: Principal, message_id: UUID, rating:
         )
         db.add(log)
     log.feedback = rating
+    normalized_comment = (comment or "").strip()
+    log.feedback_comment = normalized_comment or None
     db.commit()
 
 
