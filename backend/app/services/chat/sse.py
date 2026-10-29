@@ -10,6 +10,7 @@ from uuid import UUID
 from app.core.errors import NotFoundError
 from app.core.rls import bind_session_rls
 from app.core.sentry import capture_pipeline_error
+from app.models.chat import ChatSession
 from app.services.chat.session_lock import hold_chat_session_lock
 from app.services.chat.envelope import PERSIST_FAILED, sse, sse_done, sse_finish, sse_from_result
 from app.services.chat.llm import (
@@ -28,6 +29,7 @@ from app.services.chat.prompt import (
     citations_from_chunks,
     load_cached_answer,
     save_cached_answer,
+    title_from_query,
 )
 from app.services.chat.sessions import get_owned_session
 from app.services.org.quotas import QUOTA_EXCEEDED, has_chat_token_quota
@@ -153,6 +155,28 @@ def _iter_sse_events_impl(
         if chunks and not openai_is_configured() and streamer is None:
             raise OpenAINotConfiguredError("OPENAI_API_KEY is not configured")
 
+        if session_id is None:
+            session_id = _create_chat_session(
+                session_local,
+                user_id,
+                organization_id,
+                query,
+            )
+            if session_id is None:
+                yield sse({"type": "error", "content": GENERIC_CHAT_ERROR})
+                yield sse_done()
+                return
+            yield sse(
+                {
+                    "type": "meta",
+                    "cached": False,
+                    "tokens_used": None,
+                    "cost_usd": None,
+                    "session_id": str(session_id),
+                    "message_id": None,
+                }
+            )
+
         yield sse(
             {
                 "type": "citations",
@@ -248,6 +272,23 @@ def _run_retrieval(search, user_id: UUID, organization_id: UUID, query: str, *, 
         if user is None:
             return None
         return search(db, user, query)
+
+
+def _create_chat_session(session_local, user_id: UUID, organization_id: UUID, query: str) -> UUID | None:
+    with session_local() as db:
+        bind_session_rls(db, organization_id=organization_id)
+        user = principal_or_none(db, user_id, organization_id)
+        if user is None:
+            return None
+        session = ChatSession(
+            organization_id=user.organization_id,
+            user_id=user.id,
+            title=title_from_query(query),
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        return session.id
 
 
 def _elapsed_ms(started: float) -> int:

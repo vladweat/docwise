@@ -118,7 +118,11 @@ def _parse_sse(body: str) -> list[dict | str]:
 
 
 def _meta(events: list[dict | str]) -> dict:
-    return next(item for item in events if isinstance(item, dict) and item.get("type") == "meta")
+    return next(
+        item
+        for item in reversed(events)
+        if isinstance(item, dict) and item.get("type") == "meta"
+    )
 
 
 def _event_types(events: list[dict | str]) -> list[str]:
@@ -395,6 +399,14 @@ def test_stream_sse_order_and_citation_shape(monkeypatch):
         return _result([public], user)
 
     def fake_stream(messages, **_kwargs):
+        db = SessionLocal()
+        try:
+            sessions = db.query(ChatSession).all()
+            assert len(sessions) == 1
+            assert sessions[0].title == question
+            assert sessions[0].messages == []
+        finally:
+            db.close()
         joined = " ".join(item["content"] for item in messages)
         assert PUBLIC_TEXT in joined
         assert SYSTEM_PROMPT in joined
@@ -413,13 +425,17 @@ def test_stream_sse_order_and_citation_shape(monkeypatch):
 
     events = _parse_sse(response.text)
     types = _event_types(events)
-    assert types[0] == "citations"
+    assert types[0] == "meta"
+    assert types[0:2] == ["meta", "citations"]
     assert "token" in types
     assert types[-2] == "meta"
     assert types[-1] == "[DONE]"
     assert types.index("citations") < types.index("token")
 
-    citations = events[0]["citations"]
+    citations_event = next(
+        item for item in events if isinstance(item, dict) and item["type"] == "citations"
+    )
+    citations = citations_event["citations"]
     assert citations[0]["doc_title"] == "Travel.pdf"
     assert citations[0]["page"] == 4
     UUID(citations[0]["doc_id"])
@@ -472,8 +488,9 @@ def test_empty_retrieval_refuses_without_openai(monkeypatch):
     response = http.post("/api/v1/chat/stream", json={"query": f"unknown policy {uuid4().hex}"})
     assert response.status_code == 200
     events = _parse_sse(response.text)
-    assert events[0]["type"] == "citations"
-    assert events[0]["citations"] == []
+    assert events[0]["type"] == "meta"
+    assert events[1]["type"] == "citations"
+    assert events[1]["citations"] == []
     tokens = "".join(
         item["content"] for item in events if isinstance(item, dict) and item.get("type") == "token"
     )
@@ -573,13 +590,20 @@ def test_admin_cache_is_not_served_to_employee(monkeypatch):
         item["content"] for item in admin_events if isinstance(item, dict) and item.get("type") == "token"
     )
     assert "Severance" in admin_tokens
-    assert admin_events[0]["citations"][0]["doc_title"] == "HR.pdf"
+    admin_citations = next(
+        item for item in admin_events if isinstance(item, dict) and item["type"] == "citations"
+    )
+    assert admin_citations["citations"][0]["doc_title"] == "HR.pdf"
 
     employee_resp = employee.post("/api/v1/chat/stream", json={"query": question})
     assert employee_resp.status_code == 200
     employee_events = _parse_sse(employee_resp.text)
-    assert employee_events[0]["type"] == "citations"
-    assert employee_events[0]["citations"] == []
+    employee_citations = next(
+        item
+        for item in employee_events
+        if isinstance(item, dict) and item["type"] == "citations"
+    )
+    assert employee_citations["citations"] == []
     employee_tokens = "".join(
         item["content"]
         for item in employee_events
@@ -904,22 +928,24 @@ def test_persist_failure_emits_error_after_tokens(monkeypatch):
     assert response.status_code == 200
     events = _parse_sse(response.text)
     types = _event_types(events)
-    assert types[0] == "citations"
+    assert types[0] == "meta"
     assert "token" in types
     tokens = "".join(
         item["content"] for item in events if isinstance(item, dict) and item.get("type") == "token"
     )
     assert "150 USD" in tokens
     meta = _meta(events)
-    assert meta["session_id"] is None
+    assert meta["session_id"] is not None
     assert meta["message_id"] is None
     errors = [item for item in events if isinstance(item, dict) and item.get("type") == "error"]
     assert errors
     assert errors[0]["content"] == PERSIST_FAILED
     db = SessionLocal()
-    assert db.query(ChatSession).count() == 0
+    assert db.query(ChatSession).count() == 1
+    assert db.query(ChatMessage).count() == 0
     db.close()
     listed = http.get("/api/v1/chat/sessions")
-    assert listed.json()["total"] == 0
+    assert listed.json()["total"] == 1
+    assert listed.json()["items"][0]["id"] == meta["session_id"]
     get_settings.cache_clear()
 

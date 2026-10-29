@@ -132,6 +132,7 @@ def persist_closed(
     result: ChatResult,
     latency_ms: int,
 ) -> tuple[ChatResult, bool]:
+    result.session_id = session_id
     try:
         # Late-bind so tests can monkeypatch ``app.services.chat._persist_turn``.
         from app.services.chat import SessionLocal as session_local

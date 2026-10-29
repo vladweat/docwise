@@ -348,8 +348,8 @@ def test_inspect_and_chat_do_not_confirm_hidden_document(monkeypatch):
     chat_resp = employee.post("/api/v1/chat/stream", json={"query": question})
     assert chat_resp.status_code == 200
     events = _parse_sse(chat_resp.text)
-    assert events[0]["type"] == "citations"
-    assert events[0]["citations"] == []
+    citations = next(item for item in events if isinstance(item, dict) and item["type"] == "citations")
+    assert citations["citations"] == []
     tokens = "".join(
         item["content"] for item in events if isinstance(item, dict) and item.get("type") == "token"
     )

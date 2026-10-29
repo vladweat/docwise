@@ -188,12 +188,15 @@ export function ChatPanel({
       }
       if (event.type === "meta") {
         if (event.session_id) {
+          const isNewSession = chat.sessionId !== event.session_id;
           chat.setSessionId(event.session_id);
           const path = `/chat/${event.session_id}`;
           if (window.location.pathname !== path) {
             window.history.replaceState(window.history.state, "", path);
           }
-          void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+          if (isNewSession) {
+            void queryClient.invalidateQueries({ queryKey: ["chat-sessions"] });
+          }
         }
         chat.patchMessage(assistantId, {
           cached: event.cached,
