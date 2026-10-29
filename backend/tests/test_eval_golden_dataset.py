@@ -127,6 +127,23 @@ def test_demo_accounts_split_employee_and_hr_acl():
     assert str(specs["employee-handbook"].id) != str(corpus.HANDBOOK_ID)
 
 
+def test_demo_reset_is_scoped_to_the_seeded_fixture_catalog():
+    corpus = _load_module("corpus")
+    seeded_ids = {item.id for item in corpus.demo_specs()}
+    assert len(seeded_ids) == 12
+    assert corpus.demo_fixture_document_ids() == seeded_ids
+    assert corpus.DEMO_ORG_SLUG == "demo"
+
+
+@pytest.mark.parametrize("args", [["--reset"], ["--confirm-reset"]])
+def test_demo_reset_requires_both_explicit_confirmation_flags(monkeypatch, args):
+    seed_script = _load_module("seed_demo")
+    monkeypatch.setattr(sys, "argv", ["seed_demo.py", *args])
+    with pytest.raises(SystemExit) as error:
+        seed_script.main()
+    assert error.value.code == 2
+
+
 def test_golden_json_is_valid_utf8():
     payload = json.loads((_eval_dir() / "golden_dataset.json").read_text(encoding="utf-8"))
     assert isinstance(payload["items"], list)

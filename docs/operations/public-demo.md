@@ -95,6 +95,21 @@ docker compose -p docwise-public-demo \
   exec backend python /eval/seed_demo.py
 ```
 
+To return the public synthetic Demo org to its interview starting state, run:
+
+```bash
+docker compose -p docwise-public-demo \
+  -f docker-compose.yml -f docker-compose.public-demo.yml \
+  exec backend python /eval/seed_demo.py --reset --confirm-reset
+```
+
+This removes chat sessions and RAG audit rows only for organization slug `demo`, deletes user-uploaded documents
+from that organization through the storage-deletion outbox, and then reseeds the 12 fixed synthetic PDFs and
+three demo accounts. Other organizations' documents, sessions and audit rows are untouched, and the fixed
+fixture document rows remain in place. As in normal seeding, the three reserved demo accounts keep memberships
+only in `Demo` so password login resolves to the demo tenant. Pending storage cleanup is completed asynchronously
+by Celery. This command is destructive to demo history and uploads; the two explicit flags are required.
+
 Demo accounts и пароли видны посетителям в UI/README. Регистрация закрыта; admin demo account может загружать и удалять документы.
 При необходимости пересейте corpus после демонстрации.
 

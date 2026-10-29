@@ -6,6 +6,7 @@ Not invoked by default CI: needs a running stack and FastEmbed cache.
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import sys
@@ -20,7 +21,7 @@ elif Path("/app/app").is_dir():
     sys.path.insert(0, "/app")
 sys.path.insert(0, str(EVAL_DIR))
 
-from corpus import (
+from corpus import (  # noqa: E402
     DEMO_ACCOUNTS,
     DEMO_ADMIN_EMAIL,
     DEMO_ADMIN_PASSWORD,
@@ -28,6 +29,7 @@ from corpus import (
     DEMO_EMPLOYEE_PASSWORD,
     DEMO_HR_EMAIL,
     DEMO_HR_PASSWORD,
+    reset_demo_data,
     seed_demo,
 )
 
@@ -77,6 +79,30 @@ The three demo emails keep membership only in org Demo (password login would oth
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Seed the synthetic Demo organization")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="clear Demo chat history, retrieval audit, and user-uploaded documents before reseeding",
+    )
+    parser.add_argument(
+        "--confirm-reset",
+        action="store_true",
+        help="confirm the destructive, Demo-organization-only reset",
+    )
+    args = parser.parse_args()
+    if args.confirm_reset and not args.reset:
+        parser.error("--confirm-reset requires --reset")
+    if args.reset and not args.confirm_reset:
+        parser.error("--reset requires --confirm-reset")
+
+    if args.reset:
+        reset_result = reset_demo_data()
+        print(
+            "Reset Demo organization: "
+            f"sessions={reset_result['sessions']} audit_logs={reset_result['audit_logs']} "
+            f"uploaded_documents={reset_result['uploaded_documents']}"
+        )
     result = seed_demo()
     print(WALKTHROUGH)
     print("Seeded users:")

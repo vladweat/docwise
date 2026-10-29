@@ -37,6 +37,8 @@
   прежним bulk-text порогом.
 - Backend `/metrics` отдаёт request counters и latency histograms с ограниченными labels; public Caddy route
   и base Compose host binding не публикуют этот endpoint на внешний интерфейс.
+- Demo seed поддерживает явный `--reset --confirm-reset` для чатов, audit и user uploads только организации
+  `demo`, после чего повторно индексирует 12 синтетических fixtures.
 - RAG snapshot от 2026-09-22 помечен как historical: golden set вырос с 35 до 41 кейса, но метрики
   не пересчитаны. Новые eval/load отчёты записывают revision и hash dataset.
 

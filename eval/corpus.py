@@ -124,6 +124,10 @@ def demo_specs() -> tuple[FixtureSpec, ...]:
     return DEMO_CATALOG
 
 
+def demo_fixture_document_ids() -> frozenset[UUID]:
+    return frozenset(spec.id for spec in DEMO_CATALOG)
+
+
 def build_pdf(spec: FixtureSpec) -> bytes:
     builders = {
         "handbook": _handbook_pdf,
@@ -423,6 +427,66 @@ def seed_demo() -> dict:
         db.commit()
         indexed = index_specs(db, storage, demo_specs(), organization=organization)
         return {"organization_id": str(organization.id), "users": users, "documents": indexed}
+    finally:
+        db.close()
+
+
+def reset_demo_data() -> dict[str, int]:
+    """Clear synthetic Demo chats/audit and user uploads, preserving seeded fixture rows."""
+    from app.core.database import SessionLocal
+    from app.core.rls import bind_session_rls
+    from app.models.audit import RagAuditLog
+    from app.models.chat import ChatSession
+    from app.models.document import Document
+    from app.models.organization import Organization
+    from app.models.storage_deletion import StorageDeletion
+    from app.services.chat.llm_cache import invalidate_llm_cache
+
+    fixture_ids = demo_fixture_document_ids()
+    db = SessionLocal()
+    bind_session_rls(db, bypass=True)
+    try:
+        organization = db.query(Organization).filter(Organization.slug == DEMO_ORG_SLUG).first()
+        if organization is None:
+            return {"sessions": 0, "audit_logs": 0, "uploaded_documents": 0}
+
+        sessions = db.query(ChatSession).filter(ChatSession.organization_id == organization.id).all()
+        audit_logs = (
+            db.query(RagAuditLog)
+            .filter(RagAuditLog.organization_id == organization.id)
+            .delete(synchronize_session=False)
+        )
+        for session in sessions:
+            db.delete(session)
+
+        uploaded_documents = (
+            db.query(Document)
+            .filter(
+                Document.organization_id == organization.id,
+                Document.id.notin_(fixture_ids),
+            )
+            .all()
+        )
+        for document in uploaded_documents:
+            db.add(StorageDeletion(object_key=document.file_path))
+            db.delete(document)
+
+        invalidate_llm_cache(db, organization.id)
+        db.commit()
+        logger.info(
+            "reset synthetic Demo data sessions=%s audit_logs=%s uploaded_documents=%s",
+            len(sessions),
+            audit_logs,
+            len(uploaded_documents),
+        )
+        return {
+            "sessions": len(sessions),
+            "audit_logs": int(audit_logs),
+            "uploaded_documents": len(uploaded_documents),
+        }
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

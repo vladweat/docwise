@@ -51,6 +51,8 @@ make migrate
 
 `make demo` создаёт demo organization, три учётные записи и 12 PDF. Пароли и сценарий
 проверки ACL приведены в корневом `README.md`; это только локальные тестовые данные.
+Сброс локальных чатов и пользовательских upload только в Demo organization с повторной индексацией fixtures:
+`python eval/seed_demo.py --reset --confirm-reset` (или соответствующая команда в Compose backend).
 
 ## Быстрый цикл
 
