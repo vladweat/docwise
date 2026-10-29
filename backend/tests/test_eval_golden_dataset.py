@@ -49,7 +49,7 @@ def test_golden_dataset_meets_eval_contract():
 
     assert golden.eval_user_email == "eval-employee@docwise.example.com"
     assert len(golden.items) >= dataset_mod.MIN_CASES
-    assert len(golden.acl_negatives) >= 5
+    assert len(golden.acl_negatives) >= 12
     assert len(golden.positives) >= 20
 
     known_ids = set(corpus_mod.CATALOG_BY_ID)
@@ -131,3 +131,12 @@ def test_golden_json_is_valid_utf8():
     payload = json.loads((_eval_dir() / "golden_dataset.json").read_text(encoding="utf-8"))
     assert isinstance(payload["items"], list)
     assert len(payload["items"]) >= 30
+
+
+def test_eval_report_provenance_is_stable(monkeypatch):
+    provenance = _load_module("provenance")
+    dataset = _eval_dir() / "golden_dataset.json"
+    digest = provenance.dataset_sha256(dataset)
+    assert len(digest) == 64
+    monkeypatch.setenv("DOCWISE_GIT_REVISION", "abc1234")
+    assert provenance.code_revision() == "abc1234"

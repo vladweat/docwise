@@ -13,6 +13,7 @@ restore drill или подтверждённый SLA.
 | High | Нет проверенного восстановления | Backup включает PostgreSQL и S3, но нет restore drill, off-site копии и заданного RPO/RTO | Провести drill в изолированной среде |
 | High | Single-VPS demo, без HA | Один Postgres, Redis, Garage node и ingress | Для production определить redundancy, monitoring и recovery targets |
 | Medium | Нет реального enterprise SSO | Только dev fixture; публичный demo отключил SSO | Не обещать SAML/OIDC до внедрения provider adapter |
+| Medium | Evaluation metrics отстают от golden set | Сохранённые результаты относятся к 35 кейсам; набор вырос до 41 | Перегенерировать retrieval/RAG и нагрузочный отчёты на изолированном Compose corpus |
 | Medium | Redis — общий blast radius | Queue, refresh state, rate limits, locks и cache используют Redis | Наблюдать availability; при росте разделить workload/DB |
 | Medium | Ingestion не атомарен end-to-end | Статусы, chunks и S3 side effects фиксируются раздельно | Сохранять dry-run recovery и проверять повтор при restore drill |
 | Medium | Chat corpus snapshot race | ACL/corpus может измениться между retrieval и audit/persist | Ввести version/snapshot guarantee, если требуется строгая воспроизводимость |

@@ -116,14 +116,14 @@ check-pilot-alerts:
 
 # Hybrid retrieve latency on indexed corpus → reports/load_baseline.md (LOAD_ROUNDS, LOAD_CONCURRENCY)
 load-baseline:
-	docker compose exec -T -e PYTHONPATH=/app:/eval backend python /eval/load_baseline.py
+	docker compose exec -T -e PYTHONPATH=/app:/eval -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/load_baseline.py
 
 # Live RAG eval (not default CI): LLM key + fixture PDFs. Writes reports/rag_benchmark.md
 eval:
-	docker compose exec -e PYTHONPATH=/app backend python /eval/run_eval.py --seed
+	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed
 
 eval-retrieval:
-	docker compose exec -e PYTHONPATH=/app backend python /eval/run_eval.py --seed --retrieval-only
+	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --retrieval-only
 
 # Local demo: employee vs HR + six PDFs (all / hr / finance)
 demo:

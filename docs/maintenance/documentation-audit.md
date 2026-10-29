@@ -35,7 +35,8 @@
   backend и ingestion worker.
 - Логи и Sentry очищают текст исключений/traceback; тесты проверяют короткие значения, которые не покрывались
   прежним bulk-text порогом.
-- Evaluation числа в README помечены датой и количеством кейсов; это snapshot, а не SLA.
+- RAG snapshot от 2026-09-22 помечен как historical: golden set вырос с 35 до 41 кейса, но метрики
+  не пересчитаны. Новые eval/load отчёты записывают revision и hash dataset.
 
 ## Не считается гарантией
 

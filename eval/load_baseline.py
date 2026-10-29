@@ -26,6 +26,7 @@ elif Path("/app/app").is_dir():
 sys.path.insert(0, str(EVAL_DIR))
 
 from dataset import load_golden_dataset, default_dataset_path  # noqa: E402
+from provenance import code_revision, dataset_sha256  # noqa: E402
 
 from sqlalchemy import text  # noqa: E402
 
@@ -124,6 +125,8 @@ def render_report(
     concurrency: int,
     question_count: int,
     celery_depth: str,
+    revision: str,
+    dataset_digest: str,
 ) -> str:
     sorted_ms = sorted(latencies_ms)
     generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -132,6 +135,8 @@ def render_report(
         "# Load baseline (retrieval)",
         "",
         f"Generated: `{generated}`",
+        f"Code revision: `{revision}`",
+        f"Golden dataset SHA-256: `{dataset_digest}`",
         f"Eval user: `{email}` (hybrid `retrieve`: dense + FTS + RRF + rerank, no LLM)",
         "",
         "## Corpus (indexed)",
@@ -240,6 +245,8 @@ def main(argv: list[str] | None = None) -> int:
             concurrency=max(1, args.concurrency),
             question_count=len(questions),
             celery_depth=depth,
+            revision=code_revision(),
+            dataset_digest=dataset_sha256(args.dataset),
         ),
         encoding="utf-8",
     )

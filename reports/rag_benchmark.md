@@ -1,6 +1,11 @@
 # RAG benchmark
 
+> Historical snapshot for the 35-case golden set from 2026-09-22. The current dataset has 41 cases;
+> this report has no recorded code revision or dataset digest and must not be quoted as a current result.
+
 Generated: `2026-09-22T13:22:33+00:00`
+Code revision: `unrecorded`
+Golden dataset SHA-256: `unrecorded`
 Eval user: `eval-employee@docwise.example.com` (role `employee`, departments `[]`)
 Cases: 35 (28 positive, 7 ACL-negative)
 Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` (retrieval + generation + Ragas judges)

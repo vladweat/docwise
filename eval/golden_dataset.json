@@ -420,6 +420,78 @@
         "aaaaaaaa-1111-4111-8111-000000000005",
         "aaaaaaaa-1111-4111-8111-000000000006"
       ]
+    },
+    {
+      "id": "acl-promotion-packet-deadline",
+      "kind": "acl_negative",
+      "question": "When are HR promotion packets due?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-retention-rsus",
+      "kind": "acl_negative",
+      "question": "How long do retention RSUs vest for L4 and above?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-gross-margin",
+      "kind": "acl_negative",
+      "question": "What gross margin did Finance report for Q4?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-customer-concentration",
+      "kind": "acl_negative",
+      "question": "What share of ARR came from the largest customer?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-bad-debt-reserve",
+      "kind": "acl_negative",
+      "question": "How much did Finance set aside for the bad debt reserve?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
+    },
+    {
+      "id": "acl-board-pack-deadline",
+      "kind": "acl_negative",
+      "question": "When is the Finance board meeting pack due?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 2,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006"
+      ]
     }
   ]
 }

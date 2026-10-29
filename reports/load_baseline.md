@@ -1,6 +1,11 @@
 # Load baseline (retrieval)
 
+> Historical snapshot from 2026-09-22. Code revision and dataset digest were not recorded; rerun against
+> an indexed corpus before using these latency values as a current capacity baseline.
+
 Generated: `2026-09-22T13:38:50+00:00`
+Code revision: `unrecorded`
+Golden dataset SHA-256: `unrecorded`
 Eval user: `eval-employee@docwise.example.com` (hybrid `retrieve`: dense + FTS + RRF + rerank, no LLM)
 
 ## Corpus (indexed)

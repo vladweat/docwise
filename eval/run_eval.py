@@ -24,17 +24,18 @@ elif Path("/app/app").is_dir():
     sys.path.insert(0, "/app")
 sys.path.insert(0, str(EVAL_DIR))
 
-from acl import leaked_doc_ids
-from corpus import CATALOG_BY_ID, DEFAULT_EVAL_EMAIL, FOREIGN_ORG_DOC_ID, seed_corpus
-from dataset import GoldenCase, load_golden_dataset
-from metrics import RagasScores, score_case
+from acl import leaked_doc_ids  # noqa: E402
+from corpus import CATALOG_BY_ID, DEFAULT_EVAL_EMAIL, FOREIGN_ORG_DOC_ID, seed_corpus  # noqa: E402
+from dataset import GoldenCase, load_golden_dataset  # noqa: E402
+from metrics import RagasScores, score_case  # noqa: E402
+from provenance import code_revision, dataset_sha256  # noqa: E402
 
-from app.core.database import SessionLocal
-from app.models.user import User
-from app.services.chat import build_messages
-from app.services.chat.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai
-from app.services.retrieval import NO_CONTEXT_ANSWER, retrieve
-from app.services.org.tenancy import resolve_principal
+from app.core.database import SessionLocal  # noqa: E402
+from app.models.user import User  # noqa: E402
+from app.services.chat import build_messages  # noqa: E402
+from app.services.chat.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai  # noqa: E402
+from app.services.retrieval import NO_CONTEXT_ANSWER, retrieve  # noqa: E402
+from app.services.org.tenancy import resolve_principal  # noqa: E402
 
 logger = logging.getLogger("eval")
 
@@ -60,6 +61,8 @@ class CaseResult:
 class EvalSummary:
     eval_user_email: str
     generated_at: str
+    code_revision: str
+    dataset_sha256: str
     results: list[CaseResult] = field(default_factory=list)
     retrieval_only: bool = False
 
@@ -130,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
     summary = EvalSummary(
         eval_user_email=email,
         generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        code_revision=code_revision(),
+        dataset_sha256=dataset_sha256(args.dataset),
         retrieval_only=args.retrieval_only,
     )
     db = SessionLocal()
@@ -273,6 +278,8 @@ def render_report(summary: EvalSummary) -> str:
         "# RAG benchmark",
         "",
         f"Generated: `{summary.generated_at}`",
+        f"Code revision: `{summary.code_revision}`",
+        f"Golden dataset SHA-256: `{summary.dataset_sha256}`",
         f"Eval user: `{summary.eval_user_email}` (role `employee`, departments `[]`)",
         f"Cases: {len(summary.results)} ({len(positives)} positive, {len(acl_rows)} ACL-negative)",
         f"Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` ({mode})",
