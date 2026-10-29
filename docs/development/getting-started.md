@@ -87,6 +87,8 @@ make test-frontend
 - `make test-smoke` и `make test` запускают pytest внутри работающего backend-контейнера.
 - Pytest создаёт отдельную БД `docwise_test`; рабочая `docwise_db` не используется.
 - `make typecheck` и `make test-frontend` выполняются на хосте в `frontend/`.
+- Browser E2E сценарии можно запустить после production build: `cd frontend && npx playwright install chromium && NEXT_PUBLIC_SHOW_DEMO_LOGINS=true npm run build && npm run test:e2e`.
+- E2E поднимает frontend на `:13000` и локальный API fixture на `:18081`; он проверяет UI поток, но не заменяет backend/ingestion integration tests.
 - Полная CI дополнительно запускает frontend lint/build и advisory `pip-audit`/`npm audit`.
 
 Команды выше подтверждены по `Makefile` и CI. В ходе последнего аудита документации
@@ -106,8 +108,8 @@ make demo-fresh-volumes
 ```
 
 Удаляет Compose volumes PostgreSQL и MinIO. Команда необратима и предназначена только для
-локальной среды. `make restore-drill` также разрушителен: он проверяет восстановление через
-удаление volumes.
+локальной среды. `make restore-drill` требует `RESTORE_DRILL_CONFIRM=YES`, останавливает writers
+источника на время backup и восстанавливает копию в отдельный временный Compose project.
 
 ## Типовые проблемы
 

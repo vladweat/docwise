@@ -4,7 +4,7 @@ on:
   push:
   pull_request:
 
-# Unit CI: ruff, pytest, frontend tsc + vitest + lint + build.
+# CI: backend lint/pytest, frontend tsc + vitest + lint + build, browser E2E.
 # supply-chain-advisory: pip-audit + npm audit (non-blocking).
 # No GPU, no live LLM, no eval runner, no unrelated coverage gates.
 
@@ -40,6 +40,27 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SHOW_DEMO_LOGINS: "true"
+      - run: npm run test:e2e
+        env:
+          CI: "true"
 
   backend-test:
     runs-on: ubuntu-latest

@@ -31,6 +31,8 @@
   конфигурация restore drill имеется, но факт успешного запуска и отказоустойчивость не заявляются.
 - `make restore-drill` восстанавливает backup в отдельный Compose project и проверяет readiness и наличие
   готовых документов; запуск всё ещё требует maintenance window, а реальный drill и off-site backup не заявляются.
+- CI запускает Playwright UI flows на отдельном frontend/API fixture; сценарии не заменяют проверку живого
+  backend и ingestion worker.
 - Evaluation числа в README помечены датой и количеством кейсов; это snapshot, а не SLA.
 
 ## Не считается гарантией
