@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session
+from starlette.requests import ClientDisconnect
 
 from app.core.config import get_settings
-from app.core.database import SessionLocal
+from app.core.database import SessionLocal, engine
 from app.main import app
 from app.models.audit import RagAuditLog
 from app.models.chat import ChatMessage, ChatSession
@@ -167,6 +170,219 @@ def test_stream_unknown_session_is_404():
     )
     assert response.status_code == 404
     assert "not found" in response.json()["error"]["message"].lower()
+
+
+def test_chat_stream_rejects_busy_session_before_sse(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    get_settings.cache_clear()
+    calls = {"retrieve": 0, "stream": 0}
+
+    def fake_retrieve(_db, user, _query, **_kwargs):
+        calls["retrieve"] += 1
+        return _result([], user)
+
+    def fake_stream(*_args, **_kwargs):
+        calls["stream"] += 1
+        yield "should not run"
+
+    monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+    http = _register()
+    created = http.post("/api/v1/chat/stream", json={"query": f"seed {uuid4().hex}"})
+    assert created.status_code == 200
+    session_id = _meta(_parse_sse(created.text))["session_id"]
+    calls.update(retrieve=0, stream=0)
+
+    from app.services.chat.session_lock import hold_chat_session_lock
+
+    with hold_chat_session_lock(UUID(session_id)):
+        response = http.post(
+            "/api/v1/chat/stream",
+            json={"query": "follow up while busy", "session_id": session_id},
+        )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "resource.conflict"
+    assert "already being generated" in response.json()["error"]["message"].lower()
+    assert "text/event-stream" not in response.headers.get("content-type", "")
+    assert calls == {"retrieve": 0, "stream": 0}
+    get_settings.cache_clear()
+
+
+def test_chat_stream_for_other_session_proceeds_while_one_is_locked(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "app.services.chat.retrieve",
+        lambda _db, user, _query, **_kwargs: _result([], user),
+    )
+    http = _register()
+
+    def create_session(seed: str) -> str:
+        response = http.post("/api/v1/chat/stream", json={"query": seed})
+        assert response.status_code == 200
+        return _meta(_parse_sse(response.text))["session_id"]
+
+    first_session = UUID(create_session(f"first {uuid4().hex}"))
+    second_session = create_session(f"second {uuid4().hex}")
+
+    from app.services.chat.session_lock import hold_chat_session_lock
+
+    with hold_chat_session_lock(first_session):
+        response = http.post(
+            "/api/v1/chat/stream",
+            json={"query": f"different session {uuid4().hex}", "session_id": second_session},
+        )
+
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    assert _meta(_parse_sse(response.text))["session_id"] == second_session
+    get_settings.cache_clear()
+
+
+def test_chat_session_lock_released_when_sse_generator_closes(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "app.services.chat.retrieve",
+        lambda _db, user, _query, **_kwargs: _result([], user),
+    )
+    http = _register()
+    created = http.post("/api/v1/chat/stream", json={"query": f"seed {uuid4().hex}"})
+    session_id = UUID(_meta(_parse_sse(created.text))["session_id"])
+
+    db = SessionLocal()
+    row = db.get(ChatSession, session_id)
+    assert row is not None
+    user_id = row.user_id
+    organization_id = row.organization_id
+    db.close()
+
+    from app.services.chat import iter_sse_events
+    from app.services.chat.session_lock import chat_session_lock_key
+
+    events = iter_sse_events(
+        user_id,
+        "follow-up query",
+        session_id,
+        organization_id=organization_id,
+        retriever=lambda _db, user, _query: _result(
+            [_chunk(title="Travel.pdf", page=4, content=PUBLIC_TEXT, roles=("all",))], user
+        ),
+        streamer=lambda _messages: iter(["unfinished token"]),
+    )
+    lock_key = chat_session_lock_key(session_id)
+    with engine.connect() as probe:
+        try:
+            assert '"type": "citations"' in next(events)
+            lock_available = probe.execute(
+                text("SELECT pg_try_advisory_lock(:lock_key)"), {"lock_key": lock_key}
+            ).scalar_one()
+            probe.commit()
+            assert lock_available is False
+
+            events.close()
+
+            lock_available = probe.execute(
+                text("SELECT pg_try_advisory_lock(:lock_key)"), {"lock_key": lock_key}
+            ).scalar_one()
+            assert lock_available is True
+            unlocked = probe.execute(
+                text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": lock_key}
+            ).scalar_one()
+            probe.commit()
+            assert unlocked is True
+        finally:
+            events.close()
+    get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("disconnect_at", ["start", "body"])
+def test_chat_stream_response_disconnect_releases_session_lock(monkeypatch, disconnect_at: str):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "app.services.chat.retrieve",
+        lambda _db, user, _query, **_kwargs: _result([], user),
+    )
+    http = _register()
+    created = http.post("/api/v1/chat/stream", json={"query": f"seed {uuid4().hex}"})
+    assert created.status_code == 200
+    session_id = UUID(_meta(_parse_sse(created.text))["session_id"])
+
+    db = SessionLocal()
+    row = db.get(ChatSession, session_id)
+    assert row is not None
+    user_id = row.user_id
+    organization_id = row.organization_id
+    db.close()
+
+    public = _chunk(title="Travel.pdf", page=4, content=PUBLIC_TEXT, roles=("all",))
+    from importlib import import_module
+
+    chat_api = import_module("app.api.v1.chat")
+    response_class = getattr(chat_api, "ClosingStreamingResponse", None)
+    assert response_class is not None, "chat response must close the event generator on disconnect"
+    from app.services.chat import iter_sse_events
+    from app.services.chat.session_lock import chat_session_lock_key
+
+    events = iter_sse_events(
+        user_id,
+        "follow-up query",
+        session_id,
+        organization_id=organization_id,
+        retriever=lambda _db, user, _query: _result([public], user),
+        streamer=lambda _messages: iter(["unused until after citations"]),
+    )
+    lock_key = chat_session_lock_key(session_id)
+
+    with engine.connect() as probe:
+        try:
+            first = next(events)
+            assert '"type": "citations"' in first
+            lock_available = probe.execute(
+                text("SELECT pg_try_advisory_lock(:lock_key)"), {"lock_key": lock_key}
+            ).scalar_one()
+            probe.commit()
+            assert lock_available is False
+
+            response = response_class(
+                chat_api.chain_chat_events(first, events),
+                close_callback=events.close,
+                media_type="text/event-stream",
+            )
+
+            async def receive():
+                return {"type": "http.disconnect"}
+
+            async def send(message):
+                if disconnect_at == "start" and message["type"] == "http.response.start":
+                    raise OSError("client disconnected")
+                if disconnect_at == "body" and message["type"] == "http.response.body":
+                    raise OSError("client disconnected")
+
+            scope = {
+                "type": "http",
+                "asgi": {"spec_version": "2.4"},
+                "method": "GET",
+                "path": "/api/v1/chat/stream",
+                "headers": [],
+            }
+            with pytest.raises(ClientDisconnect):
+                asyncio.run(response(scope, receive, send))
+
+            lock_available = probe.execute(
+                text("SELECT pg_try_advisory_lock(:lock_key)"), {"lock_key": lock_key}
+            ).scalar_one()
+            assert lock_available is True
+            unlocked = probe.execute(
+                text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": lock_key}
+            ).scalar_one()
+            probe.commit()
+            assert unlocked is True
+        finally:
+            events.close()
+    get_settings.cache_clear()
 
 
 def test_stream_sse_order_and_citation_shape(monkeypatch):

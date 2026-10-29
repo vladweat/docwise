@@ -13,6 +13,7 @@ export function userFacingChatError(
   message: string,
   options?: { showDevLlmHint?: boolean },
 ): string {
+  if (status === 409) return tClient("errors.chatSessionBusy");
   if (isLlmNotConfiguredMessage(message)) {
     const base = tClient("errors.llmNotConfigured");
     if (options?.showDevLlmHint) {

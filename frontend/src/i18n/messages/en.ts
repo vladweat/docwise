@@ -101,6 +101,7 @@ export const en = {
     deleteDocumentFailed: "Could not delete document",
     loadChatHistoryFailed: "Could not load chat history",
     chatReplyFailed: "Could not get a reply",
+    chatSessionBusy: "A reply is already being generated for this chat. Please try again shortly.",
     loadSessionsFailed: "Could not load sessions",
     deleteSessionFailed: "Could not delete session",
     uploadFailed: "Could not upload file",

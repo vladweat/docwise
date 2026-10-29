@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from uuid import UUID
 
 from app.core.errors import NotFoundError
 from app.core.rls import bind_session_rls
 from app.core.sentry import capture_pipeline_error
+from app.services.chat.session_lock import hold_chat_session_lock
 from app.services.chat.envelope import PERSIST_FAILED, sse, sse_done, sse_finish, sse_from_result
 from app.services.chat.llm import (
     LLMUsage,
@@ -55,7 +56,38 @@ def iter_sse_events(
     organization_id: UUID,
     retriever=None,
     streamer=None,
-) -> Iterator[str]:
+) -> Generator[str, None, None]:
+    if session_id is None:
+        yield from _iter_sse_events_impl(
+            user_id,
+            query,
+            session_id,
+            organization_id=organization_id,
+            retriever=retriever,
+            streamer=streamer,
+        )
+        return
+
+    with hold_chat_session_lock(session_id):
+        yield from _iter_sse_events_impl(
+            user_id,
+            query,
+            session_id,
+            organization_id=organization_id,
+            retriever=retriever,
+            streamer=streamer,
+        )
+
+
+def _iter_sse_events_impl(
+    user_id: UUID,
+    query: str,
+    session_id: UUID | None,
+    *,
+    organization_id: UUID,
+    retriever=None,
+    streamer=None,
+) -> Generator[str, None, None]:
     started = time.perf_counter()
     chat = _chat()
     search = retriever if retriever is not None else chat.retrieve

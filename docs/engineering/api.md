@@ -116,7 +116,7 @@ Body:
 }
 ```
 
-Response: `Content-Type: text/event-stream`. Cookie session, limit `RATE_LIMIT_CHAT_PER_MINUTE` by `user.id`. Period token quota: if exhausted → SSE `{ "type": "error", "content": "Organization quota exceeded" }` **before** retrieval (same meaning as HTTP `402`). SSE format (not named `event:` from draft spec):
+Response: `Content-Type: text/event-stream`. Cookie session, limit `RATE_LIMIT_CHAT_PER_MINUTE` by `user.id`. Period token quota: if exhausted → SSE `{ "type": "error", "content": "Organization quota exceeded" }` **before** retrieval (same meaning as HTTP `402`). A second active request for the same existing `session_id` returns HTTP `409` with the standard `{ "error": { "code": "resource.conflict", "message": "..." } }` envelope **before** SSE starts; retry after the active reply completes. Different sessions remain independent. SSE format (not named `event:` from draft spec):
 
 ```
 data: {"type":"citations","citations":[{"doc_id":"3fa85f64-5717-4562-b3fc-2c963f66afa6","doc_title":"Travel.pdf","page":4,"section":null,"snippet":"..."}]}

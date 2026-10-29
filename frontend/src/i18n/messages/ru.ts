@@ -104,6 +104,7 @@ export const ru = {
     deleteDocumentFailed: "Не удалось удалить документ",
     loadChatHistoryFailed: "Не удалось загрузить историю чата",
     chatReplyFailed: "Не удалось получить ответ",
+    chatSessionBusy: "В этом чате уже формируется ответ. Попробуйте немного позже.",
     loadSessionsFailed: "Не удалось загрузить сессии",
     deleteSessionFailed: "Не удалось удалить сессию",
     uploadFailed: "Не удалось загрузить файл",
