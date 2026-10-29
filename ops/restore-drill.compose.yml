@@ -1,0 +1,11 @@
+# Isolated restore target: separate project volumes and non-conflicting loopback ports.
+services:
+  backend:
+    ports: !override
+      - "127.0.0.1:18001:8000"
+
+  frontend:
+    ports: !override []
+
+  caddy:
+    ports: !override []

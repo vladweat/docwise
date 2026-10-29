@@ -169,7 +169,7 @@ docker compose up -d
 
 echo "==> Waiting for /ready"
 for _ in $(seq 1 90); do
-  if curl -sf http://localhost:8001/ready >/dev/null 2>&1; then
+  if curl -sf "${RESTORE_READY_URL:-http://localhost:8001/ready}" >/dev/null 2>&1; then
     echo "==> Review ingestion recovery candidates (dry-run)"
     docker compose exec -T backend python /app/scripts/requeue_stale_ingestion.py
     echo "==> Restore complete from $BACKUP_DIR"

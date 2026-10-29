@@ -99,11 +99,9 @@ restore-pilot:
 requeue-stale-ingestion:
 	docker compose exec -T backend python -m scripts.requeue_stale_ingestion $(ARGS) $(if $(filter 1,$(APPLY)),--apply,)
 
-# Local acceptance: backup → wipe volumes → restore → health (destructive)
+# Local acceptance: isolated backup copy → restore into a temporary project.
 restore-drill:
-	bash ops/backup-pilot.sh
-	bash ops/restore-pilot.sh backups/pilot-latest --wipe-volumes
-	$(MAKE) health
+	bash ops/restore-drill.sh
 
 reconcile-minio:
 ifeq ($(DELETE),1)

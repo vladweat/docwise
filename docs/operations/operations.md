@@ -140,8 +140,12 @@ make restore-pilot BACKUP_DIR=backups/pilot-latest
 синхронизирует MinIO с удалением лишних объектов, запускает Compose и ждёт `/ready`.
 После restore он показывает dry-run кандидатов ingestion recovery; повторная постановка — отдельная команда.
 
-Restore разрушителен для текущего состояния. `make restore-drill` удаляет volumes и разрешён только в изолированной среде.
-Backup validation не заменяет регулярный полный restore drill.
+Restore разрушителен для целевого проекта. `make restore-drill` требует `RESTORE_DRILL_CONFIRM=YES`, делает
+backup источника и восстанавливает его в отдельный Compose project с отдельными volumes и loopback port `18001`.
+Он проверяет `/ready` и наличие готовых документов, затем удаляет только временные volumes. Команда на время
+backup останавливает writers источника, поэтому её запускают в согласованное окно. При ошибке target project
+остаётся для диагностики. Backup validation не заменяет регулярный полный restore drill; off-site копия,
+RPO/RTO и расписание drills пока необходимо определить и проверять отдельно.
 
 ## Согласование объектов storage
 

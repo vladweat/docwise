@@ -6,7 +6,7 @@ Scripts for **self-host / pilot** backup and restore. Canonical runbook (prod ch
 | --- | --- |
 | `make backup-pilot` | `pg_dump` + MinIO mirror → `backups/<timestamp>/` |
 | `make restore-pilot BACKUP_DIR=backups/pilot-latest` | Restore DB + bucket (writers stopped) |
-| `make restore-drill` | Backup → wipe volumes → restore → `make health` (local only) |
+| `RESTORE_DRILL_CONFIRM=YES make restore-drill` | Backup source → isolated restore → readiness/data check → remove drill volumes |
 | `make requeue-stale-ingestion` | Dry-run: list pending and stale processing document IDs after Redis loss |
 | `make requeue-stale-ingestion APPLY=1` | Enqueue the listed candidates; use `ARGS='--stale-minutes 90'` to tune the stale window |
 | `make requeue-stale-ingestion ARGS='--include-failed --document-id <uuid>' APPLY=1` | Requeue one inspected failed document after its lock TTL has elapsed |
@@ -26,5 +26,13 @@ MinIO restore удаляет target keys, отсутствующие в backup. 
 показывает кандидатов ingestion в dry-run.
 Проверьте IDs и при необходимости выполните `make requeue-stale-ingestion APPLY=1`. Полные
 ограничения и порядок восстановления: [docs/operations/operations.md](../docs/operations/operations.md).
+
+`make restore-drill` по умолчанию берёт источник `docwise-public-demo`, на короткое время останавливает его
+writers для согласованного backup, затем восстанавливает копию в отдельный Compose project. Запускайте его
+только в согласованное окно обслуживания. Команда требует явного `RESTORE_DRILL_CONFIRM=YES`, использует
+отдельные volumes и loopback port `18001`, проверяет `/ready` и наличие ready documents, затем удаляет только
+временный project. Backup остаётся в `backups/restore-drills/`. При ошибке изолированный project сохраняется
+для диагностики. Для другого источника задайте `RESTORE_DRILL_SOURCE_PROJECT`; скрипт рассчитан на public-demo
+Compose профиль с Garage.
 
 Compose pins **server** `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z`. Backup/restore use **client** `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z` (`MINIO_MC_IMAGE` override) — tags come from [minio/mc releases](https://github.com/minio/mc/releases), not the server repo. Prefer Quay over Docker Hub behind corporate proxy.

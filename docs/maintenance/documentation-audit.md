@@ -27,8 +27,10 @@
   frontend и NFR описывают этот порядок.
 - Compose задаёт `docwise_rls` для API/worker/Beat; `db-migrate` создаёт роль/grants до старта.
 - В публичном профиле SSO отключён, billing использует `dev`, Garage — single-node storage.
-- Retention, transactional storage deletion outbox и queue recovery описаны как реализованные механизмы,
-  при этом restore drill и отказоустойчивость не заявляются.
+- Retention, transactional storage deletion outbox и queue recovery описаны как реализованные механизмы;
+  конфигурация restore drill имеется, но факт успешного запуска и отказоустойчивость не заявляются.
+- `make restore-drill` восстанавливает backup в отдельный Compose project и проверяет readiness и наличие
+  готовых документов; запуск всё ещё требует maintenance window, а реальный drill и off-site backup не заявляются.
 - Evaluation числа в README помечены датой и количеством кейсов; это snapshot, а не SLA.
 
 ## Не считается гарантией
