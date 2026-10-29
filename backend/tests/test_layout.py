@@ -47,6 +47,25 @@ def test_compose_pins_minio_image():
     assert ":latest" not in line
 
 
+def test_celery_healthcheck_allows_startup_ping_time():
+    here = Path(__file__).resolve()
+    compose = next(
+        (
+            candidate
+            for candidate in (here.parents[2] / "docker-compose.yml", ROOT.parent / "docker-compose.yml")
+            if candidate.is_file()
+        ),
+        None,
+    )
+    if compose is None:
+        pytest.skip("docker-compose.yml is not mounted in this environment")
+    text = compose.read_text()
+    worker = text.split("  celery-worker:", 1)[1].split("\n  celery-beat:", 1)[0]
+    timeout = next(line.strip() for line in worker.splitlines() if "timeout:" in line)
+
+    assert timeout == "timeout: 20s"
+
+
 def test_dockerfile_does_not_ship_tests():
     text = (ROOT / "Dockerfile").read_text()
     assert "COPY tests" not in text
