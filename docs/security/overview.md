@@ -94,6 +94,9 @@ feedback comment, но не полный chunk text. Один Celery Beat schedu
 - содержимое customer documents и database dumps;
 - restricted snippets или filenames в ошибках другого tenant.
 
+`/metrics` использует только method, FastAPI route template и HTTP status labels. Endpoint не добавляет user,
+organization, document IDs, query text или raw path в labels; публичный Caddy не проксирует этот маршрут.
+
 ## Rate limiting
 
 Redis-backed limits применяются к auth по IP, upload и chat по user ID. При ошибке Redis

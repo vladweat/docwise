@@ -49,7 +49,7 @@ RLS на corpus-таблицах — дополнительный слой то�
 
 - `/health` проверяет процесс; `/ready` — зависимости и billing status.
 - Структурированные логи редактируют чувствительные поля; Sentry опционален.
-- Central metrics/dashboard и распределённый tracing в репозитории не настроены.
+- Backend отдаёт private Prometheus-compatible HTTP metrics для request count и latency; central scrape/dashboard и распределённый tracing в репозитории не настроены.
 - RAG качество отслеживается golden set и ACL-negative кейсами; текущие числа — в [evaluation](evaluation.md).
 
 ## Совместимость

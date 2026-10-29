@@ -17,7 +17,7 @@ restore drill или подтверждённый SLA.
 | Medium | Redis — общий blast radius | Queue, refresh state, rate limits, locks и cache используют Redis | Наблюдать availability; при росте разделить workload/DB |
 | Medium | Ingestion не атомарен end-to-end | Статусы, chunks и S3 side effects фиксируются раздельно | Сохранять dry-run recovery и проверять повтор при restore drill |
 | Medium | Chat corpus snapshot race | ACL/corpus может измениться между retrieval и audit/persist | Ввести version/snapshot guarantee, если требуется строгая воспроизводимость |
-| Medium | Нет централизованных metrics/traces | Есть healthchecks, JSON logs и pilot checks | Добавить метрики до production/роста нагрузки |
+| Medium | Нет централизованной observability | Есть приватный HTTP `/metrics`, healthchecks, JSON logs и pilot checks; scrape server/dashboard/traces отсутствуют | Подключить private Prometheus scrape и alerting до production/роста нагрузки |
 
 ## Исправлено в source и Compose
 

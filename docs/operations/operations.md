@@ -79,10 +79,14 @@ make logs-frontend
 docker compose logs celery-worker
 docker compose logs celery-beat
 make check-pilot-alerts
+curl -fsS http://localhost:8001/metrics
 ```
 
-Backend пишет JSON logs с redaction; Sentry включается через `SENTRY_DSN`. Prometheus, OpenTelemetry,
-централизованные dashboards и долговременное хранение логов не настроены.
+Backend пишет JSON logs с redaction; Sentry включается через `SENTRY_DSN`. `GET /metrics` отдаёт HTTP request
+counts и latency histogram с bounded labels по method, route template и status; содержимое запросов, tenant IDs
+и raw URL paths не включаются. Endpoint доступен на loopback в base Compose; public Caddy не проксирует `/metrics`.
+Prometheus server/scrape config, централизованные dashboards, OpenTelemetry traces и долговременное хранение
+логов не настроены.
 
 `check-pilot-alerts` проверяет `/ready`, worker, failed/stale docs, storage deletion backlog, retention heartbeat
 и latency. Redis `LLEN celery` — эвристика, зависит от routing конфигурации.

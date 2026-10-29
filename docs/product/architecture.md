@@ -90,5 +90,5 @@ RLS включена для corpus-таблиц, но действует тол�
 ## Границы продукта
 
 В текущем коде реализованы PDF и DOCX, роли/отделы внутри организации, планы/quotas и dev billing.
-В публичном демо SSO отключён, Garage — одноузловой, observability ограничена healthchecks и логами.
+В публичном демо SSO отключён, Garage — одноузловой; доступны healthchecks, JSON logs и приватный backend `/metrics`, без централизованного scrape/dashboard.
 Kubernetes, HA и реальный SAML/OIDC provider не входят в текущую runtime-конфигурацию.

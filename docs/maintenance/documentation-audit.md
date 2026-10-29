@@ -35,6 +35,8 @@
   backend и ingestion worker.
 - Логи и Sentry очищают текст исключений/traceback; тесты проверяют короткие значения, которые не покрывались
   прежним bulk-text порогом.
+- Backend `/metrics` отдаёт request counters и latency histograms с ограниченными labels; public Caddy route
+  и base Compose host binding не публикуют этот endpoint на внешний интерфейс.
 - RAG snapshot от 2026-09-22 помечен как historical: golden set вырос с 35 до 41 кейса, но метрики
   не пересчитаны. Новые eval/load отчёты записывают revision и hash dataset.
 
