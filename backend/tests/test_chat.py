@@ -24,6 +24,8 @@ from app.services.chat import (
     PERSIST_FAILED,
     SYSTEM_PROMPT,
     ChatPersistError,
+    HistoryTurn,
+    build_messages,
     cache_key,
     canonical_allowed_roles,
 )
@@ -143,6 +145,45 @@ def test_cache_key_includes_org_and_canonical_allowed_roles():
     assert employee != bumped
     assert employee.startswith(f"llm_cache:{CACHE_VERSION}:{org_a}:")
     assert canonical_allowed_roles(["hr", "all", "hr", "employee"]) == ("all", "employee", "hr")
+
+
+def test_latest_english_question_overrides_russian_history_and_excerpt_language():
+    russian_excerpt = _chunk(
+        title="Политика.pdf",
+        page=1,
+        content="Политика предусматривает ежегодный отпуск.",
+        roles=("all",),
+    )
+    messages = build_messages(
+        "What is the policy?",
+        [russian_excerpt],
+        [HistoryTurn(role="assistant", content="Политика предусматривает отпуск.")],
+    )
+
+    system_messages = "\n".join(item["content"] for item in messages if item["role"] == "system")
+    assert "latest user question is in English" in system_messages
+    assert "regardless of prior conversation or document language" in system_messages
+
+
+def test_latest_russian_question_overrides_english_history():
+    messages = build_messages(
+        "Какой лимит расходов?",
+        [],
+        [HistoryTurn(role="assistant", content="The expense limit is listed below.")],
+    )
+
+    system_messages = "\n".join(item["content"] for item in messages if item["role"] == "system")
+    assert "latest user question is in Russian" in system_messages
+    assert "regardless of prior conversation or document language" in system_messages
+
+
+def test_ambiguous_query_keeps_generic_same_language_instruction():
+    messages = build_messages("123 — ?", [], [])
+
+    system_messages = "\n".join(item["content"] for item in messages if item["role"] == "system")
+    assert "Reply in the same language as the user's question" in system_messages
+    assert "latest user question is in English" not in system_messages
+    assert "latest user question is in Russian" not in system_messages
 
 
 def test_stream_requires_auth():

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -26,6 +27,62 @@ SYSTEM_PROMPT = (
     "[Title.pdf, стр. N]; for Word documents use [Title.docx, раздел: Section Name] "
     "(no page numbers for DOCX). Reply in the same language as the user's question."
 )
+
+_CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")
+_LATIN_RE = re.compile(r"[a-z]", re.IGNORECASE)
+_WORD_RE = re.compile(r"[a-z]+", re.IGNORECASE)
+_ENGLISH_HINTS = frozenset(
+    {
+        "a",
+        "about",
+        "and",
+        "are",
+        "can",
+        "compare",
+        "could",
+        "do",
+        "does",
+        "explain",
+        "find",
+        "for",
+        "give",
+        "how",
+        "is",
+        "list",
+        "me",
+        "my",
+        "of",
+        "please",
+        "show",
+        "tell",
+        "the",
+        "this",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "with",
+        "would",
+        "you",
+    }
+)
+
+
+def _latest_question_language_instruction(question: str) -> str:
+    cyrillic_count = len(_CYRILLIC_RE.findall(question))
+    latin_count = len(_LATIN_RE.findall(question))
+    if cyrillic_count > 0 and cyrillic_count >= latin_count:
+        language = "Russian"
+    elif latin_count > 0 and set(_WORD_RE.findall(question.lower())) & _ENGLISH_HINTS:
+        language = "English"
+    else:
+        return "Reply in the same language as the latest user question."
+    return (
+        f"The latest user question is in {language}. Answer in {language}, regardless of "
+        "prior conversation or document language."
+    )
 
 
 class ChatError(Exception):
@@ -74,7 +131,10 @@ def build_messages(
             parts.append(f"[{index}] {title} | section {section}\n{chunk.content}")
     context = "\n\n".join(parts) if parts else "(no excerpts)"
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "system",
+            "content": f"{SYSTEM_PROMPT}\n{_latest_question_language_instruction(question)}",
+        },
         {"role": "system", "content": f"Document excerpts:\n{context}"},
     ]
     for row in history:
