@@ -80,8 +80,8 @@ export function InspectPage() {
                   maxLength={4000}
                 />
               </div>
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="w-full sm:w-28">
                   <Label htmlFor="inspect-limit">{t("inspect.limit")}</Label>
                   <Input
                     id="inspect-limit"
@@ -90,10 +90,14 @@ export function InspectPage() {
                     max={50}
                     value={limit}
                     onChange={(event) => setLimit(Number(event.target.value))}
-                    className="w-24"
+                    className="mt-1 w-full"
                   />
                 </div>
-                <Button type="submit" disabled={submitting || !query.trim()}>
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={submitting || !query.trim()}
+                >
                   {submitting ? "…" : t("inspect.run")}
                 </Button>
               </div>
@@ -124,9 +128,9 @@ function InspectResults({
 }) {
   return (
     <Tabs value={stage} onValueChange={(value) => onStage(value as InspectStage)}>
-      <TabsList className="grid-cols-2 sm:grid-cols-4">
+      <TabsList className="grid-cols-2 lg:grid-cols-4">
         {INSPECT_STAGES.map((item) => (
-          <TabsTrigger key={item} value={item}>
+          <TabsTrigger key={item} value={item} className="h-10 px-2 text-xs sm:text-sm">
             {item} ({result[item].length})
           </TabsTrigger>
         ))}
@@ -150,33 +154,68 @@ function HitTable({
   emptyHits: string;
   colPage: string;
 }) {
+  const { t } = useI18n();
   if (hits.length === 0) {
     return <Alert>{emptyHits}</Alert>;
   }
   return (
-    <div className="rounded-xl border border-slate-800">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Score</TableHead>
-            <TableHead>{colPage}</TableHead>
-            <TableHead>Snippet</TableHead>
-            <TableHead>chunk_id</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+    <>
+      <div className="space-y-3 lg:hidden">
+        {hits.map((hit) => (
+          <article
+            key={hit.chunk_id}
+            className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/40 p-3"
+          >
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  {t("inspect.colScore")}
+                </span>
+                <span className="font-mono text-sm text-slate-100">{hit.score.toFixed(3)}</span>
+              </div>
+              <div className="shrink-0 text-right">
+                <span className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  {colPage}
+                </span>
+                <span className="text-sm text-slate-200">{hit.page}</span>
+              </div>
+            </div>
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">
+              {hit.snippet}
+            </p>
+            <details className="mt-3 border-t border-slate-800 pt-2">
+              <summary className="cursor-pointer py-1 text-xs text-slate-400">
+                {t("inspect.colChunkId")}
+              </summary>
+              <code className="mt-1 block break-all text-[11px] text-slate-500">{hit.chunk_id}</code>
+            </details>
+          </article>
+        ))}
+      </div>
+      <div className="hidden rounded-xl border border-slate-800 lg:block">
+        <Table className="min-w-[56rem]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("inspect.colScore")}</TableHead>
+              <TableHead>{colPage}</TableHead>
+              <TableHead>{t("inspect.colSnippet")}</TableHead>
+              <TableHead>{t("inspect.colChunkId")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
           {hits.map((hit) => (
             <TableRow key={hit.chunk_id}>
               <TableCell className="font-mono text-xs">{hit.score.toFixed(3)}</TableCell>
               <TableCell>{hit.page}</TableCell>
-              <TableCell className="max-w-md text-slate-300">{hit.snippet}</TableCell>
-              <TableCell className="max-w-[12rem] truncate font-mono text-[11px] text-slate-500">
+              <TableCell className="max-w-md break-words text-slate-300">{hit.snippet}</TableCell>
+              <TableCell className="max-w-[12rem] break-all font-mono text-[11px] text-slate-500">
                 {hit.chunk_id}
               </TableCell>
             </TableRow>
           ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }

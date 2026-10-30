@@ -305,8 +305,11 @@ export const en = {
     query: "Question",
     limit: "List limit",
     run: "Run",
+    colScore: "Score",
     emptyHits: "Empty list. Out-of-ACL or cross-org chunks are never shown or confirmed.",
     colPage: "Page",
+    colSnippet: "Snippet",
+    colChunkId: "Chunk ID",
   },
   settings: {
     title: "Organization settings",

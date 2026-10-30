@@ -322,9 +322,12 @@ export const ru = {
     query: "Вопрос",
     limit: "Лимит на список",
     run: "Прогнать",
+    colScore: "Оценка",
     emptyHits:
       "Пустой список. Чанк вне ACL или другой организации сюда не попадает и не подтверждается.",
     colPage: "Стр.",
+    colSnippet: "Фрагмент",
+    colChunkId: "ID чанка",
   },
   settings: {
     title: "Настройки организации",
