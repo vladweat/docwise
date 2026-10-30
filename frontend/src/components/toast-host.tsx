@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 import { Alert } from "@/components/ui/alert";
@@ -7,16 +8,25 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/locale-provider";
 import { useToastStore } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
+import { scrollToLatestToastStack } from "@/components/toast-stack";
 
 export function ToastHost() {
   const { t } = useI18n();
   const toasts = useToastStore((state) => state.toasts);
   const dismiss = useToastStore((state) => state.dismiss);
+  const stackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollToLatestToastStack(stackRef.current);
+  }, [toasts]);
 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 flex max-h-[40dvh] flex-col gap-3 overflow-hidden sm:bottom-auto sm:left-auto sm:right-4 sm:top-16 sm:w-[min(24rem,calc(100vw-2rem))]">
+    <div
+      ref={stackRef}
+      className="pointer-events-none fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 flex max-h-[calc(100dvh-7rem)] flex-col gap-3 overflow-y-auto overscroll-contain sm:bottom-auto sm:left-auto sm:right-4 sm:top-16 sm:max-h-[calc(100dvh-6rem)] sm:w-[min(24rem,calc(100vw-2rem))]"
+    >
       {toasts.map((toast) => (
         <Alert
           key={toast.id}
