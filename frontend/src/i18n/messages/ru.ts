@@ -270,6 +270,7 @@ export const ru = {
     colPages: "Страницы",
     colAccess: "Доступ",
     colStatus: "Статус",
+    moreDetails: "Дополнительно",
     openPdf: "Открыть PDF",
     openDocx: "Просмотр DOCX",
     deleteAria: "Удалить {title}",

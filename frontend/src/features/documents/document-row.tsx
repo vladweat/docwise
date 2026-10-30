@@ -87,9 +87,9 @@ export function DocumentRow({
   }, [doc.title, pushToast, router, status, t]);
 
   return (
-    <TableRow>
-      <TableCell className="text-slate-100">
-        {doc.title}
+    <TableRow className="mb-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3 lg:mb-0 lg:table-row lg:gap-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
+      <TableCell className="col-span-2 min-w-0 p-0 text-slate-100 lg:col-span-1 lg:px-3 lg:py-2">
+        <p className="break-words">{doc.title}</p>
         <p className="mt-0.5 text-xs text-slate-500">{formatDateTime(doc.created_at)}</p>
         <Button
           type="button"
@@ -99,10 +99,36 @@ export function DocumentRow({
         >
           {isDocxDocument(doc) ? t("documents.openDocx") : t("documents.openPdf")}
         </Button>
+        <details className="mt-1 lg:hidden">
+          <summary className="w-fit cursor-pointer py-1 text-xs text-slate-400">
+            {t("documents.moreDetails")}
+          </summary>
+          <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+            <div>
+              <span className="block text-[10px] uppercase tracking-wide text-slate-500">
+                {t("documents.colSize")}
+              </span>
+              <span className="text-slate-300">{formatBytes(doc.file_size_bytes)}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] uppercase tracking-wide text-slate-500">
+                {t("documents.colPages")}
+              </span>
+              <span className="text-slate-300">{doc.total_pages ?? "—"}</span>
+            </div>
+          </div>
+        </details>
       </TableCell>
-      <TableCell className="text-slate-400">{formatBytes(doc.file_size_bytes)}</TableCell>
-      <TableCell className="text-slate-400">{doc.total_pages ?? "—"}</TableCell>
-      <TableCell>
+      <TableCell className="hidden text-slate-400 lg:table-cell">
+        {formatBytes(doc.file_size_bytes)}
+      </TableCell>
+      <TableCell className="hidden text-slate-400 lg:table-cell">
+        {doc.total_pages ?? "—"}
+      </TableCell>
+      <TableCell className="col-span-2 min-w-0 p-0 lg:col-span-1 lg:px-3 lg:py-2">
+        <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500 lg:hidden">
+          {t("documents.colAccess")}
+        </span>
         <div className="flex flex-wrap items-center gap-1">
           {normalizeAccessRoles(doc.access_roles).map((role) => (
             <Badge key={role} variant="outline">
@@ -114,7 +140,7 @@ export function DocumentRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-7"
+              className="size-11 lg:size-8"
               aria-label={t("documents.editAccessAria", { title: doc.title })}
               onClick={() => onEditAcl(doc)}
             >
@@ -123,7 +149,10 @@ export function DocumentRow({
           ) : null}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className={`${canManage ? "col-span-1" : "col-span-2"} min-w-0 p-0 lg:col-span-1 lg:px-3 lg:py-2`}>
+        <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500 lg:hidden">
+          {t("documents.colStatus")}
+        </span>
         <Badge variant={STATUS_VARIANT[status] ?? "secondary"}>{status}</Badge>
         {showSteps ? (
           <IngestionSteps
@@ -138,11 +167,12 @@ export function DocumentRow({
         ) : null}
       </TableCell>
       {canManage ? (
-        <TableCell>
+        <TableCell className="flex items-center justify-end p-0 lg:table-cell lg:px-3 lg:py-2">
           <Button
             type="button"
             variant="ghost"
             size="icon"
+            className="size-11 lg:size-8"
             aria-label={t("documents.deleteAria", { title: doc.title })}
             onClick={() => onAskDelete(doc)}
           >

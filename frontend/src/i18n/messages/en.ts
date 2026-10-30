@@ -259,6 +259,7 @@ export const en = {
     colPages: "Pages",
     colAccess: "Access",
     colStatus: "Status",
+    moreDetails: "More details",
     openPdf: "Open PDF",
     openDocx: "Preview DOCX",
     deleteAria: "Delete {title}",

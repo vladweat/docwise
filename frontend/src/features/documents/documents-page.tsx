@@ -96,9 +96,9 @@ export function DocumentsPage() {
             />
           ) : null}
           {query.data && query.data.items.length > 0 ? (
-            <div className="rounded-xl border border-slate-800">
-              <Table className="min-w-[48rem]">
-                <TableHeader>
+            <div className="lg:rounded-xl lg:border lg:border-slate-800">
+              <Table className="min-w-full lg:min-w-[48rem]">
+                <TableHeader className="hidden lg:table-header-group">
                   <TableRow>
                     <TableHead>{t("documents.colTitle")}</TableHead>
                     <TableHead>{t("documents.colSize")}</TableHead>
@@ -108,7 +108,7 @@ export function DocumentsPage() {
                     {canManage ? <TableHead> </TableHead> : null}
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="block space-y-3 p-3 lg:table-row-group lg:space-y-0 lg:p-0">
                   {query.data.items.map((doc) => (
                     <DocumentRow
                       key={doc.id}
