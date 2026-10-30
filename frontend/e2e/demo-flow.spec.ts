@@ -1,10 +1,17 @@
 import { expect, test } from "@playwright/test";
 
-test("browser tab uses the DOCwise title and favicon", async ({ page }) => {
+test("browser tab uses page-specific titles and a favicon", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("dw_locale", "ru"));
   await page.goto("/");
-  await expect.poll(() => page.title()).toBe("DOCwise");
+  await expect.poll(() => page.title()).toBe("Чат — Docwise");
   const iconHref = await page.locator('link[rel="icon"]').first().getAttribute("href");
   expect(iconHref).toMatch(/icon\.svg/);
+
+  await page.getByRole("button", { name: "en", exact: true }).click();
+  await expect.poll(() => page.title()).toBe("Chat — Docwise");
+  await page.locator("header").getByRole("link", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/login");
+  await expect.poll(() => page.title()).toBe("Sign in — Docwise");
 });
 
 test("mobile chat empty state omits the extra bottom section", async ({ page }) => {

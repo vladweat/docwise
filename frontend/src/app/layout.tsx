@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 
+import { DocumentTitleSync } from "@/components/document-title-sync";
 import { AppHeader } from "@/components/app-header";
 import { AuthProvider } from "@/features/auth/auth-provider";
 import { LocaleProvider } from "@/i18n/locale-provider";
@@ -12,7 +13,7 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "DOCwise",
+  title: "Docwise",
   description: "Permission-aware corporate document search and Q&A",
 };
 
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <LocaleProvider>
             <AuthProvider>
+              <DocumentTitleSync />
               <AppHeader />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
               <ToastHost />
