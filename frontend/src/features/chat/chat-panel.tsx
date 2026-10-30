@@ -299,7 +299,7 @@ export function ChatPanel({
 
       <div className="shrink-0 border-t border-slate-800 bg-slate-950 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-4 sm:py-4">
         <div className="mx-auto min-w-0 max-w-2xl">
-          <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-2 py-2">
+          <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-2 py-1.5 sm:py-2">
             <Textarea
               ref={inputRef}
               value={question}
@@ -311,12 +311,12 @@ export function ChatPanel({
               placeholder={t("chat.placeholder")}
               disabled={sending || loadingHistory}
               rows={1}
-              className="max-h-32 min-h-16 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent sm:max-h-40 sm:min-h-11"
+              className="max-h-32 min-h-11 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent sm:max-h-40"
             />
             <Button
               type="button"
               size="icon"
-              className="mb-0.5 size-11 shrink-0 sm:size-9"
+              className="size-10 shrink-0 sm:size-9"
               disabled={sending || loadingHistory || !question.trim()}
               onClick={() => void send(question)}
               aria-label={t("chat.send")}

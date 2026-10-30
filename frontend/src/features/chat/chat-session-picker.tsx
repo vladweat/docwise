@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ChatSessionList } from "@/features/chat/chat-session-list";
@@ -35,12 +33,9 @@ export function ChatSessionPicker({ currentId }: { currentId?: string | null }) 
         </DialogTrigger>
       </div>
       <DialogContent
-        className="grid min-h-[55dvh] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:min-h-0"
+        className="grid h-[min(42dvh,24rem)] min-h-60 grid-rows-[auto_minmax(0,1fr)] gap-2 overflow-hidden p-4 lg:h-[min(80dvh,36rem)] lg:min-h-0 lg:gap-4 lg:p-5"
         showCloseButton
       >
-        <DialogHeader>
-          <DialogTitle>{t("chat.sessions")}</DialogTitle>
-        </DialogHeader>
         <ChatSessionList
           currentId={currentId}
           onClose={() => setOpen(false)}

@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { DialogTitle } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n/locale-provider";
@@ -62,13 +63,26 @@ export function ChatSessionList({
     router.push("/");
   }
 
-  const header = (
+  const header = dialogMode ? (
+    <div className="flex items-center justify-between gap-2 px-1 py-1 pr-8">
+      <DialogTitle className="text-base">{t("chat.sessions")}</DialogTitle>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="h-9 shrink-0 gap-2 px-3"
+        aria-label={t("chat.newSession")}
+        onClick={startNew}
+      >
+        <MessageSquarePlus className="size-4" />
+        {t("chat.newSession")}
+      </Button>
+    </div>
+  ) : (
     <div className="flex items-center gap-1 px-2 py-2">
-      {dialogMode ? null : (
-        <p className="min-w-0 flex-1 px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-          {t("chat.sessions")}
-        </p>
-      )}
+      <p className="min-w-0 flex-1 px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+        {t("chat.sessions")}
+      </p>
       <Button
         type="button"
         variant="ghost"
@@ -80,7 +94,7 @@ export function ChatSessionList({
         <MessageSquarePlus />
         <span className="hidden sm:inline">{t("chat.newSession")}</span>
       </Button>
-      {onClose && !dialogMode ? (
+      {onClose ? (
         <Button
           type="button"
           variant="ghost"
@@ -131,12 +145,12 @@ export function ChatSessionList({
             const active = item.id === activeId;
             const title = item.title || untitled;
             return (
-              <li key={item.id} className="group flex shrink-0 items-start gap-0.5 md:shrink">
+              <li key={item.id} className="group flex min-h-11 shrink-0 items-center gap-1 md:shrink">
                 <Link
                   href={`/chat/${item.id}`}
                   onClick={() => onClose?.()}
                   className={cn(
-                    "min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm",
+                    "flex min-h-11 min-w-0 flex-1 flex-col justify-center truncate rounded-lg px-2 py-1.5 text-left text-sm",
                     active
                       ? "bg-slate-800 text-slate-100"
                       : "text-slate-300 hover:bg-slate-900",
@@ -158,7 +172,7 @@ export function ChatSessionList({
                   variant="ghost"
                   size="icon"
                   className={cn(
-                    "size-7 shrink-0 text-slate-500 hover:text-red-300",
+                    "size-11 shrink-0 text-slate-500 hover:text-red-300",
                     sidebar && !dialogMode
                       ? "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                       : "",

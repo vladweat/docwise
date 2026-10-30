@@ -209,7 +209,7 @@ export const en = {
     citationClickHint: "Tap a citation tag above the answer to open the PDF on that page.",
     mobileCitationHint: "On mobile, a citation opens the document in full screen.",
     askAboutDocument: "What are the key points in {title}?",
-    placeholder: "Question about corporate documents…",
+    placeholder: "Ask about documents…",
     send: "Send",
     inputHint: "Enter to send, Shift+Enter for new line",
     typing: "Typing…",

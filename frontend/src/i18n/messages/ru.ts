@@ -214,7 +214,7 @@ export const ru = {
     citationClickHint: "Нажмите на тег цитаты над ответом — откроется PDF на этой странице.",
     mobileCitationHint: "На телефоне цитата открывает документ на весь экран.",
     askAboutDocument: "Какие ключевые положения в документе «{title}»?",
-    placeholder: "Вопрос по корпоративным документам…",
+    placeholder: "Спросите о документах…",
     send: "Отправить",
     inputHint: "Enter — отправить, Shift+Enter — новая строка",
     typing: "Печатает…",
