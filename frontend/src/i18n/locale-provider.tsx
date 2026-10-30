@@ -35,16 +35,14 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const next = readStoredLocale() ?? detectBrowserLocale();
     setLocaleState(next);
+    document.documentElement.lang = next;
     setClientLocale(next);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.lang = locale;
-    setClientLocale(locale);
-  }, [locale]);
-
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
+    document.documentElement.lang = next;
+    setClientLocale(next);
     window.localStorage.setItem(LOCALE_STORAGE_KEY, next);
   }, []);
 

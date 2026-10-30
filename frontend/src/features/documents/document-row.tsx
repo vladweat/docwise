@@ -89,16 +89,20 @@ export function DocumentRow({
   return (
     <TableRow className="mb-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3 lg:mb-0 lg:table-row lg:gap-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
       <TableCell className="col-span-2 min-w-0 p-0 text-slate-100 lg:col-span-1 lg:px-3 lg:py-2">
-        <p className="break-words">{doc.title}</p>
-        <p className="mt-0.5 text-xs text-slate-500">{formatDateTime(doc.created_at)}</p>
-        <Button
-          type="button"
-          variant="link"
-          className="mt-1 h-auto p-0 text-xs text-blue-300 hover:text-blue-200"
-          onClick={() => onPreview(doc)}
-        >
-          {isDocxDocument(doc) ? t("documents.openDocx") : t("documents.openPdf")}
-        </Button>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 lg:block">
+          <p className="min-w-0 flex-1 truncate lg:whitespace-normal lg:break-words">{doc.title}</p>
+          <p className="shrink-0 whitespace-nowrap text-[10px] text-slate-500 lg:mt-0.5 lg:text-xs">
+            {formatDateTime(doc.created_at)}
+          </p>
+          <Button
+            type="button"
+            variant="link"
+            className="h-7 shrink-0 whitespace-nowrap px-0 text-xs text-blue-300 hover:text-blue-200 lg:mt-1 lg:block lg:h-auto"
+            onClick={() => onPreview(doc)}
+          >
+            {isDocxDocument(doc) ? t("documents.openDocx") : t("documents.openPdf")}
+          </Button>
+        </div>
         <details className="mt-1 lg:hidden">
           <summary className="w-fit cursor-pointer py-1 text-xs text-slate-400">
             {t("documents.moreDetails")}
@@ -126,10 +130,10 @@ export function DocumentRow({
         {doc.total_pages ?? "—"}
       </TableCell>
       <TableCell className="col-span-2 min-w-0 p-0 lg:col-span-1 lg:px-3 lg:py-2">
-        <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500 lg:hidden">
+        <span className="mr-1 inline text-[10px] font-medium uppercase tracking-wide text-slate-500 lg:hidden">
           {t("documents.colAccess")}
         </span>
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="inline-flex flex-wrap items-center gap-1">
           {normalizeAccessRoles(doc.access_roles).map((role) => (
             <Badge key={role} variant="outline">
               {accessRoleMessageKey(role) ? t(accessRoleMessageKey(role)!) : humanizeAccessTag(role)}
@@ -150,7 +154,7 @@ export function DocumentRow({
         </div>
       </TableCell>
       <TableCell className={`${canManage ? "col-span-1" : "col-span-2"} min-w-0 p-0 lg:col-span-1 lg:px-3 lg:py-2`}>
-        <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-slate-500 lg:hidden">
+        <span className="mr-1 inline text-[10px] font-medium uppercase tracking-wide text-slate-500 lg:hidden">
           {t("documents.colStatus")}
         </span>
         <Badge variant={STATUS_VARIANT[status] ?? "secondary"}>{status}</Badge>

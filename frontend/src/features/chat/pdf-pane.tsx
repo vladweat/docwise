@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, FileText, PanelRightClose } from "lucide-react";
+import { ChevronLeft, FileText } from "lucide-react";
 import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
@@ -28,24 +28,6 @@ const DocxViewer = dynamic(() => import("@/features/chat/docx-viewer").then((mod
   ),
 });
 
-function ClosePaneButton({ onClose }: { onClose?: () => void }) {
-  const { t } = useI18n();
-  if (!onClose) return null;
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="hidden size-8 shrink-0 lg:inline-flex"
-      onClick={onClose}
-      aria-label={t("chat.hideDocumentPane")}
-      title={t("chat.hideDocumentPane")}
-    >
-      <PanelRightClose />
-    </Button>
-  );
-}
-
 export function PdfPlaceholder() {
   const { t } = useI18n();
   return (
@@ -59,11 +41,9 @@ export function PdfPlaceholder() {
 export function PdfPane({
   target,
   onBack,
-  onClose,
 }: {
   target: ViewerTarget | null;
   onBack?: () => void;
-  onClose?: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -90,7 +70,6 @@ export function PdfPane({
             <p className="truncate text-sm text-slate-500">{t("common.document")}</p>
           )}
         </div>
-        <ClosePaneButton onClose={onClose} />
       </div>
       {target ? (
         target.format === "docx" ? <DocxViewer target={target} /> : <PdfViewer target={target} />

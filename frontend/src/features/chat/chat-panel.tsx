@@ -311,7 +311,7 @@ export function ChatPanel({
               placeholder={t("chat.placeholder")}
               disabled={sending || loadingHistory}
               rows={1}
-              className="max-h-32 min-h-11 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent sm:max-h-40"
+              className="max-h-32 min-h-11 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent px-1 py-[10px] leading-6 sm:max-h-40"
             />
             <Button
               type="button"

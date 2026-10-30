@@ -78,7 +78,7 @@ export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
                 else openPane();
               }}
               left={<ChatPanel sessionId={sessionId} onSelectCitation={onSelectCitation} />}
-              right={<PdfPane target={target} onClose={closePane} />}
+              right={<PdfPane target={target} />}
             />
           </div>
         </div>

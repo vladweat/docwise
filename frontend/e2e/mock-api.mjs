@@ -116,6 +116,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, 200, currentUser, { "set-cookie": "docwise_e2e=1; HttpOnly; Path=/; SameSite=Lax" });
     return;
   }
+  if (url.pathname === "/api/v1/documents/access-options") {
+    sendJson(response, 200, { roles: ["all", "employee", "manager", "admin"], departments: [] });
+    return;
+  }
   if (url.pathname === "/api/v1/documents") {
     sendJson(response, 200, { items: [document], total: 1, limit: 50, offset: 0 });
     return;
