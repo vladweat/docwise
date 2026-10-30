@@ -1,5 +1,15 @@
 import { expect, test } from "@playwright/test";
 
+test("mobile chat empty state omits the extra bottom section", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/login?mode=demo");
+  await page.getByRole("button", { name: "Employee" }).click();
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("heading", { name: "Ask about your documents" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New", exact: true })).toHaveCount(0);
+  await expect(page.getByText("On mobile, a citation opens the document in full screen.")).toHaveCount(0);
+});
+
 test("login shows a new session before the answer, then opens its PDF citation", async ({ page }) => {
   await page.goto("/login?mode=demo");
   await page.getByRole("button", { name: "Employee" }).click();

@@ -207,7 +207,6 @@ export const en = {
     emptyCorpusEmployeeHint: "Ask your org admin to upload the knowledge base. You can check the document list anytime.",
     emptyCorpusViewDocuments: "Open document list",
     citationClickHint: "Tap a citation tag above the answer to open the PDF on that page.",
-    mobileCitationHint: "On mobile, a citation opens the document in full screen.",
     askAboutDocument: "What are the key points in {title}?",
     placeholder: "Ask about documents…",
     send: "Send",

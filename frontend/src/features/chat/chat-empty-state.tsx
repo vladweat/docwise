@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MessageSquarePlus } from "lucide-react";
 
 import { DocumentUploadModal } from "@/features/documents/document-upload-modal";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useCorpusReady } from "@/features/chat/lib/use-corpus-ready";
 import { chatSuggestionKeysFor, isDemoOrganization } from "@/features/chat/lib/chat-suggestions";
-import { startNewChatSession } from "@/features/chat/lib/new-session";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/locale-provider";
@@ -16,10 +14,8 @@ import { canManageKnowledgeBase } from "@/lib/access-roles";
 
 export function ChatEmptyState({
   onSend,
-  onStartNew,
 }: {
   onSend: (text: string) => void;
-  onStartNew?: () => void;
 }) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -30,11 +26,6 @@ export function ChatEmptyState({
 
   const showGuidedEmpty = !corpusLoading && !hasReadyCorpus;
   const suggestionKeys = chatSuggestionKeysFor(user);
-
-  function handleNewSession() {
-    startNewChatSession();
-    onStartNew?.();
-  }
 
   if (showGuidedEmpty) {
     return (
@@ -59,7 +50,6 @@ export function ChatEmptyState({
               </Button>
             </div>
           )}
-          <MobileEmptyExtras onNewSession={handleNewSession} />
         </div>
         <DocumentUploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       </>
@@ -89,20 +79,6 @@ export function ChatEmptyState({
           );
         })}
       </div>
-      <MobileEmptyExtras onNewSession={handleNewSession} />
-    </div>
-  );
-}
-
-function MobileEmptyExtras({ onNewSession }: { onNewSession: () => void }) {
-  const { t } = useI18n();
-  return (
-    <div className="flex w-full max-w-md flex-col items-center gap-2 border-t border-slate-800/80 pt-4 lg:hidden">
-      <Button type="button" variant="ghost" size="sm" className="gap-2" onClick={onNewSession}>
-        <MessageSquarePlus className="size-4" />
-        {t("chat.newSession")}
-      </Button>
-      <p className="text-xs text-slate-500">{t("chat.mobileCitationHint")}</p>
     </div>
   );
 }
