@@ -16,13 +16,16 @@ export function ToastHost() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed right-3 top-16 z-50 flex w-[min(24rem,calc(100vw-1.5rem))] flex-col gap-2 sm:right-4">
+    <div className="pointer-events-none fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 flex max-h-[40dvh] flex-col gap-3 overflow-hidden sm:bottom-auto sm:left-auto sm:right-4 sm:top-16 sm:w-[min(24rem,calc(100vw-2rem))]">
       {toasts.map((toast) => (
         <Alert
           key={toast.id}
           variant={toast.variant === "error" ? "destructive" : "default"}
-          className={cn("pointer-events-auto flex flex-col items-stretch gap-2 py-2.5 shadow-lg")}
-          role="status"
+          className={cn(
+            "pointer-events-auto flex shrink-0 flex-col items-stretch gap-2 rounded-xl border bg-slate-950 px-4 py-3 shadow-xl",
+            toast.variant === "error" ? "border-red-800/80" : "border-slate-700",
+          )}
+          role={toast.variant === "error" ? "alert" : "status"}
         >
           <div className="flex items-start gap-2">
             <p className="min-w-0 flex-1">{toast.message}</p>
