@@ -100,8 +100,7 @@ export function ChatPanel({
           router.replace("/");
           return;
         }
-        const message =
-          err instanceof ApiRequestError ? err.message : t("errors.loadChatHistoryFailed");
+        const message = t("errors.loadChatHistoryFailed");
         useToastStore.getState().push(message);
       })
       .finally(() => {
@@ -138,7 +137,8 @@ export function ChatPanel({
   function chatErrorMessage(status: number | undefined, raw: string): string {
     const showDevLlmHint =
       process.env.NODE_ENV === "development" || canManageOrganization(user);
-    return userFacingChatError(status, raw, { showDevLlmHint });
+    const localized = userFacingChatError(status, raw, { showDevLlmHint });
+    return localized === raw ? t("errors.chatReplyFailed") : localized;
   }
 
   async function send(text: string) {
@@ -225,7 +225,7 @@ export function ChatPanel({
         err instanceof ApiRequestError
           ? chatErrorMessage(err.status, err.message)
           : err instanceof Error
-            ? err.message
+            ? chatErrorMessage(undefined, err.message)
             : t("errors.chatReplyFailed");
       useToastStore.getState().push(message);
       useChatStore.getState().patchMessage(assistantId, (item) => ({
@@ -311,7 +311,7 @@ export function ChatPanel({
               placeholder={t("chat.placeholder")}
               disabled={sending || loadingHistory}
               rows={1}
-              className="max-h-32 min-h-11 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent sm:max-h-40"
+              className="max-h-32 min-h-16 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent sm:max-h-40 sm:min-h-11"
             />
             <Button
               type="button"

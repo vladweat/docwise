@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { AuthGate } from "@/features/auth/auth-gate";
 import { ChatPanel } from "@/features/chat/chat-panel";
+import { ChatSessionPicker } from "@/features/chat/chat-session-picker";
 import { ChatSessionList } from "@/features/chat/chat-session-list";
 import { PaneRail } from "@/features/chat/pane-rail";
 import { PdfPane } from "@/features/chat/pdf-pane";
@@ -50,8 +51,8 @@ export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
   }
 
   const chat = (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
-      <ChatSessionList currentId={activeId} />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <ChatSessionPicker currentId={activeId} />
       <ChatPanel sessionId={sessionId} onSelectCitation={onSelectCitation} />
     </div>
   );

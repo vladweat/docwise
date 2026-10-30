@@ -101,9 +101,9 @@ export const ru = {
     engineering: "Инженерия",
     legal: "Юристы",
     security: "Безопасность",
-    admin: "Admin",
-    manager: "Manager",
-    employee: "Employee",
+    admin: "Администратор",
+    manager: "Менеджер",
+    employee: "Сотрудник",
   },
   gate: {
     loading: "Загрузка…",

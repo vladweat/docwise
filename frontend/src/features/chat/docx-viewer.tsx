@@ -45,7 +45,10 @@ export function DocxViewer({ target }: { target: ViewerTarget }) {
         setDownloadUrl(objectUrl);
       })
       .catch((err) => {
-        const message = err instanceof ApiRequestError ? err.message : t("errors.loadDocxFailed");
+        const message =
+          err instanceof ApiRequestError && err.status === 404
+            ? t("errors.documentUnavailable")
+            : t("errors.loadDocxFailed");
         setError(message);
       })
       .finally(() => setLoading(false));

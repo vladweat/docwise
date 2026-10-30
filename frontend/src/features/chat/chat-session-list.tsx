@@ -20,7 +20,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/i18n/locale-provider";
-import { ApiRequestError, deleteChatSession, fetchChatSessions } from "@/lib/api";
+import { deleteChatSession, fetchChatSessions } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { startNewChatSession } from "@/features/chat/lib/new-session";
@@ -32,9 +32,11 @@ import type { ChatSessionSummary } from "@/types/chat";
 export function ChatSessionList({
   currentId,
   onClose,
+  dialogMode = false,
 }: {
   currentId?: string | null;
   onClose?: () => void;
+  dialogMode?: boolean;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -56,19 +58,29 @@ export function ChatSessionList({
 
   function startNew() {
     startNewChatSession(queryClient);
+    onClose?.();
     router.push("/");
   }
 
   const header = (
     <div className="flex items-center gap-1 px-2 py-2">
-      <p className="min-w-0 flex-1 px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-        {t("chat.sessions")}
-      </p>
-      <Button type="button" variant="ghost" size="sm" className="h-8 px-2" onClick={startNew}>
+      {dialogMode ? null : (
+        <p className="min-w-0 flex-1 px-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+          {t("chat.sessions")}
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 px-2"
+        aria-label={t("chat.newSession")}
+        onClick={startNew}
+      >
         <MessageSquarePlus />
         <span className="hidden sm:inline">{t("chat.newSession")}</span>
       </Button>
-      {onClose ? (
+      {onClose && !dialogMode ? (
         <Button
           type="button"
           variant="ghost"
@@ -85,10 +97,9 @@ export function ChatSessionList({
   );
 
   if (query.error && !query.data) {
-    const message =
-      query.error instanceof ApiRequestError ? query.error.message : t("errors.loadSessionsFailed");
+    const message = t("errors.loadSessionsFailed");
     return (
-      <aside className={sessionAsideClass(sidebar)}>
+      <aside className={sessionAsideClass(sidebar, dialogMode)}>
         {header}
         <p className="px-3 pb-3 text-xs text-red-400">{message}</p>
       </aside>
@@ -98,12 +109,12 @@ export function ChatSessionList({
   const items = query.data?.items ?? [];
 
   return (
-    <aside className={sessionAsideClass(sidebar)}>
+    <aside className={sessionAsideClass(sidebar, dialogMode)}>
       {header}
       <ul
         className={cn(
           "flex min-h-0 flex-1 gap-1 overflow-x-auto px-2 pb-2",
-          sidebar
+          sidebar || dialogMode
             ? "flex-col overflow-y-auto overflow-x-hidden pb-3"
             : "md:flex-col md:overflow-y-auto md:overflow-x-hidden md:pb-3",
         )}
@@ -123,6 +134,7 @@ export function ChatSessionList({
               <li key={item.id} className="group flex shrink-0 items-start gap-0.5 md:shrink">
                 <Link
                   href={`/chat/${item.id}`}
+                  onClick={() => onClose?.()}
                   className={cn(
                     "min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm",
                     active
@@ -147,7 +159,9 @@ export function ChatSessionList({
                   size="icon"
                   className={cn(
                     "size-7 shrink-0 text-slate-500 hover:text-red-300",
-                    sidebar ? "opacity-0 group-hover:opacity-100 focus-visible:opacity-100" : "",
+                    sidebar && !dialogMode
+                      ? "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      : "",
                   )}
                   aria-label={`${t("chat.deleteSession")} ${title}`.trim()}
                   title={t("chat.deleteSession")}
@@ -165,11 +179,7 @@ export function ChatSessionList({
           type="button"
           className="px-3 pb-2 text-left text-[11px] text-red-400 hover:underline"
           onClick={() => {
-            pushToast(
-              query.error instanceof ApiRequestError
-                ? query.error.message
-                : t("errors.loadSessionsFailed"),
-            );
+            pushToast(t("errors.loadSessionsFailed"));
             void query.refetch();
           }}
         >
@@ -211,10 +221,8 @@ function DeleteSessionDialog({
       }
       onClose();
     },
-    onError: (err) => {
-      const message =
-        err instanceof ApiRequestError ? err.message : t("errors.deleteSessionFailed");
-      pushToast(message, "error");
+    onError: () => {
+      pushToast(t("errors.deleteSessionFailed"), "error");
     },
   });
 
@@ -250,7 +258,8 @@ function DeleteSessionDialog({
   );
 }
 
-function sessionAsideClass(sidebar: boolean) {
+function sessionAsideClass(sidebar: boolean, dialogMode: boolean) {
+  if (dialogMode) return "flex h-full min-h-0 w-full flex-col overflow-hidden bg-transparent";
   return sidebar
     ? "flex h-full w-52 shrink-0 flex-col border-r border-slate-800 bg-slate-950"
     : "flex max-h-28 w-full shrink-0 flex-col border-b border-slate-800 md:max-h-none md:w-52 md:border-b-0 md:border-r";

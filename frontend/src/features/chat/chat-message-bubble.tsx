@@ -14,8 +14,7 @@ import {
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/locale-provider";
-import { ApiRequestError, sendChatFeedback } from "@/lib/api";
-import { userFacingApiMessage } from "@/lib/quota";
+import { sendChatFeedback } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useChatStore, type UiMessage } from "@/features/chat/stores/chat-store";
 import { useToastStore } from "@/stores/toast-store";
@@ -51,11 +50,8 @@ export function ChatMessageBubble({
       await sendChatFeedback(message.serverId, rating);
       useChatStore.getState().patchMessage(message.id, { feedback: rating });
       useToastStore.getState().push(t("chat.feedbackThanks"));
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : t("errors.feedbackFailed");
-      const text =
-        err instanceof ApiRequestError ? userFacingApiMessage(err.status, err.message) : raw;
-      useToastStore.getState().push(text);
+    } catch {
+      useToastStore.getState().push(t("errors.feedbackFailed"));
     } finally {
       setSavingFeedback(false);
     }

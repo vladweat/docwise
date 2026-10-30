@@ -15,13 +15,6 @@ export const ACCESS_DEPARTMENT_OPTIONS = [
   { value: "security" },
 ] as const;
 
-const ROLE_LABELS = new Map<string, string>([
-  ...ACCESS_ROLE_OPTIONS.map((item) => [item.value, item.label] as const),
-  ["all", "General"],
-  ["hr", "HR"],
-  ["finance", "Finance"],
-  ["engineering", "Engineering"],
-]);
 const ACCESS_ROLE_MESSAGE_KEYS: Record<string, MessageKey> = {
   all: "accessRoles.all",
   hr: "accessRoles.hr",
@@ -60,10 +53,6 @@ export function allowedRolesForUser(user: UserResponse): string[] {
 export function rolesOverlap(selected: string[], allowed: string[]): boolean {
   const allowedSet = new Set(allowed);
   return selected.some((role) => allowedSet.has(role));
-}
-
-export function formatAccessRole(role: string): string {
-  return ROLE_LABELS.get(role) ?? role;
 }
 
 export function accessRoleMessageKey(role: string): MessageKey | undefined {

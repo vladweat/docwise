@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import type { Citation } from "@/types/chat";
 
-export const PANE_OPEN_STORAGE_KEY = "dw-pdf-pane-open";
+export const PANE_OPEN_STORAGE_KEY = "dw-pdf-pane-open-v2";
 
 export interface ViewerTarget {
   docId: string;
@@ -46,7 +46,7 @@ export function hydratePaneOpen() {
 
 export const useViewerStore = create<ViewerState>((set) => ({
   target: null,
-  paneOpen: true,
+  paneOpen: false,
   openCitation: (citation) => {
     persistPaneOpen(true);
     set({

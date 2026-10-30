@@ -118,9 +118,7 @@ export function PdfViewer({ target }: { target: ViewerTarget }) {
         const message =
           err instanceof ApiRequestError && err.status === 404
             ? t("errors.documentUnavailable")
-            : err instanceof ApiRequestError
-              ? err.message
-              : t("errors.openDocumentFailed");
+            : t("errors.openDocumentFailed");
         setError(message);
       } finally {
         if (!cancelled) setLoading(false);

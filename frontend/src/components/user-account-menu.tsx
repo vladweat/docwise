@@ -8,8 +8,7 @@ import { useI18n } from "@/i18n/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { formatAccessRole } from "@/lib/access-roles";
-import { ApiRequestError } from "@/lib/api";
+import { accessRoleMessageKey } from "@/lib/access-roles";
 import { cn } from "@/lib/utils";
 import { useToastStore } from "@/stores/toast-store";
 
@@ -31,6 +30,7 @@ export function UserAccountMenu() {
 
   const orgs = user.organizations ?? [];
   const initials = emailInitials(user.email);
+  const roleMessageKey = accessRoleMessageKey(user.role);
 
   return (
     <details className="relative group/menu">
@@ -59,10 +59,8 @@ export function UserAccountMenu() {
               <Select
                 value={user.organization_id}
                 onValueChange={(organizationId) => {
-                  void switchOrganization(organizationId).catch((err: unknown) => {
-                    const message =
-                      err instanceof ApiRequestError ? err.message : t("nav.switchOrgFailed");
-                    pushToast(message, "error");
+                  void switchOrganization(organizationId).catch(() => {
+                    pushToast(t("nav.switchOrgFailed"), "error");
                   });
                 }}
               >
@@ -82,7 +80,7 @@ export function UserAccountMenu() {
             <p className="mt-0.5 truncate text-xs text-slate-500">
               {user.organization_name}
               <span className="text-slate-600"> · </span>
-              {formatAccessRole(user.role)}
+              {roleMessageKey ? t(roleMessageKey) : user.role}
             </p>
           )}
         </div>
