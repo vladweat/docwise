@@ -165,6 +165,16 @@ def test_latest_english_question_overrides_russian_history_and_excerpt_language(
     assert "regardless of prior conversation or document language" in system_messages
 
 
+def test_english_question_ignores_quoted_russian_document_title():
+    messages = build_messages(
+        "What does «Положение об отпусках сотрудников организации» say?",
+        [],
+    )
+
+    system_messages = "\n".join(item["content"] for item in messages if item["role"] == "system")
+    assert "latest user question is in English" in system_messages
+
+
 def test_latest_russian_question_overrides_english_history():
     messages = build_messages(
         "Какой лимит расходов?",

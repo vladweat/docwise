@@ -31,6 +31,7 @@ SYSTEM_PROMPT = (
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")
 _LATIN_RE = re.compile(r"[a-z]", re.IGNORECASE)
 _WORD_RE = re.compile(r"[a-z]+", re.IGNORECASE)
+_QUOTED_TEXT_RE = re.compile(r"«[^»]*»|“[^”]*”|‘[^’]*’")
 _ENGLISH_HINTS = frozenset(
     {
         "a",
@@ -71,11 +72,12 @@ _ENGLISH_HINTS = frozenset(
 
 
 def _latest_question_language_instruction(question: str) -> str:
-    cyrillic_count = len(_CYRILLIC_RE.findall(question))
-    latin_count = len(_LATIN_RE.findall(question))
+    language_sample = _QUOTED_TEXT_RE.sub(" ", question)
+    cyrillic_count = len(_CYRILLIC_RE.findall(language_sample))
+    latin_count = len(_LATIN_RE.findall(language_sample))
     if cyrillic_count > 0 and cyrillic_count >= latin_count:
         language = "Russian"
-    elif latin_count > 0 and set(_WORD_RE.findall(question.lower())) & _ENGLISH_HINTS:
+    elif latin_count > 0 and set(_WORD_RE.findall(language_sample.lower())) & _ENGLISH_HINTS:
         language = "English"
     else:
         return "Reply in the same language as the latest user question."
