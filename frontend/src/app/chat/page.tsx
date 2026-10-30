@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ChatWorkspace } from "@/features/chat/chat-workspace";
 
 export const metadata: Metadata = {
-  title: "Чат — Docwise",
+  title: "DOCwise",
 };
 
 export default function ChatPage() {

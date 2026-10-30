@@ -4,7 +4,7 @@ import { AuthPanel } from "@/features/auth/auth-panel";
 import { GuestGate } from "@/features/auth/guest-gate";
 
 export const metadata: Metadata = {
-  title: "Вход — Docwise",
+  title: "DOCwise",
 };
 
 export default function LoginPage() {

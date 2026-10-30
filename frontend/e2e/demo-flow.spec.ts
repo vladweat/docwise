@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+test("browser tab uses the DOCwise title and favicon", async ({ page }) => {
+  await page.goto("/");
+  await expect.poll(() => page.title()).toBe("DOCwise");
+  const iconHref = await page.locator('link[rel="icon"]').first().getAttribute("href");
+  expect(iconHref).toMatch(/icon\.svg/);
+});
+
 test("mobile chat empty state omits the extra bottom section", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/login?mode=demo");

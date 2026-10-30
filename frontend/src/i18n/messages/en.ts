@@ -4,15 +4,6 @@ export const en = {
     ru: "Русский",
     en: "English",
   },
-  meta: {
-    appDescription: "Permission-aware corporate document search and Q&A",
-    titleChat: "Chat — Docwise",
-    titleDocuments: "Documents — Docwise",
-    titleSettings: "Settings — Docwise",
-    titleLogin: "Sign in — Docwise",
-    titleInspect: "Inspect — Docwise",
-    titleWelcome: "Docwise",
-  },
   landing: {
     eyebrow: "Search across company knowledge",
     title: "Answers from your documents. With access controls and sources.",

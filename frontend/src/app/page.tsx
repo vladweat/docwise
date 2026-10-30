@@ -5,11 +5,11 @@ import { HomePage } from "@/features/home/home-page";
 import { demoLoginsAvailable } from "@/features/auth/demo-accounts";
 
 export const metadata: Metadata = {
-  title: "Docwise — поиск по корпоративным документам",
+  title: "DOCwise",
   description:
     "Корпоративный поиск по PDF и DOCX с разграничением доступа, ответами со ссылками на источники и проверяемым retrieval.",
   openGraph: {
-    title: "Docwise — поиск по корпоративным документам",
+    title: "DOCwise",
     description:
       "Найдите ответ в корпоративных документах, учитывая права доступа, и сразу проверьте источник.",
     type: "website",

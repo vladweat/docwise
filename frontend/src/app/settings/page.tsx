@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SettingsPage } from "@/features/settings/settings-page";
 
 export const metadata: Metadata = {
-  title: "Настройки — Docwise",
+  title: "DOCwise",
 };
 
 export default function SettingsRoute() {
