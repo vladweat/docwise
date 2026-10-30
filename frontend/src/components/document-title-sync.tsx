@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 import { useI18n } from "@/i18n/locale-provider";
+import { useAuth } from "@/features/auth/auth-provider";
 import type { MessageKey } from "@/i18n/messages";
 
 const PATH_TITLE: Record<string, MessageKey> = {
@@ -22,10 +23,14 @@ function titleKeyForPath(pathname: string): MessageKey {
 export function DocumentTitleSync() {
   const pathname = usePathname();
   const { t } = useI18n();
+  const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
     const syncTitle = () => {
-      const title = t(titleKeyForPath(pathname));
+      if (pathname === "/" && loading) return;
+      const titleKey =
+        pathname === "/" && !isAuthenticated ? "meta.titleWelcome" : titleKeyForPath(pathname);
+      const title = t(titleKey);
       if (document.title !== title) document.title = title;
     };
 
@@ -33,7 +38,7 @@ export function DocumentTitleSync() {
     const observer = new MutationObserver(syncTitle);
     observer.observe(document.head, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
-  }, [pathname, t]);
+  }, [pathname, t, isAuthenticated, loading]);
 
   return null;
 }

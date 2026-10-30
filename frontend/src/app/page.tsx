@@ -5,7 +5,7 @@ import { HomePage } from "@/features/home/home-page";
 import { demoLoginsAvailable } from "@/features/auth/demo-accounts";
 
 export const metadata: Metadata = {
-  title: "Чат — Docwise",
+  title: "Docwise",
   description:
     "Корпоративный поиск по PDF и DOCX с разграничением доступа, ответами со ссылками на источники и проверяемым retrieval.",
   openGraph: {

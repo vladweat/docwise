@@ -3,12 +3,12 @@ import { expect, test } from "@playwright/test";
 test("browser tab uses page-specific titles and a favicon", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("dw_locale", "ru"));
   await page.goto("/");
-  await expect.poll(() => page.title()).toBe("Чат — Docwise");
+  await expect.poll(() => page.title()).toBe("Docwise");
   const iconHref = await page.locator('link[rel="icon"]').first().getAttribute("href");
   expect(iconHref).toMatch(/icon\.svg/);
 
   await page.getByRole("button", { name: "en", exact: true }).click();
-  await expect.poll(() => page.title()).toBe("Chat — Docwise");
+  await expect.poll(() => page.title()).toBe("Docwise");
   await page.locator("header").getByRole("link", { name: "Sign in" }).click();
   await expect(page).toHaveURL("/login");
   await expect.poll(() => page.title()).toBe("Sign in — Docwise");
@@ -20,6 +20,7 @@ test("mobile chat empty state omits the extra bottom section", async ({ page }) 
   await page.getByRole("button", { name: "Employee" }).click();
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("heading", { name: "Ask about your documents" })).toBeVisible();
+  await expect.poll(() => page.title()).toBe("Chat — Docwise");
   await expect(page.getByRole("button", { name: "New", exact: true })).toHaveCount(0);
   await expect(page.getByText("On mobile, a citation opens the document in full screen.")).toHaveCount(0);
 });
