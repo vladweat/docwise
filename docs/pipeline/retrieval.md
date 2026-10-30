@@ -36,6 +36,7 @@ tenant scope — в [tenancy](../platform/tenancy.md). Если после thres
 - Dense/FTS используют embedding text с заголовком документа и страницы/раздела.
 - Rerank и prompt получают исходный `content`, без служебного заголовка.
 - Prompt содержит только Top-4 после ACL и rerank.
+- Язык ответа задаётся языком последнего вопроса пользователя, независимо от языка истории чата и retrieved excerpts; старые ответы не переиспользуются после смены prompt/cache version.
 - Цитата ссылается на страницу PDF или раздел DOCX; фиктивный номер страницы для DOCX не добавляется.
 - Audit хранит query, IDs chunks после rerank, latency и usage, но не текст chunks.
 

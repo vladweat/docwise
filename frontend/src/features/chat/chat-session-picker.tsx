@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PanelLeftOpen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -12,13 +13,19 @@ import {
 import { ChatSessionList } from "@/features/chat/chat-session-list";
 import { useI18n } from "@/i18n/locale-provider";
 
-export function ChatSessionPicker({ currentId }: { currentId?: string | null }) {
+export function ChatSessionPicker({
+  currentId,
+  className,
+}: {
+  currentId?: string | null;
+  className?: string;
+}) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <div className="flex shrink-0 items-center border-b border-slate-800 px-3 py-1.5">
+      <div className={cn("flex shrink-0 items-center border-b border-slate-800 px-3 py-1.5", className)}>
         <DialogTrigger asChild>
           <Button
             type="button"

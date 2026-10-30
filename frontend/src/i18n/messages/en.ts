@@ -218,7 +218,6 @@ export const en = {
     feedbackNotUseful: "Not useful",
     feedbackThanks: "Thanks for the feedback",
     hideDocumentPane: "Hide document pane",
-    showSessionsPane: "Show session list",
     showDocumentPane: "Show document pane",
     pickCitation: "Select a citation to open the source",
     backToChat: "Back to chat",

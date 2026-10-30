@@ -223,7 +223,6 @@ export const ru = {
     feedbackNotUseful: "Не полезно",
     feedbackThanks: "Спасибо за оценку",
     hideDocumentPane: "Скрыть панель документа",
-    showSessionsPane: "Показать список сессий",
     showDocumentPane: "Показать панель документа",
     pickCitation: "Выберите цитату, чтобы открыть источник",
     backToChat: "К чату",

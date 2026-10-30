@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { PanelRightOpen } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { AuthGate } from "@/features/auth/auth-gate";
 import { ChatPanel } from "@/features/chat/chat-panel";
 import { ChatSessionPicker } from "@/features/chat/chat-session-picker";
-import { ChatSessionList } from "@/features/chat/chat-session-list";
-import { PaneRail } from "@/features/chat/pane-rail";
 import { PdfPane } from "@/features/chat/pdf-pane";
 import { SplitPane } from "@/features/chat/split-pane";
 import { useChatStore } from "@/features/chat/stores/chat-store";
-import { hydrateLayout, useLayoutStore } from "@/features/chat/stores/layout-store";
 import { hydratePaneOpen, useViewerStore } from "@/features/chat/stores/viewer-store";
 import { useI18n } from "@/i18n/locale-provider";
 import type { Citation } from "@/types/chat";
@@ -29,9 +28,6 @@ export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
   const openCitation = useViewerStore((state) => state.openCitation);
   const closePane = useViewerStore((state) => state.closePane);
   const openPane = useViewerStore((state) => state.openPane);
-  const sessionsOpen = useLayoutStore((state) => state.sessionsOpen);
-  const closeSessions = useLayoutStore((state) => state.closeSessions);
-  const openSessions = useLayoutStore((state) => state.openSessions);
   const [mobilePdf, setMobilePdf] = useState(false);
   const desktop = useSyncExternalStore(
     subscribeDesktop,
@@ -42,7 +38,6 @@ export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
 
   useEffect(() => {
     hydratePaneOpen();
-    hydrateLayout();
   }, []);
 
   function onSelectCitation(citation: Citation) {
@@ -60,24 +55,32 @@ export function ChatWorkspace({ sessionId }: { sessionId?: string }) {
   return (
     <AuthGate>
       {desktop ? (
-        <div className="flex min-h-0 min-w-0 flex-1">
-          {sessionsOpen ? (
-            <ChatSessionList currentId={activeId} onClose={closeSessions} />
-          ) : (
-            <PaneRail side="left" label={t("chat.showSessionsPane")} onClick={openSessions} />
-          )}
-          <SplitPane
-            collapsed={!paneOpen}
-            onCollapsedChange={(collapsed) => {
-              if (collapsed) closePane();
-              else openPane();
-            }}
-            left={<ChatPanel sessionId={sessionId} onSelectCitation={onSelectCitation} />}
-            right={<PdfPane target={target} onClose={closePane} />}
-          />
-          {paneOpen ? null : (
-            <PaneRail side="right" label={t("chat.showDocumentPane")} onClick={openPane} />
-          )}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-slate-800 px-3">
+            <ChatSessionPicker currentId={activeId} className="border-0 px-0 py-0" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-slate-300"
+              aria-label={paneOpen ? t("chat.hideDocumentPane") : t("chat.showDocumentPane")}
+              onClick={() => (paneOpen ? closePane() : openPane())}
+            >
+              <PanelRightOpen className="size-4" />
+              {paneOpen ? t("chat.hideDocumentPane") : t("chat.showDocumentPane")}
+            </Button>
+          </div>
+          <div className="flex min-h-0 min-w-0 flex-1">
+            <SplitPane
+              collapsed={!paneOpen}
+              onCollapsedChange={(collapsed) => {
+                if (collapsed) closePane();
+                else openPane();
+              }}
+              left={<ChatPanel sessionId={sessionId} onSelectCitation={onSelectCitation} />}
+              right={<PdfPane target={target} onClose={closePane} />}
+            />
+          </div>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
