@@ -28,12 +28,13 @@ from app.services.chat.prompt import (
     build_messages,
     citations_from_chunks,
     load_cached_answer,
+    no_context_answer,
     save_cached_answer,
     title_from_query,
 )
 from app.services.chat.sessions import get_owned_session
 from app.services.org.quotas import QUOTA_EXCEEDED, has_chat_token_quota
-from app.services.retrieval import NO_CONTEXT_ANSWER, allowed_roles_for, retrieve as retrieval_retrieve
+from app.services.retrieval import allowed_roles_for, retrieve as retrieval_retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,7 @@ def _iter_sse_events_impl(
         )
 
         if not chunks:
-            result = ChatResult(answer=NO_CONTEXT_ANSWER, citations=[], cached=False, chunk_ids=[])
+            result = ChatResult(answer=no_context_answer(query), citations=[], cached=False, chunk_ids=[])
             result, persist_ok = persist_closed(
                 user_id,
                 organization_id,

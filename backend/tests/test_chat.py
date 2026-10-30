@@ -545,7 +545,51 @@ def test_empty_retrieval_refuses_without_openai(monkeypatch):
     tokens = "".join(
         item["content"] for item in events if isinstance(item, dict) and item.get("type") == "token"
     )
-    assert tokens == NO_CONTEXT_ANSWER
+    assert tokens == "The provided documents do not contain information on this question."
+    assert calls["stream"] == 0
+    get_settings.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        (
+            "What do the documents say about the annual leave policy?",
+            "The provided documents do not contain information on this question.",
+        ),
+        (
+            "Что документы говорят о политике отпусков?",
+            NO_CONTEXT_ANSWER,
+        ),
+    ],
+)
+def test_empty_retrieval_refusal_follows_question_language(monkeypatch, query, expected):
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    get_settings.cache_clear()
+    calls = {"stream": 0}
+
+    def fake_retrieve(_db, user, _query, **_kwargs):
+        return _result([], user)
+
+    def fake_stream(_messages, **_kwargs):
+        calls["stream"] += 1
+        yield "should not run"
+        yield LLMUsage()
+
+    monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+
+    http = _register(role=UserRole.employee.value)
+    response = http.post(
+        "/api/v1/chat/stream",
+        json={"query": f"{query} {uuid4().hex}"},
+    )
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    answer = "".join(
+        item["content"] for item in events if isinstance(item, dict) and item.get("type") == "token"
+    )
+    assert answer == expected
     assert calls["stream"] == 0
     get_settings.cache_clear()
 
@@ -660,7 +704,7 @@ def test_admin_cache_is_not_served_to_employee(monkeypatch):
         for item in employee_events
         if isinstance(item, dict) and item.get("type") == "token"
     )
-    assert employee_tokens == NO_CONTEXT_ANSWER
+    assert employee_tokens == "The provided documents do not contain information on this question."
     assert "Severance" not in employee_tokens
     assert "HR.pdf" not in employee_resp.text
     assert calls["stream"] == 1

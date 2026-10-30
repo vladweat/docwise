@@ -71,15 +71,27 @@ _ENGLISH_HINTS = frozenset(
 )
 
 
-def _latest_question_language_instruction(question: str) -> str:
+def _latest_question_language(question: str) -> str | None:
     language_sample = _QUOTED_TEXT_RE.sub(" ", question)
     cyrillic_count = len(_CYRILLIC_RE.findall(language_sample))
     latin_count = len(_LATIN_RE.findall(language_sample))
     if cyrillic_count > 0 and cyrillic_count >= latin_count:
-        language = "Russian"
+        return "Russian"
     elif latin_count > 0 and set(_WORD_RE.findall(language_sample.lower())) & _ENGLISH_HINTS:
-        language = "English"
-    else:
+        return "English"
+    return None
+
+
+def no_context_answer(question: str) -> str:
+    """Return the standard no-context response in the latest question's language."""
+    if _latest_question_language(question) == "English":
+        return "The provided documents do not contain information on this question."
+    return NO_CONTEXT_ANSWER
+
+
+def _latest_question_language_instruction(question: str) -> str:
+    language = _latest_question_language(question)
+    if language is None:
         return "Reply in the same language as the latest user question."
     return (
         f"The latest user question is in {language}. Answer in {language}, regardless of "
