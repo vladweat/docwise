@@ -14,6 +14,8 @@ import pytest
 
 def _eval_module(name: str):
     eval_dir = Path(__file__).resolve().parents[2] / "eval"
+    if str(eval_dir) not in sys.path:
+        sys.path.insert(0, str(eval_dir))
     spec = importlib.util.spec_from_file_location(f"eval_{name}", eval_dir / f"{name}.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -266,6 +268,30 @@ def test_refusal_with_context_keeps_retrieval_precision_but_not_faithfulness(mon
     assert scores.answer_relevance == 0.0
 
 
+def test_eval_is_refusal_recognizes_ru_and_en():
+    metrics = _eval_module("metrics")
+
+    assert metrics.is_refusal(metrics.NO_CONTEXT_ANSWER)
+    assert metrics.is_refusal("The provided documents do not contain information on this question.")
+    assert metrics.is_refusal("Answer: The provided documents do not contain information on this question.")
+    assert not metrics.is_refusal("The document says the office opens at nine.")
+
+
+def test_eval_empty_retrieval_uses_localized_refusal(monkeypatch):
+    run_eval = _eval_module("run_eval")
+    metrics = _eval_module("metrics")
+
+    def unexpected_generation(_messages):
+        raise AssertionError("empty retrieval should not call the LLM")
+
+    monkeypatch.setattr(run_eval, "stream_openai", unexpected_generation)
+
+    assert run_eval._generate("What do the documents say?", []) == (
+        "The provided documents do not contain information on this question."
+    )
+    assert run_eval._generate("Что говорят документы?", []) == metrics.NO_CONTEXT_ANSWER
+
+
 def test_deferred_answer_relevance_scores_zero_when_judge_generates_no_questions(monkeypatch):
     metrics = _eval_module("metrics")
     monkeypatch.setattr(metrics, "_complete_json", lambda _messages: {"questions": []})
@@ -296,7 +322,7 @@ def test_report_shows_generation_coverage_and_retrieval_stages_without_text():
     )
     result = run_eval.CaseResult(
         case=case,
-        answer=run_eval.REFUSAL,
+        answer=run_eval.no_context_answer(case.question),
         retrieved_doc_ids=[],
         retrieved_pages=[],
         contexts=[],

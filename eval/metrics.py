@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 from app.services.ingestion.embeddings import embed_texts_for_profile
 from app.services.chat.llm import complete_openai
+from app.services.chat.prompt import is_no_context_answer
 from app.services.retrieval import NO_CONTEXT_ANSWER
 from citation_metrics import citation_support_rate
 
@@ -38,8 +39,7 @@ class RagasScores:
 
 
 def is_refusal(answer: str) -> bool:
-    text = " ".join((answer or "").split())
-    return text == NO_CONTEXT_ANSWER or NO_CONTEXT_ANSWER in text
+    return is_no_context_answer(answer)
 
 
 def score_case(

@@ -48,15 +48,14 @@ from app.core.principal import Principal  # noqa: E402
 from app.core.rls import bind_session_rls  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.services.chat import build_messages  # noqa: E402
+from app.services.chat.prompt import no_context_answer  # noqa: E402
 from app.services.chat.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai  # noqa: E402
-from app.services.retrieval import NO_CONTEXT_ANSWER, retrieve  # noqa: E402
+from app.services.retrieval import retrieve  # noqa: E402
 from app.services.retrieval.reranker import select_evaluation_reranker_profile  # noqa: E402
 from app.services.retrieval.types import RetrievedChunk  # noqa: E402
 from app.services.org.tenancy import resolve_principal  # noqa: E402
 
 logger = logging.getLogger("eval")
-
-REFUSAL = NO_CONTEXT_ANSWER
 
 
 @dataclass
@@ -376,7 +375,7 @@ def _prepare_case(db, user: User, case: GoldenCase) -> PreparedCase:
 
 
 def _retrieval_only_result(prepared: PreparedCase) -> CaseResult:
-    prepared.result.answer = REFUSAL if not prepared.chunks else ""
+    prepared.result.answer = no_context_answer(prepared.result.case.question) if not prepared.chunks else ""
     return prepared.result
 
 
@@ -442,7 +441,7 @@ def _select_eval_model_profile(key: str) -> None:
 
 def _generate(question: str, chunks) -> str:
     if not chunks:
-        return REFUSAL
+        return no_context_answer(question)
     messages = build_messages(question, chunks, history=())
     parts: list[str] = []
     for item in stream_openai(messages):

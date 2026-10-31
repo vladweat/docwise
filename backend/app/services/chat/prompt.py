@@ -19,7 +19,9 @@ TITLE_MAX_LEN = 80
 
 SYSTEM_PROMPT = (
     "You are a corporate AI assistant. Answer strictly using the provided document excerpts. "
-    "If the excerpts do not contain the answer, reply exactly: "
+    "If the excerpts do not contain the answer, reply exactly with the standard refusal in the "
+    "same language as the latest user question. For English, use: "
+    "‘The provided documents do not contain information on this question.’ For Russian, use: "
     f"«{NO_CONTEXT_ANSWER}» "
     "Do not invent facts, numbers, or policies. "
     "Format lists and tables in Markdown. "
@@ -71,6 +73,8 @@ _ENGLISH_HINTS = frozenset(
     }
 )
 
+NO_CONTEXT_ANSWER_EN = "The provided documents do not contain information on this question."
+
 
 def _latest_question_language(question: str) -> str | None:
     language_sample = _QUOTED_TEXT_RE.sub(" ", question)
@@ -86,8 +90,17 @@ def _latest_question_language(question: str) -> str | None:
 def no_context_answer(question: str) -> str:
     """Return the standard no-context response in the latest question's language."""
     if _latest_question_language(question) == "English":
-        return "The provided documents do not contain information on this question."
+        return NO_CONTEXT_ANSWER_EN
     return NO_CONTEXT_ANSWER
+
+
+def is_no_context_answer(answer: str) -> bool:
+    """Recognize the standard refusal in either supported language, including short framing text."""
+    normalized = " ".join((answer or "").split()).casefold()
+    return any(
+        refusal.casefold() in normalized
+        for refusal in (NO_CONTEXT_ANSWER, NO_CONTEXT_ANSWER_EN)
+    )
 
 
 def _latest_question_language_instruction(question: str) -> str:

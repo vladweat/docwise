@@ -212,6 +212,17 @@ def test_ambiguous_query_keeps_generic_same_language_instruction():
     assert "latest user question is in Russian" not in system_messages
 
 
+def test_build_messages_localizes_no_context_instruction():
+    english_messages = build_messages("What do the documents say?", [])
+    russian_messages = build_messages("Что говорят документы?", [])
+
+    english_system = "\n".join(item["content"] for item in english_messages if item["role"] == "system")
+    russian_system = "\n".join(item["content"] for item in russian_messages if item["role"] == "system")
+
+    assert "The provided documents do not contain information on this question." in english_system
+    assert "В предоставленных документах нет информации по данному вопросу." in russian_system
+
+
 def test_stream_requires_auth():
     response = client.post("/api/v1/chat/stream", json={"query": "travel cap?"})
     assert response.status_code == 401
