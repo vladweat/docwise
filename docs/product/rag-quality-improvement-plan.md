@@ -195,7 +195,24 @@ citation support, language parity и ACL gates остаются пройдены
 - [ ] **Step 3: Inspect named weak cases and add one regression test per chosen behavior** before production changes.
 - [ ] **Step 4: Change only the best-supported retrieval or prompt behavior**; preserve runtime defaults until gates pass.
 - [ ] **Step 5: Re-run full evaluation and verify all quality/ACL gates** against the recorded baseline.
-- [ ] **Step 6: Save candidate report and commit each confirmed product change separately.** If no candidate passes, record findings and leave defaults unchanged.
+- [x] **Step 6: Save candidate report and commit each confirmed product change separately.** No candidate passed the available combined quality gates, so findings are recorded and defaults remain unchanged. See [constrained Task 3 diagnostic](../../reports/rag_quality_task3_diagnostic.md).
+
+**Task 3 execution note (2026-10-31):** The full 132-case retrieval-only baseline completed at
+batch size 16: target-document hit was `0.776`, ACL leaks `0 / 41`, and case errors `0`. Observed
+process peak RSS was `2.25 GiB` (`2,353,732 KiB`). Reranker
+scoring retained `39 / 40` MIRACL target documents, while thresholding/Top-4 retained `25 / 40`.
+Threshold `0.10` raised total positive target hits to `70 / 85` (`0.824`), still below the `0.980`
+floor and without a full generation/no-answer comparison. A 30-case generation slice completed
+with all six no-answer refusals correct and zero ACL leaks, but target-document hit was `0.750`
+and Context Precision was `0.944`; Answer Relevance could not be computed because the evaluator's
+multilingual MiniLM ONNX model was absent from the image. The full 132-case generation attempt was
+stopped at the VPS memory limit. These are diagnostic results, not a promotion gate. Steps 1,
+2, 3, and 5 remain open: full end-to-end baseline, same-dataset current/candidate comparison,
+complete weak-case review, and full candidate verification require a larger-memory eval worker
+with the evaluator model cache. No retrieval or prompt behavior was changed.
+The final branch review also closed an eval-gate gap: a generation run with no no-answer cases now
+fails that gate; retrieval-only runs continue to mark generation gates `N/A`. A regression test
+covers both modes.
 
 ### Task 4: Faster evaluation with batching, without async migration
 
@@ -209,17 +226,23 @@ citation support, language parity и ACL gates остаются пройдены
 - [x] **Step 2: Measure the fixed 30-case integration slice** to identify whether embedding or DB/retrieval dominates, while recording CPU and peak memory.
 - [x] **Step 3: Write failing order/alignment tests** for bounded query/document pair batches; leave query embedding batch size at `1` by default because size `32` did not improve the slice.
 - [x] **Step 4: Skip retrieval DB workers**; DB search was under 1% of measured retrieval time, so concurrent sessions would add RLS complexity without targeting the bottleneck.
-- [x] **Step 5: Re-run the same slice and compare quality, wall time, CPU, and peak memory.** The cross-query reranker candidate improved the measured rerank and wall time; full combined baseline remains gated on VPS resources.
+- [x] **Step 5: Re-run the same slice and compare quality, wall time, CPU, and peak memory.** The cross-query reranker candidate improved the measured rerank and wall time; the full end-to-end combined baseline remains gated on VPS resources.
 - [x] **Step 6: Commit the measured reranker batching separately** with a `perf:` message; do not add DB concurrency without evidence.
 
-**Execution order note:** A first full retrieval-only attempt on the 132-case combined MIRACL/synthetic corpus was stopped after about 14 minutes when available RAM fell below 0.5 GB; no report was written. On the fixed synthetic 30-case slice, batch-1 control took `73.05 s`, `2,181,088 KB` peak RSS, with query embedding `1.16 s`, DB search `0.53 s`, rerank `68.15 s`. Embedding batch `32` took `75.22 s` and did not improve retrieval, so the default remains `1`. Length-bucketed cross-query rerank batches of `64` took `71.87 s`, `2,172,012 KB` peak RSS; rerank was `65.60 s`, target-document hit stayed `1.000`, ACL leaks/errors stayed `0`. This is a single small-slice comparison and must be rechecked on the full combined dataset before treating the gain as representative. Keep Task 4 before the full Task 3 baseline and monitor VPS resources.
+**Execution order note:** A full 132-case retrieval-only run later completed with rerank batch `16` in `10m43s`; peak process RSS was `2.25 GiB` (`2,353,732 KiB`), target-document hit `0.776`, and ACL leaks/errors stayed `0`. Full generation was stopped when host available RAM fell below `0.5 GiB`. On the fixed synthetic 30-case slice, batch-1 control took `73.05 s`, `2.08 GiB` (`2,181,088 KiB`) peak RSS, with query embedding `1.16 s`, DB search `0.53 s`, rerank `68.15 s`. Embedding batch `32` took `75.22 s` and did not improve retrieval, so the default remains `1`. Length-bucketed cross-query rerank batches of `64` took `71.87 s`, `2.07 GiB` (`2,172,012 KiB`) peak RSS; rerank was `65.60 s`, target-document hit stayed `1.000`, ACL leaks/errors stayed `0`. On the 30-case long-passage generation diagnostic, rerank batch `16` took `155.50 s` at about `2.23 GiB` RSS (`2,335,236 KiB`); batch `32` took `171.11 s` and reached about `2.47 GiB` (`2,594,328 KiB`). The speed/memory tradeoff therefore depends on passage length; keep the existing default until it is validated on a larger-memory worker. Keep monitoring VPS resources.
 
 ### Task 5: Final verification and handoff
 
 - [ ] Run `make lint`, `make test-smoke`, `make test`, `make typecheck`, and `make test-frontend` when required infrastructure is available.
 - [ ] Run the full RAG eval and record code revision, dataset hash, configuration, and gate outcomes.
-- [ ] Review ACL boundaries, docs, and complete diff; do not push or deploy the demo without a separate request.
-- [ ] Complete a fresh whole-branch review and report deferred issues.
+- [x] Review ACL boundaries, docs, and complete diff; do not push or deploy the demo without a separate request.
+- [x] Complete a fresh whole-branch review and report deferred issues.
+
+**Verification status (2026-10-31):** The backend suite passed `356` tests with `3`
+deprecation warnings; focused Ruff checks and updated-document relative links passed. The `make`
+binary is unavailable, so Make targets, typecheck, and frontend checks were not run. The full
+end-to-end RAG generation benchmark and same-dataset candidate comparison remain open as recorded
+in Task 3.
 
 ## Ограничения
 

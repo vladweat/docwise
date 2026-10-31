@@ -56,6 +56,20 @@ case errors и ACL leaks — `0`. Профиль остаётся кандида
 релевантных источника. Это указывает на вариативность LLM judge/generation; полный отчёт сохраняет исходный
 результат `0.978`, а вывод о корректности конкретной цитаты проверяется по тексту источника.
 
+### Диагностика текущего профиля: 2026-10-31
+
+Полный 132-case **retrieval-only** run завершился с `0.776` target-document hit, `0/41` ACL leaks
+и `0` ошибок. На 40 MIRACL cases target hit был `0.975` после reranker scoring и `0.625` после
+threshold/Top-4. Порог `0.10` поднял combined positive hit с `66/85` до `70/85` (`0.824`), но
+остался ниже floor `0.980` и не проверял generation/no-answer поведение.
+
+Отдельный полный generation-срез из 30 кейсов (12 positive, 6 no-answer, 12 ACL-negative) получил
+`6/6` корректных отказов и `0/12` ACL leaks; target hit `0.750`, Context Precision `0.944`.
+Answer Relevance не рассчитан, так как multilingual MiniLM ONNX encoder отсутствовал в eval image.
+Полный 132-case generation run остановлен у предела памяти VPS. Эти результаты не являются
+полным end-to-end baseline и не обосновывают смену production profile или threshold. Подробности
+и ограничения: [Task 3 diagnostic](../../reports/rag_quality_task3_diagnostic.md).
+
 ### Historical full generation run: 2026-09-22, 35 cases
 
 | Метрика | Результат | Интерпретация |
@@ -81,6 +95,7 @@ case errors и ACL leaks — `0`. Профиль остаётся кандида
 | `eval/seed_demo.py` | Локальный demo corpus: 3 роли и 12 PDF |
 | `reports/rag_benchmark.md` | Сохранённые метрики и подробности прогона |
 | `reports/rag_candidate_multilingual.md` | Multilingual candidate benchmark, срезы и per-question результаты |
+| `reports/rag_quality_task3_diagnostic.md` | Full retrieval-only baseline и generation-срез Task 3 с ограничениями VPS |
 | `eval/prepare_miracl.py` | Загружает закреплённые MIRACL topics/qrels и выбранные Wikipedia passages; eval не запускает |
 
 Текущий синтетический golden set содержит 92 кейса: 45 answerable, 6 `no_answer` и 41 `acl_negative`.
