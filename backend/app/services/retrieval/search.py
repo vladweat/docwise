@@ -92,6 +92,7 @@ def _stage_hit(record: ChunkRecord, score: float) -> StageHit:
         page=record.page_number,
         score=score,
         snippet=_snippet(record.content),
+        section_title=record.section_title,
     )
 
 

@@ -72,6 +72,7 @@ class StageHit:
     page: int
     score: float
     snippet: str
+    section_title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,8 @@ class RetrievalResult:
     dense: list[StageHit] = field(default_factory=list)
     sparse: list[StageHit] = field(default_factory=list)
     rrf: list[StageHit] = field(default_factory=list)
+    rerank_scored: list[StageHit] = field(default_factory=list)
+    rerank_thresholded: list[StageHit] = field(default_factory=list)
     reranked: list[StageHit] = field(default_factory=list)
     allowed_roles: tuple[str, ...] = ()
 

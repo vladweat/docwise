@@ -51,6 +51,7 @@ _ENGLISH_HINTS = frozenset(
         "is",
         "list",
         "me",
+        "may",
         "my",
         "of",
         "please",
@@ -92,10 +93,16 @@ def no_context_answer(question: str) -> str:
 def _latest_question_language_instruction(question: str) -> str:
     language = _latest_question_language(question)
     if language is None:
-        return "Reply in the same language as the latest user question."
+        language_rule = "Reply in the same language as the latest user question."
+    else:
+        language_rule = (
+            f"The latest user question is in {language}. Answer in {language}, regardless of "
+            "prior conversation or document language."
+        )
     return (
-        f"The latest user question is in {language}. Answer in {language}, regardless of "
-        "prior conversation or document language."
+        f"{language_rule} Use concise, complete, self-contained sentences. Do not answer with a fragment "
+        "or switch to the language used by the document excerpts. Answer the exact question directly "
+        "and retain the specific conditions, deadlines, or named systems from the excerpts."
     )
 
 
@@ -156,6 +163,7 @@ def build_messages(
         if role not in {ChatMessageRole.user.value, ChatMessageRole.assistant.value}:
             continue
         messages.append({"role": role, "content": row.content})
+    messages.append({"role": "system", "content": _latest_question_language_instruction(question)})
     messages.append({"role": "user", "content": question})
     return messages
 

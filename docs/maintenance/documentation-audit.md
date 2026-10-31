@@ -1,6 +1,6 @@
 # Аудит документации
 
-**Дата сверки:** 2026-10-29 · **источник кода:** текущий `main` · **runtime:** публичное демо на VPS.
+**Дата сверки:** 2026-10-31 · **источник кода:** текущая рабочая копия на `main` · **runtime:** публичное демо на VPS.
 
 Документы объясняют продукт и эксплуатацию; они не заменяют source. При расхождении приоритет у кода,
 миграций, тестов и Compose.
@@ -22,6 +22,11 @@
 
 - README и навигация организованы для demo/interview, разработчика и оператора.
 - Архитектура, retrieval и ingestion имеют визуальные схемы и короткое описание потока.
+- Evaluation описывает подготовку MIRACL real-text candidate, источники/лицензии, ограничения выборки и отдельный запуск.
+- Первый полный MIRACL run от 2026-10-30 зафиксирован: 40 real cases, ACL leaks/case errors `0`; retrieval/quality gates не пройдены, см. candidate report.
+- Eval-отчёт отделяет ответы/отказы/наличие контекста, измеряет target-section Recall@1/4/10 + MRR на dense, sparse, RRF, rerank scoring, threshold и Top-4 стадиях и симулирует candidate thresholds на тех же scores; refusal/empty-context не получают идеальные Faithfulness/Context Precision.
+- Generation/judge evaluation поддерживает bounded concurrency (`--concurrency`, `EVAL_CONCURRENCY`, `make eval EVAL_CONCURRENCY=N`) и пакетный Answer Relevance embedding: retrieval остаётся последовательным, отчёт сохраняет порядок кейсов, прогресс логируется; default concurrency — 4, embedding batch — до 128 текстов. Полный concurrent run на 40 MIRACL-кейсах завершился за `17m 54s`, case errors `0`, ACL leaks `0/0`; target doc/section hit `0.925/0.850`, Faithfulness `0.960`, Context Precision `0.886`, English Answer Relevance `0.514`, 15 refusals. Это не controlled speed benchmark: последовательный запуск занял примерно полчаса, но времена и judge outputs зависят от сети/модели; retrieval оставался последовательным.
+- MIRACL stage diagnostic: target-document hit снизился `1.000 → 0.900` после threshold `0.25`; sweep `0.10` дал `0.925` document hit и `0.850` section Recall@4, всё ещё ниже gate. Отдельный generation/judge run candidate `0.10` завершился с одним case error: target document/section hit `0.925 / 0.850`, Faithfulness `1.000 (n=24)`, Context Precision `0.882 (n=37)`, English Answer Relevance `0.507 (n=20)`, 15 refusals из 40; ACL leaks `0`, но ACL-negative cases не запускались. Page gate для MIRACL теперь `N/A`, так как dataset не имеет page labels. Production threshold оставлен прежним.
 - API-контракт разделён на общий формат, documents, chat, inspect и organizations.
 - Новый uncached chat отправляет ранний `meta` с `session_id` до citation/token stream; SRS, API, ADR,
   frontend и NFR описывают этот порядок.
@@ -41,9 +46,16 @@
   `demo`, после чего повторно индексирует 12 синтетических fixtures.
 - Upload/ACL UI группирует organization roles и динамические department memberships; `all` выбирается отдельно,
   preview объясняет аудиторию и собственный read access. API `/documents/access-options` ограничен текущей org.
-- RAG snapshot от 2026-09-22 помечен как historical: golden set вырос с 35 до 69 кейсов и покрывает
-  разрешённый/запрещённый доступ для пяти подразделений; метрики не пересчитаны. Новые eval/load отчёты
-  записывают revision и hash dataset.
+- Historical RAG snapshot от 2026-09-22 рассчитан на 35 кейсах и не сравнивается напрямую с полным baseline
+  от 2026-10-30 на 69 кейсах. Multilingual candidate от 2026-10-30 расширяет corpus до 10 документов и golden set
+  до 86 кейсов: target document/page/section hit `1.000`, Faithfulness `1.000`, Context Precision `1.000`,
+  citation support `0.978`, English Answer Relevance `0.851` (gate pass), Russian Answer Relevance `0.792`,
+  `0/41` ACL leaks и 0 case errors. Повторный targeted citation judge для русского `ru-engineering-first-pr` дал
+  `1.000` против `0.000` в полном снимке; не повышайте исходную агрегированную метрику вручную. Eval отчёт записывает
+  hash dataset, безопасные model/retrieval параметры и hash
+  system prompt, группирует positive кейсы по письменности/persona/kind и показывает quality gates. English relevance
+  использует исторический BGE evaluator; Russian score пока без baseline. Полный прогон проваливается при нарушении
+  порога, ACL leak, ошибке кейса или отсутствующей метрике; retrieval-only помечает generation gates как `N/A`.
 
 ## Не считается гарантией
 
@@ -75,10 +87,11 @@ Private runbooks из gitignored `docs/_private/` не включены в clone
 
 | Проверка | Результат |
 | --- | --- |
+| Relative Markdown targets в `docs/` (без private/superpowers) | **PASS** — 31 файл, битых файловых ссылок нет |
 | Relative Markdown links и локальные anchors | **PASS** — 32 файла, `docs/superpowers/` исключён |
 | Fenced code/mermaid balance | **PASS** — незакрытых блоков нет |
 | `git diff --check` | **PASS** |
 | Compose base/public-demo syntax | **PASS** — обе конфигурации прошли `docker compose config -q` |
 | Markdownlint / Mermaid CLI | В репозитории не закреплены; внешние зависимости не добавлять для аудита |
 
-Прошлые документы были аудированы 2026-10-12; эта запись актуализирует результаты для состояния 2026-10-29.
+Прошлые документы были аудированы 2026-10-12; эта запись актуализирует результаты для состояния 2026-10-30.

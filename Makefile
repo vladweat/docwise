@@ -119,8 +119,9 @@ load-baseline:
 	docker compose exec -T -e PYTHONPATH=/app:/eval -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/load_baseline.py
 
 # Live RAG eval (not default CI): LLM key + fixture PDFs. Writes reports/rag_benchmark.md
+EVAL_CONCURRENCY ?= 4
 eval:
-	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed
+	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --concurrency $(EVAL_CONCURRENCY)
 
 eval-retrieval:
 	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --retrieval-only

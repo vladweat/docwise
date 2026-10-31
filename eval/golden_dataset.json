@@ -1055,6 +1055,261 @@
         "aaaaaaaa-1111-4111-8111-000000000008",
         "aaaaaaaa-1111-4111-8111-000000000009"
       ]
+    },
+    {
+      "id": "ru-employee-start",
+      "kind": "positive",
+      "question": "Во сколько начинается рабочий день по московскому времени?",
+      "ground_truth_answer": "Рабочий день начинается в 09:00 по московскому времени.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Рабочее время",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "ru-employee-office-days",
+      "kind": "positive",
+      "question": "В какие дни недели требуется приходить в офис?",
+      "ground_truth_answer": "Во вторник, среду и четверг.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Рабочее время",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "ru-hr-vacation-days",
+      "kind": "positive",
+      "question": "Сколько дней оплачиваемого отпуска положено за год?",
+      "ground_truth_answer": "Положено 20 дней оплачиваемого отпуска в год.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Отпуск",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-hr@docwise.example.com"
+    },
+    {
+      "id": "ru-hr-carryover",
+      "kind": "positive",
+      "question": "Сколько дней отпуска можно перенести на следующий год?",
+      "ground_truth_answer": "Можно перенести не более пяти дней.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Отпуск",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-hr@docwise.example.com"
+    },
+    {
+      "id": "ru-finance-per-diem",
+      "kind": "positive",
+      "question": "Какой размер суточных при международной поездке?",
+      "ground_truth_answer": "Суточные составляют 75 долларов.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Командировки",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-finance@docwise.example.com"
+    },
+    {
+      "id": "ru-finance-trip-approval",
+      "kind": "positive",
+      "question": "За сколько дней нужно согласовать международную поездку?",
+      "ground_truth_answer": "Минимум за 10 календарных дней.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Командировки",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-finance@docwise.example.com"
+    },
+    {
+      "id": "ru-legal-contract-review",
+      "kind": "positive",
+      "question": "Что требуется перед отправкой договора внешней стороне?",
+      "ground_truth_answer": "Необходим review юридической команды.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Договоры",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-legal@docwise.example.com"
+    },
+    {
+      "id": "ru-legal-review-team",
+      "kind": "positive",
+      "question": "Какая команда проверяет договор перед внешней отправкой?",
+      "ground_truth_answer": "Юридическая команда.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Договоры",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-legal@docwise.example.com"
+    },
+    {
+      "id": "ru-security-rotation",
+      "kind": "positive",
+      "question": "За какое время нужно сменить привилегированные данные после подозрения на утечку?",
+      "ground_truth_answer": "В течение 24 часов.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Информационная безопасность",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-security@docwise.example.com"
+    },
+    {
+      "id": "ru-security-report",
+      "kind": "positive",
+      "question": "За какое время нужно сообщить об инциденте безопасности?",
+      "ground_truth_answer": "В течение одного часа.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Информационная безопасность",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ],
+      "eval_user_email": "eval-security@docwise.example.com"
+    },
+    {
+      "id": "ru-engineering-canary",
+      "kind": "positive",
+      "question": "Сколько длится canary-окно после production deployment?",
+      "ground_truth_answer": "30 минут.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Инженерные релизы",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008"
+      ],
+      "eval_user_email": "eval-engineering@docwise.example.com"
+    },
+    {
+      "id": "ru-engineering-first-pr",
+      "kind": "positive",
+      "question": "Когда новый инженер должен открыть первый pull request?",
+      "ground_truth_answer": "В течение пяти рабочих дней.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+      "target_section": "Инженерные релизы",
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008"
+      ],
+      "eval_user_email": "eval-engineering@docwise.example.com"
+    },
+    {
+      "id": "ru-acl-employee-hr",
+      "kind": "acl_negative",
+      "question": "Какая зарплатная вилка у сотрудника уровня L3?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000005",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "ru-acl-employee-finance",
+      "kind": "acl_negative",
+      "question": "Какой была выручка за четвёртый квартал?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000006",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "ru-acl-employee-legal",
+      "kind": "acl_negative",
+      "question": "Что требует шаблон договора перед отправкой внешней стороне?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000007",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "ru-acl-employee-security",
+      "kind": "acl_negative",
+      "question": "За какое время требуется сменить привилегированные данные после подозрения на утечку?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000008",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
+    },
+    {
+      "id": "ru-acl-employee-engineering",
+      "kind": "acl_negative",
+      "question": "Сколько длится production canary-окно?",
+      "ground_truth_answer": "В предоставленных документах нет информации по данному вопросу.",
+      "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000009",
+      "target_page": 1,
+      "must_not_doc_ids": [
+        "aaaaaaaa-1111-4111-8111-000000000005",
+        "aaaaaaaa-1111-4111-8111-000000000006",
+        "aaaaaaaa-1111-4111-8111-000000000007",
+        "aaaaaaaa-1111-4111-8111-000000000008",
+        "aaaaaaaa-1111-4111-8111-000000000009"
+      ]
     }
   ]
 }

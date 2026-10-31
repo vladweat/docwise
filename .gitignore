@@ -48,6 +48,9 @@ Thumbs.db
 # Pilot backups (ops/backup-pilot.sh)
 backups/
 
+# Downloaded, locally generated external evaluation corpora
+eval/local_data/
+
 # Embedding weights (downloaded by make embeddings)
 backend/.models/*
 !backend/.models/.gitkeep

@@ -13,11 +13,13 @@ from app.services.retrieval import (
     RRF_K,
     SPARSE_TOP_K,
     bm25_scores,
+    finish_retrieval,
     reciprocal_rank_fusion,
     retrieve,
     sparse_search,
 )
 from app.services.retrieval.search import _fts_or_query
+from app.services.retrieval.types import ChunkRecord, HybridPool
 from app.services.text import lexical_tokens
 from helpers import make_org, make_principal, wipe_app_tables
 
@@ -60,6 +62,41 @@ def test_reciprocal_rank_fusion_uses_k_60():
     assert RRF_K == 60
     fused = reciprocal_rank_fusion([[0], [0]], k=RRF_K)
     assert fused[0][1] == 2.0 / (60 + 1)
+
+
+def test_finish_retrieval_preserves_scored_thresholded_and_top4_stages(monkeypatch):
+    import app.services.retrieval as retrieval_module
+
+    document_id = uuid4()
+    records = {}
+    for index in range(6):
+        chunk_id = uuid4()
+        records[chunk_id] = ChunkRecord(
+            id=chunk_id,
+            document_id=document_id,
+            chunk_id=f"chunk-{index}",
+            doc_title="Evaluation fixture",
+            page_number=1,
+            content=f"text {index}",
+            access_roles=("all",),
+            section_title=f"section-{index}",
+        )
+    pool = HybridPool(
+        records=records,
+        fused=[(chunk_id, 1.0) for chunk_id in records],
+        allowed_roles=("all",),
+    )
+    monkeypatch.setattr(retrieval_module, "get_settings", lambda: type("Settings", (), {"rerank_threshold": 0.25})())
+
+    class _Scorer:
+        def score(self, _query, _documents):
+            return [0.99, 0.95, 0.9, 0.8, 0.7, 0.2]
+
+    result = finish_retrieval("target question", pool, reranker=_Scorer())
+
+    assert [hit.section_title for hit in result.rerank_scored] == [f"section-{i}" for i in range(6)]
+    assert [hit.section_title for hit in result.rerank_thresholded] == [f"section-{i}" for i in range(5)]
+    assert [hit.section_title for hit in result.reranked] == [f"section-{i}" for i in range(4)]
 
 
 def test_fts_query_drops_stopwords_and_ors_content_terms():

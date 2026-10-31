@@ -49,26 +49,32 @@ def test_golden_dataset_meets_eval_contract():
 
     known_ids = set(corpus_mod.CATALOG_BY_ID)
     restricted_ids = set(corpus_mod.restricted_doc_ids())
-    evaluator_emails = {account.email for account in corpus_mod.EVAL_ACCOUNTS}
+    evaluator_accounts = {account.email: account for account in corpus_mod.EVAL_ACCOUNTS}
     seen_ids: set[str] = set()
     for item in golden.items:
         assert item.id not in seen_ids
         seen_ids.add(item.id)
         UUID(item.target_doc_id)
         assert item.target_doc_id in known_ids
-        assert item.eval_user_email is None or item.eval_user_email in evaluator_emails
-        assert item.target_page is not None and item.target_page >= 1
+        assert item.eval_user_email is None or item.eval_user_email in evaluator_accounts
+        assert (item.target_page is not None and item.target_page >= 1) or item.target_section
         forbidden = set(item.must_not_doc_ids)
         if item.is_acl_negative:
             assert item.target_doc_id in restricted_ids
             assert item.target_doc_id in forbidden
             assert item.ground_truth_answer == NO_CONTEXT_ANSWER
         else:
+            account = evaluator_accounts.get(item.eval_user_email or "")
+            allowed_roles = set(account.departments) if account else set()
+            allowed_ids = {
+                doc_id
+                for doc_id in restricted_ids
+                if set(corpus_mod.CATALOG_BY_ID[doc_id].access_roles) & allowed_roles
+            }
+            assert forbidden == restricted_ids - allowed_ids
             if item.target_doc_id in restricted_ids:
                 assert item.eval_user_email is not None
                 assert item.target_doc_id not in forbidden
-            else:
-                assert restricted_ids.issubset(forbidden)
 
 
 def test_acl_dataset_covers_allowed_and_denied_access_for_each_restricted_department():
@@ -84,10 +90,10 @@ def test_acl_dataset_covers_allowed_and_denied_access_for_each_restricted_depart
     }
 
     specs = {str(spec.id): spec for spec in corpus.CATALOG}
-    assert len(corpus.CATALOG) == 9
-    assert len(dataset.items) == 69
-    assert len(dataset.positives) == 33
-    assert len(dataset.acl_negatives) == 36
+    assert len(corpus.CATALOG) == 10
+    assert len(dataset.items) == 86
+    assert len(dataset.positives) == 45
+    assert len(dataset.acl_negatives) == 41
     assert accounts[dataset.eval_user_email].departments == ()
 
     for department, document_id in restricted.items():
@@ -134,6 +140,40 @@ def test_new_restricted_pdf_fixtures_contain_the_facts_used_by_acl_cases():
         pdf.close()
         for phrase in phrases:
             assert phrase in text
+
+
+def test_multilingual_docx_fixture_preserves_russian_text_and_has_expected_sections():
+    from io import BytesIO
+    from docx import Document as DocxDocument
+
+    corpus = _load_module("corpus")
+    dataset = _load_module("dataset").load_golden_dataset(_eval_dir() / "golden_dataset.json")
+    spec = next(item for item in corpus.CATALOG if item.slug == "ru-operations-guide")
+    document = DocxDocument(BytesIO(corpus.build_docx(spec)))
+    text = " ".join(paragraph.text for paragraph in document.paragraphs)
+    sections = [paragraph.text for paragraph in document.paragraphs if paragraph.style.name.startswith("Heading")]
+
+    assert "Рабочее время" in text
+    assert "09:00" in text
+    assert "Рабочее время" in sections
+    assert any(item.target_section == "Рабочее время" for item in dataset.positives)
+
+
+def test_dataset_parser_accepts_a_docx_section_target_without_a_fake_page_number():
+    dataset = _load_module("dataset")
+    case = dataset._parse_case(
+        {
+            "id": "docx-section",
+            "question": "Во сколько начинается рабочий день?",
+            "ground_truth_answer": "В 09:00.",
+            "target_doc_id": "aaaaaaaa-1111-4111-8111-000000000010",
+            "target_section": "Рабочее время",
+        },
+        0,
+    )
+
+    assert case.target_page is None
+    assert case.target_section == "Рабочее время"
 
 
 def test_load_baseline_runs_each_positive_case_as_its_assigned_persona(monkeypatch):

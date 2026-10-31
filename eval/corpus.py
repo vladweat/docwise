@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+from io import BytesIO
+import json
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from uuid import UUID
 
 import fitz
@@ -23,6 +26,7 @@ FINANCE_ID = UUID("aaaaaaaa-1111-4111-8111-000000000006")
 LEGAL_ID = UUID("aaaaaaaa-1111-4111-8111-000000000007")
 SECURITY_RESTRICTED_ID = UUID("aaaaaaaa-1111-4111-8111-000000000008")
 ENGINEERING_RESTRICTED_ID = UUID("aaaaaaaa-1111-4111-8111-000000000009")
+RU_OPERATIONS_ID = UUID("aaaaaaaa-1111-4111-8111-000000000010")
 FOREIGN_ORG_DOC_ID = UUID("bbbbbbbb-2222-4222-8222-000000000099")
 
 DEFAULT_EVAL_EMAIL = "eval-employee@docwise.example.com"
@@ -83,6 +87,7 @@ class FixtureSpec:
     filename: str
     access_roles: tuple[str, ...]
     builder: str
+    file_format: str = "pdf"
 
 
 @dataclass(frozen=True)
@@ -121,6 +126,14 @@ CATALOG: tuple[FixtureSpec, ...] = (
         "Engineering-Release-Plan.pdf",
         ("engineering",),
         "engineering_restricted",
+    ),
+    FixtureSpec(
+        RU_OPERATIONS_ID,
+        "ru-operations-guide",
+        "Руководство-по-операциям.docx",
+        ("all",),
+        "ru_operations",
+        "docx",
     ),
 )
 
@@ -189,6 +202,55 @@ def build_pdf(spec: FixtureSpec) -> bytes:
         "people": _people_compendium_pdf,
     }
     return builders[spec.builder]()
+
+
+def build_docx(spec: FixtureSpec) -> bytes:
+    """Build a Unicode-preserving synthetic DOCX fixture with section citations."""
+    from docx import Document as DocxDocument
+
+    if spec.builder != "ru_operations":
+        raise ValueError(f"No DOCX fixture builder for {spec.builder}")
+    doc = DocxDocument()
+    sections = [
+        (
+            "Рабочее время",
+            "Рабочий день начинается в 09:00 по московскому времени. "
+            "В офис нужно приходить во вторник, среду и четверг. "
+            "Стол бронируют до 17:00 предыдущего рабочего дня.",
+        ),
+        (
+            "Отпуск",
+            "Сотрудникам положено 20 дней оплачиваемого отпуска в год. "
+            "В следующий год можно перенести не более пяти дней. "
+            "Заявку на отпуск подают минимум за 14 дней.",
+        ),
+        (
+            "Командировки",
+            "Международную поездку согласует VP минимум за 10 календарных дней. "
+            "Суточные в международной поездке составляют 75 долларов. "
+            "Бизнес-класс разрешён, если время в воздухе превышает восемь часов.",
+        ),
+        (
+            "Инженерные релизы",
+            "Окно canary после production deployment длится 30 минут. "
+            "Первый pull request новый инженер открывает в течение пяти рабочих дней.",
+        ),
+        (
+            "Информационная безопасность",
+            "После подозрения на утечку привилегированные учётные данные меняют в течение 24 часов. "
+            "Об инциденте сообщают команде безопасности в течение одного часа.",
+        ),
+        (
+            "Договоры",
+            "Перед отправкой договора внешней стороне обязателен review юридической команды.",
+        ),
+    ]
+    for title, body in sections:
+        doc.add_heading(title, level=1)
+        doc.add_paragraph(body)
+    output = BytesIO()
+    doc.save(output)
+    return output.getvalue()
 
 
 def get_or_create_org(db, *, name: str, slug: str):
@@ -279,13 +341,13 @@ def upsert_user(
 
 def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec], *, organization) -> list[dict]:
     from app.models.document import Document, DocumentStatus
-    from app.services.ingestion import delete_chunks_for_document, index_pdf
+    from app.services.ingestion import delete_chunks_for_document, index_docx, index_pdf
     from app.services.storage import object_key_for_document
 
     indexed: list[dict] = []
     for spec in specs:
-        pdf_bytes = build_pdf(spec)
-        digest = hashlib.sha256(pdf_bytes).hexdigest()
+        data = build_docx(spec) if spec.file_format == "docx" else build_pdf(spec)
+        digest = hashlib.sha256(data).hexdigest()
         conflict = (
             db.query(Document)
             .filter(
@@ -301,7 +363,12 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec],
                 "Delete that row or skip seeding."
             )
         key = object_key_for_document(spec.id, spec.filename, organization_id=organization.id)
-        storage.put_bytes(key, pdf_bytes, content_type="application/pdf")
+        content_type = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            if spec.file_format == "docx"
+            else "application/pdf"
+        )
+        storage.put_bytes(key, data, content_type=content_type)
         document = db.get(Document, spec.id)
         if document is not None:
             delete_chunks_for_document(db, document.id)
@@ -313,7 +380,7 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec],
                 title=spec.filename,
                 file_path=key,
                 file_hash=digest,
-                file_size_bytes=len(pdf_bytes),
+                file_size_bytes=len(data),
                 access_roles=list(spec.access_roles),
                 status=DocumentStatus.processing.value,
             )
@@ -323,14 +390,14 @@ def index_specs(db, storage, specs: tuple[FixtureSpec, ...] | list[FixtureSpec],
             document.title = spec.filename
             document.file_path = key
             document.file_hash = digest
-            document.file_size_bytes = len(pdf_bytes)
+            document.file_size_bytes = len(data)
             document.access_roles = list(spec.access_roles)
             document.status = DocumentStatus.processing.value
             document.last_error = None
         db.commit()
         db.refresh(document)
         delete_chunks_for_document(db, document.id)
-        result = index_pdf(db, document, pdf_bytes)
+        result = index_docx(db, document, data) if spec.file_format == "docx" else index_pdf(db, document, data)
         document.total_pages = result.total_pages
         document.status = DocumentStatus.ready.value
         document.last_error = None
@@ -391,6 +458,105 @@ def seed_corpus(*, email: str | None = None, password: str | None = None) -> dic
             "documents": indexed,
             "foreign_org_document_id": str(foreign),
         }
+    finally:
+        db.close()
+
+
+def seed_external_corpus(manifest_path: Path) -> list[dict]:
+    """Index a locally prepared, hash-verified DOCX corpus into the eval tenant."""
+    from app.core.database import SessionLocal
+    from app.core.rls import bind_session_rls
+    from app.models.document import Document, DocumentStatus
+    from app.services.ingestion import delete_chunks_for_document, index_docx
+    from app.services.storage import get_object_storage, object_key_for_document
+
+    manifest_path = manifest_path.resolve()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    documents = manifest.get("documents")
+    if not isinstance(documents, list) or not documents:
+        raise ValueError("External corpus manifest must contain a non-empty documents list")
+
+    db = SessionLocal()
+    bind_session_rls(db, bypass=True)
+    storage = get_object_storage()
+    storage.ensure_private_bucket()
+    indexed: list[dict] = []
+    try:
+        organization = get_or_create_org(db, name="Eval", slug=EVAL_ORG_SLUG)
+        db.commit()
+        for item in documents:
+            if not isinstance(item, dict):
+                raise ValueError("External corpus document entry must be an object")
+            relative_path = Path(str(item.get("relative_path", "")))
+            source = (manifest_path.parent / relative_path).resolve()
+            if relative_path.is_absolute() or manifest_path.parent.resolve() not in source.parents:
+                raise ValueError("External corpus document path escapes manifest directory")
+            if source.suffix.lower() != ".docx":
+                raise ValueError("External corpus supports DOCX documents only")
+            data = source.read_bytes()
+            digest = hashlib.sha256(data).hexdigest()
+            if digest != item.get("sha256"):
+                raise ValueError(f"SHA-256 mismatch for external corpus document {source.name}")
+
+            document_id = UUID(str(item["id"]))
+            title = str(item["title"]).strip()
+            roles = item.get("access_roles", ["all"])
+            if not title or not isinstance(roles, list) or not roles:
+                raise ValueError("External corpus document requires a title and access roles")
+            conflict = (
+                db.query(Document)
+                .filter(
+                    Document.organization_id == organization.id,
+                    Document.file_hash == digest,
+                    Document.id != document_id,
+                )
+                .first()
+            )
+            if conflict is not None:
+                raise RuntimeError(f"External corpus hash collides with document {conflict.id}")
+
+            key = object_key_for_document(document_id, source.name, organization_id=organization.id)
+            storage.put_bytes(
+                key,
+                data,
+                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+            document = db.get(Document, document_id)
+            if document is not None:
+                delete_chunks_for_document(db, document.id)
+                db.flush()
+            else:
+                document = Document(
+                    id=document_id,
+                    organization_id=organization.id,
+                    title=title,
+                    file_path=key,
+                    file_hash=digest,
+                    file_size_bytes=len(data),
+                    access_roles=roles,
+                    status=DocumentStatus.processing.value,
+                )
+                db.add(document)
+            document.organization_id = organization.id
+            document.title = title
+            document.file_path = key
+            document.file_hash = digest
+            document.file_size_bytes = len(data)
+            document.access_roles = roles
+            document.status = DocumentStatus.processing.value
+            document.last_error = None
+            db.commit()
+            db.refresh(document)
+            delete_chunks_for_document(db, document.id)
+            result = index_docx(db, document, data)
+            document.total_pages = result.total_pages
+            document.status = DocumentStatus.ready.value
+            document.last_error = None
+            document.ingestion_stage = "embed"
+            db.commit()
+            indexed.append({"id": str(document_id), "chunks": result.chunk_count})
+            logger.info("indexed external eval document %s chunks=%s", document_id, result.chunk_count)
+        return indexed
     finally:
         db.close()
 

@@ -46,6 +46,7 @@ def _stage_hit(record: ChunkRecord, score: float) -> StageHit:
         page=record.page_number,
         score=score,
         snippet=text,
+        section_title=record.section_title,
     )
 
 
@@ -89,6 +90,8 @@ def finish_retrieval(
         dense=list(pool.dense),
         sparse=list(pool.sparse),
         rrf=list(pool.rrf),
+        rerank_scored=[],
+        rerank_thresholded=[],
         reranked=[],
         allowed_roles=allowed,
     )
@@ -97,11 +100,23 @@ def finish_retrieval(
         return blank
 
     scored = _rerank_records(query, fused_records, reranker)
+    rerank_scored = [_stage_hit(record, score) for record, score in scored]
     threshold = get_settings().rerank_threshold
-    kept = [(record, score) for record, score in scored if score >= threshold][:RERANK_TOP_K]
+    thresholded = [(record, score) for record, score in scored if score >= threshold]
+    rerank_thresholded = [_stage_hit(record, score) for record, score in thresholded]
+    kept = thresholded[:RERANK_TOP_K]
     if not kept:
         logger.info("retrieval refuse: empty after rerank threshold=%.3f", threshold)
-        return blank
+        return RetrievalResult(
+            chunks=[],
+            dense=list(pool.dense),
+            sparse=list(pool.sparse),
+            rrf=list(pool.rrf),
+            rerank_scored=rerank_scored,
+            rerank_thresholded=rerank_thresholded,
+            reranked=[],
+            allowed_roles=allowed,
+        )
 
     reranked_hits = [_stage_hit(record, score) for record, score in kept]
     result_chunks = [_retrieved(record, score) for record, score in kept]
@@ -110,6 +125,8 @@ def finish_retrieval(
         dense=list(pool.dense),
         sparse=list(pool.sparse),
         rrf=list(pool.rrf),
+        rerank_scored=rerank_scored,
+        rerank_thresholded=rerank_thresholded,
         reranked=reranked_hits,
         allowed_roles=allowed,
     )

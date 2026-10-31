@@ -24,6 +24,8 @@ class GoldenCase:
     must_not_doc_ids: tuple[str, ...] = ()
     kind: str = "positive"
     eval_user_email: str | None = None
+    target_section: str | None = None
+    source_dataset: str = "synthetic-golden"
 
     @property
     def is_acl_negative(self) -> bool:
@@ -84,6 +86,11 @@ def _parse_case(entry: object, index: int) -> GoldenCase:
         page = int(target_page)
         if page < 1:
             raise GoldenDatasetError(f"items[{index}].target_page must be >= 1")
+    target_section = entry.get("target_section")
+    if target_section is not None:
+        target_section = str(target_section).strip()
+        if not target_section:
+            raise GoldenDatasetError(f"items[{index}].target_section cannot be empty")
     must_not_raw = entry.get("must_not_doc_ids") or []
     if not isinstance(must_not_raw, list):
         raise GoldenDatasetError(f"items[{index}].must_not_doc_ids must be a list")
@@ -103,6 +110,9 @@ def _parse_case(entry: object, index: int) -> GoldenCase:
         eval_user_email = str(eval_user_email).strip()
         if not eval_user_email:
             raise GoldenDatasetError(f"items[{index}].eval_user_email cannot be empty")
+    source_dataset = str(entry.get("source_dataset") or "synthetic-golden").strip()
+    if not source_dataset:
+        raise GoldenDatasetError(f"items[{index}].source_dataset cannot be empty")
     return GoldenCase(
         id=case_id,
         question=question,
@@ -112,6 +122,8 @@ def _parse_case(entry: object, index: int) -> GoldenCase:
         must_not_doc_ids=tuple(must_not),
         kind=kind,
         eval_user_email=eval_user_email,
+        target_section=target_section,
+        source_dataset=source_dataset,
     )
 
 

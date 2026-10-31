@@ -165,6 +165,22 @@ def test_latest_english_question_overrides_russian_history_and_excerpt_language(
     assert "regardless of prior conversation or document language" in system_messages
 
 
+def test_latest_question_language_instruction_follows_document_excerpts():
+    excerpt = _chunk(
+        title="Policy.pdf",
+        page=1,
+        content="Employees must book a desk before 17:00.",
+        roles=("all",),
+    )
+    messages = build_messages("When must I book a desk?", [excerpt])
+
+    assert messages[-2]["role"] == "system"
+    assert "latest user question is in English" in messages[-2]["content"]
+    assert "complete, self-contained sentences" in messages[-2]["content"]
+    assert "retain the specific conditions, deadlines, or named systems" in messages[-2]["content"]
+    assert messages[-1] == {"role": "user", "content": "When must I book a desk?"}
+
+
 def test_english_question_ignores_quoted_russian_document_title():
     messages = build_messages(
         "What does «Положение об отпусках сотрудников организации» say?",
@@ -536,7 +552,7 @@ def test_empty_retrieval_refuses_without_openai(monkeypatch):
     monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
 
     http = _register(role=UserRole.employee.value)
-    response = http.post("/api/v1/chat/stream", json={"query": f"unknown policy {uuid4().hex}"})
+    response = http.post("/api/v1/chat/stream", json={"query": f"What policy is unknown {uuid4().hex}?"})
     assert response.status_code == 200
     events = _parse_sse(response.text)
     assert events[0]["type"] == "meta"
@@ -555,6 +571,10 @@ def test_empty_retrieval_refuses_without_openai(monkeypatch):
     [
         (
             "What do the documents say about the annual leave policy?",
+            "The provided documents do not contain information on this question.",
+        ),
+        (
+            "May employees store client personal data on personal devices?",
             "The provided documents do not contain information on this question.",
         ),
         (

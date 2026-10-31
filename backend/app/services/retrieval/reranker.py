@@ -11,13 +11,15 @@ import math
 from pathlib import Path
 
 from app.core.config import get_settings
+from app.services.ingestion.embedding_profiles import RerankerProfile, reranker_profile
 from app.services.ingestion.onnx_cache import has_cached_onnx
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "BAAI/bge-reranker-base"
+MODEL_NAME = reranker_profile("current").model_name
 
 _reranker = None
+_profile_key = "current"
 
 
 class RerankError(Exception):
@@ -32,7 +34,21 @@ def reranker_model_dir() -> Path:
 
 
 def is_reranker_available() -> bool:
-    return has_cached_onnx(reranker_model_dir(), "bge-reranker", "reranker-base")
+    return has_cached_onnx(reranker_model_dir(), *active_reranker_profile().cache_markers)
+
+
+def active_reranker_profile() -> RerankerProfile:
+    return reranker_profile(_profile_key)
+
+
+def select_evaluation_reranker_profile(key: str) -> None:
+    """Select a model only for the current eval process; normal app default stays fixed."""
+    global _profile_key
+    reranker_profile(key)
+    if key != "current" and get_settings().environment.strip().lower() == "production":
+        raise RuntimeError("Evaluation reranker profiles are disabled in production")
+    _profile_key = key
+    reset_reranker_cache()
 
 
 def reset_reranker_cache() -> None:
@@ -69,15 +85,16 @@ def get_reranker():
 
 def _load_reranker():
     cache_dir = reranker_model_dir()
+    profile = active_reranker_profile()
     if not is_reranker_available():
-        raise RerankError(f"Reranker model not found at {cache_dir}. Run: make embeddings")
+        raise RerankError(f"Reranker profile {profile.model_name} is not cached at {cache_dir}")
     try:
         from fastembed.rerank.cross_encoder import TextCrossEncoder
     except ImportError as exc:
         raise RerankError("fastembed is not installed") from exc
 
-    logger.info("Loading %s from %s", MODEL_NAME, cache_dir)
-    kwargs = {"model_name": MODEL_NAME, "cache_dir": str(cache_dir)}
+    logger.info("Loading %s from %s", profile.model_name, cache_dir)
+    kwargs = {"model_name": profile.model_name, "cache_dir": str(cache_dir)}
     try:
         model = TextCrossEncoder(**kwargs, local_files_only=True)
     except TypeError:
