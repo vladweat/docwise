@@ -66,7 +66,7 @@ class CaseResult:
     retrieved_pages: list[int]
     contexts: list[str]
     leaks: list[str]
-    target_doc_hit: bool
+    target_doc_hit: bool | None
     target_page_hit: bool | None
     target_section_hit: bool | None = None
     retrieval_stage_doc_hits: dict[str, bool] = field(default_factory=dict)
@@ -74,6 +74,7 @@ class CaseResult:
     rerank_threshold_sweep: dict[str, dict[str, int | bool | None]] = field(default_factory=dict)
     ragas: RagasScores | None = None
     error: str | None = None
+    no_answer_correct: bool | None = None
 
 
 @dataclass
@@ -88,7 +89,11 @@ class EvalSummary:
 
     @property
     def positives(self) -> list[CaseResult]:
-        return [row for row in self.results if not row.case.is_acl_negative]
+        return [row for row in self.results if row.case.kind == "positive"]
+
+    @property
+    def no_answer_cases(self) -> list[CaseResult]:
+        return [row for row in self.results if row.case.is_no_answer]
 
     @property
     def acl_rows(self) -> list[CaseResult]:
@@ -323,10 +328,10 @@ def _prepare_case(db, user: User, case: GoldenCase) -> PreparedCase:
     retrieved_doc_ids = [str(chunk.document_id) for chunk in chunks]
     retrieved_pages = [chunk.page_number for chunk in chunks]
     leaks = leaked_doc_ids(retrieved_doc_ids, list(case.must_not_doc_ids) + [str(FOREIGN_ORG_DOC_ID)])
-    target = str(case.target_doc_id)
-    target_doc_hit = target in retrieved_doc_ids
+    target = str(case.target_doc_id) if case.target_doc_id is not None else None
+    target_doc_hit = target in retrieved_doc_ids if target is not None else None
     target_page_hit: bool | None
-    if case.target_page is None:
+    if case.target_page is None or target is None:
         target_page_hit = None
     else:
         target_page_hit = any(
@@ -334,22 +339,26 @@ def _prepare_case(db, user: User, case: GoldenCase) -> PreparedCase:
         )
     target_section_hit = (
         any(str(chunk.document_id) == target and chunk.section_title == case.target_section for chunk in chunks)
-        if case.target_section is not None
+        if case.target_section is not None and target is not None
         else None
     )
     retrieval_stage_doc_hits = {
-        stage: any(str(hit.document_id) == target for hit in getattr(retrieval, stage, ()))
+        stage: target is not None and any(str(hit.document_id) == target for hit in getattr(retrieval, stage, ()))
         for stage in RETRIEVAL_STAGES
     }
     retrieval_stage_ranks = stage_target_ranks(
         retrieval,
-        target_doc_id=target,
+        target_doc_id=target or "",
         target_section=case.target_section,
     )
-    rerank_threshold_sweep = rerank_threshold_case_metrics(
-        getattr(retrieval, "rerank_scored", ()),
-        target_doc_id=target,
-        target_section=case.target_section,
+    rerank_threshold_sweep = (
+        rerank_threshold_case_metrics(
+            getattr(retrieval, "rerank_scored", ()),
+            target_doc_id=target,
+            target_section=case.target_section,
+        )
+        if target is not None
+        else {}
     )
 
     if leaks:
@@ -376,6 +385,7 @@ def _prepare_case(db, user: User, case: GoldenCase) -> PreparedCase:
 
 def _retrieval_only_result(prepared: PreparedCase) -> CaseResult:
     prepared.result.answer = no_context_answer(prepared.result.case.question) if not prepared.chunks else ""
+    prepared.result.no_answer_correct = None
     return prepared.result
 
 
@@ -386,15 +396,18 @@ def _evaluate_prepared_case(prepared: PreparedCase) -> CaseResult:
         # A retrieval ACL regression must not expose restricted text to a prompt.
         allowed_chunks = [] if result.leaks else prepared.chunks
         answer = _generate(result.case.question, allowed_chunks)
-        result.ragas = score_case(
-            question=result.case.question,
-            answer=answer,
-            contexts=[] if result.leaks else result.contexts,
-            ground_truth=result.case.ground_truth_answer,
-            include_answer_relevance=not result.case.is_acl_negative,
-            include_citation_support=not result.case.is_acl_negative,
-            defer_answer_relevance=True,
-        )
+        if result.case.is_no_answer:
+            result.no_answer_correct = is_refusal(answer)
+        else:
+            result.ragas = score_case(
+                question=result.case.question,
+                answer=answer,
+                contexts=[] if result.leaks else result.contexts,
+                ground_truth=result.case.ground_truth_answer,
+                include_answer_relevance=not result.case.is_acl_negative,
+                include_citation_support=not result.case.is_acl_negative,
+                defer_answer_relevance=True,
+            )
     except OpenAINotConfiguredError:
         raise
     except Exception as exc:
@@ -476,6 +489,9 @@ def _quality_gates(summary: EvalSummary) -> list[GateResult]:
         faithfulness=_avg([row.ragas.faithfulness if row.ragas else None for row in positives]),
         context_precision=_avg([row.ragas.context_precision if row.ragas else None for row in positives]),
         answer_relevance=_avg([row.ragas.answer_relevance if row.ragas else None for row in english_positives]),
+        no_answer_refusal_rate=_avg(
+            [float(row.no_answer_correct) for row in summary.no_answer_cases if row.no_answer_correct is not None]
+        ),
         retrieval_only=summary.retrieval_only,
     )
 
@@ -490,6 +506,7 @@ def _fmt_gate_value(value: int | float | None) -> str:
 
 def render_report(summary: EvalSummary) -> str:
     positives = summary.positives
+    no_answer_rows = summary.no_answer_cases
     acl_rows = summary.acl_rows
     faith = _avg([row.ragas.faithfulness if row.ragas else None for row in positives])
     precision = _avg([row.ragas.context_precision if row.ragas else None for row in positives])
@@ -519,7 +536,7 @@ def render_report(summary: EvalSummary) -> str:
     lines.extend(f"- `{key}`: `{value}`" for key, value in sorted(summary.config.items()))
     lines.extend([
         "Eval personas: `employee`, `hr`, `finance`, `legal`, `security`, `engineering`",
-        f"Cases: {len(summary.results)} ({len(positives)} positive, {len(acl_rows)} ACL-negative)",
+        f"Cases: {len(summary.results)} ({len(positives)} positive, {len(no_answer_rows)} no-answer, {len(acl_rows)} ACL-negative)",
         f"Case errors: {summary.error_count}",
         f"Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` ({mode})",
         "",
@@ -548,6 +565,8 @@ def render_report(summary: EvalSummary) -> str:
                 "| Answers | n/a (retrieval-only) |",
                 "| Refusals | n/a (retrieval-only) |",
                 "| Cases with context | n/a (retrieval-only) |",
+                "| Correct no-answer refusals | n/a (retrieval-only) |",
+                "| False no-answer answers | n/a (retrieval-only) |",
             ]
         )
     else:
@@ -559,8 +578,26 @@ def render_report(summary: EvalSummary) -> str:
                 f"| Answers | {answered} / {len(positives)} |",
                 f"| Refusals | {refusals} / {len(positives)} |",
                 f"| Cases with context | {with_context} / {len(positives)} |",
+                f"| Correct no-answer refusals | {sum(row.no_answer_correct is True for row in no_answer_rows)} / {len(no_answer_rows)} |",
+                f"| False no-answer answers | {sum(row.no_answer_correct is False for row in no_answer_rows)} / {len(no_answer_rows)} |",
             ]
         )
+    lines.extend(["", "## No-answer behavior", ""])
+    lines.extend(
+        [
+            "No-answer questions are evaluated separately from answerable retrieval and ACL cases.",
+            "",
+            "| Metric | Value |",
+            "| --- | ---: |",
+            f"| Cases | {len(no_answer_rows)} |",
+            (
+                f"| Correct refusal rate | {_fmt(_avg([float(row.no_answer_correct) for row in no_answer_rows if row.no_answer_correct is not None]))} |"
+                if not summary.retrieval_only
+                else "| Correct refusal rate | n/a (retrieval-only) |"
+            ),
+            "",
+        ]
+    )
     lines.extend([
         "",
         "## Retrieval",
@@ -697,7 +734,7 @@ def render_report(summary: EvalSummary) -> str:
         elif row.target_section_hit is False:
             section = "miss"
         slug = CATALOG_BY_ID.get(row.case.target_doc_id)
-        target = slug.slug if slug else row.case.target_doc_id[:8]
+        target = slug.slug if slug else (row.case.target_doc_id[:8] if row.case.target_doc_id else "—")
         leak = ",".join(row.leaks) if row.leaks else "0"
         question = row.case.question.replace("|", "/")
         persona = row.case.eval_user_email or summary.eval_user_email

@@ -4,7 +4,7 @@
 
 **Goal:** Improve RAG quality and verifiability using valid evaluation data, stage diagnostics, answerability checks, and measured end-to-end changes.
 
-**Architecture:** Keep the existing synchronous FastAPI/SQLAlchemy architecture. First align production and evaluation semantics, then evaluate retrieval and answer changes on one combined dataset containing positive, no-answer, and ACL-negative cases. Optimize eval throughput only after per-stage timing identifies a bottleneck.
+**Architecture:** Keep the existing synchronous FastAPI/SQLAlchemy architecture. First align production and evaluation semantics, then establish safe eval timing and improve throughput before running the full combined benchmark. Use that benchmark to evaluate retrieval and answer changes on positive, no-answer, and ACL-negative cases.
 
 **Tech Stack:** FastAPI, SQLAlchemy/PostgreSQL/pgvector, FastEmbed/ONNX, Celery, pytest, MIRACL-derived evaluation fixtures, OpenAI-compatible LLM API.
 
@@ -168,7 +168,8 @@ citation support, language parity и ACL gates остаются пройдены
 
 **Files:**
 - Modify: `eval/dataset.py`, `eval/run_eval.py`, `eval/reporting.py`, `eval/quality_gates.py`, `eval/golden_dataset.json`
-- Test: `backend/tests/test_eval_golden_dataset.py`, `backend/tests/test_eval_reporting.py`
+- Modify: `docs/product/evaluation.md`
+- Test: `backend/tests/test_eval_golden_dataset.py`, `backend/tests/test_eval_reporting.py`, `backend/tests/test_eval_concurrency.py`
 
 **Interfaces:** `GoldenCase.kind` supports `positive`, `acl_negative`, and `no_answer`;
 `target_doc_id` is required for the first two kinds and absent for `no_answer`.
@@ -178,7 +179,7 @@ citation support, language parity и ACL gates остаются пройдены
 - [ ] **Step 3: Add `GoldenCase.is_no_answer` and nullable target handling**; keep ACL-negative checks separate.
 - [ ] **Step 4: Add no-answer coverage fields and report slices** without writing answer/context text.
 - [ ] **Step 5: Add a small fixed set of RU/EN questions absent from the synthetic corpus** and compose it with the existing ACL cases.
-- [ ] **Step 6: Run dataset/report tests and full retrieval-only suite**; inspect generated report for restricted content.
+- [ ] **Step 6: Run dataset/report tests and a fixed 30-case retrieval-only integration slice**; inspect generated report for restricted content. Defer the full combined benchmark until Task 4 reduces its measured resource cost.
 - [ ] **Step 7: Commit** as `eval: add no-answer cases and separate retrieval coverage gates`.
 
 ### Task 3: Evidence-led retrieval and generation improvements
@@ -189,7 +190,7 @@ citation support, language parity и ACL gates остаются пройдены
 
 **Interfaces:** Keep `retrieve(db, user, query)` tenant/ACL semantics; keep candidate embedding and reranker profiles isolated from production defaults.
 
-- [ ] **Step 1: Run and save the full combined-dataset baseline** at current production profiles.
+- [ ] **Step 1: After Task 4, run and save the full combined-dataset baseline** at current production profiles.
 - [ ] **Step 2: Compare multilingual profiles and threshold sweep** on identical positive, no-answer, and ACL-negative cases.
 - [ ] **Step 3: Inspect named weak cases and add one regression test per chosen behavior** before production changes.
 - [ ] **Step 4: Change only the best-supported retrieval or prompt behavior**; preserve runtime defaults until gates pass.
@@ -204,11 +205,13 @@ citation support, language parity и ACL gates остаются пройдены
 **Interfaces:** Retrieval accepts either a query or a precomputed vector while deriving organization and roles only from the authenticated principal.
 
 - [ ] **Step 1: Add stage timing output** and test that timings are complete, non-negative, and contain no query/content.
-- [ ] **Step 2: Measure one full run** to identify whether embedding or DB/retrieval dominates.
+- [ ] **Step 2: Measure the fixed 30-case integration slice** to identify whether embedding or DB/retrieval dominates, while recording CPU and peak memory.
 - [ ] **Step 3: If embedding is material, write failing order/alignment tests** for batched queries before implementing batch encoding.
 - [ ] **Step 4: If DB search is still material, write failing isolation/order tests** before bounded workers with one RLS-bound session each.
-- [ ] **Step 5: Re-run the same dataset and compare quality, wall time, CPU, and peak memory.** Keep only measured gains.
+- [ ] **Step 5: Re-run the same slice and compare quality, wall time, CPU, and peak memory.** Keep only measured gains; run the full combined baseline before Task 3 only if resource use stays within the VPS budget.
 - [ ] **Step 6: Commit batching and retrieval concurrency separately** with `perf:` messages; skip a change that does not improve the complete run.
+
+**Execution order note:** A first full retrieval-only attempt on the 132-case combined MIRACL/synthetic corpus was stopped after about 14 minutes when available RAM fell below 0.5 GB; no report was written. The 30-case synthetic integration slice completed with 0 case errors, 0 ACL leaks, and 1.000 target-document hit rate (12 positive cases). Therefore run Task 4 before the full Task 3 baseline, and monitor resource use on the same VPS.
 
 ### Task 5: Final verification and handoff
 

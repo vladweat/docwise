@@ -39,7 +39,7 @@ def metric_slices(
 
     groups: dict[str, list] = {}
     for row in results:
-        if row.case.is_acl_negative:
+        if row.case.kind != "positive":
             continue
         if dimension == "language":
             label = question_language(row.case.question)
@@ -53,7 +53,7 @@ def metric_slices(
 
     output: list[dict[str, object]] = []
     for label, rows in sorted(groups.items()):
-        positive = [row for row in rows if not row.case.is_acl_negative]
+        positive = [row for row in rows if row.case.kind == "positive"]
         pages = [
             row.target_page_hit for row in positive if row.target_page_hit is not None
         ]
@@ -123,7 +123,7 @@ def stage_target_ranks(retrieval, *, target_doc_id: str, target_section: str | N
 
 def retrieval_stage_metrics(results) -> list[dict[str, object]]:
     """Aggregate target document and exact-section recall at retrieval pipeline stages."""
-    rows = [row for row in results if not row.case.is_acl_negative]
+    rows = [row for row in results if row.case.kind == "positive"]
     section_rows = [row for row in rows if row.case.target_section is not None]
     output: list[dict[str, object]] = []
     for stage in RETRIEVAL_STAGES:
@@ -176,7 +176,7 @@ def rerank_threshold_case_metrics(
 
 def rerank_threshold_metrics(results) -> list[dict[str, object]]:
     """Aggregate simulated coverage/occupancy for one cross-encoder scoring pass."""
-    rows = [row for row in results if not row.case.is_acl_negative]
+    rows = [row for row in results if row.case.kind == "positive"]
     section_rows = [row for row in rows if row.case.target_section is not None]
     output: list[dict[str, object]] = []
     for threshold in RERANK_THRESHOLD_SWEEP:

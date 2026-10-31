@@ -54,9 +54,14 @@ def test_golden_dataset_meets_eval_contract():
     for item in golden.items:
         assert item.id not in seen_ids
         seen_ids.add(item.id)
+        assert item.eval_user_email is None or item.eval_user_email in evaluator_accounts
+        if item.is_no_answer:
+            assert item.target_doc_id is None
+            assert item.ground_truth_answer == ""
+            assert item.target_page is None and item.target_section is None
+            continue
         UUID(item.target_doc_id)
         assert item.target_doc_id in known_ids
-        assert item.eval_user_email is None or item.eval_user_email in evaluator_accounts
         assert (item.target_page is not None and item.target_page >= 1) or item.target_section
         forbidden = set(item.must_not_doc_ids)
         if item.is_acl_negative:
@@ -91,8 +96,9 @@ def test_acl_dataset_covers_allowed_and_denied_access_for_each_restricted_depart
 
     specs = {str(spec.id): spec for spec in corpus.CATALOG}
     assert len(corpus.CATALOG) == 10
-    assert len(dataset.items) == 86
+    assert len(dataset.items) == 92
     assert len(dataset.positives) == 45
+    assert len(dataset.no_answer_cases) == 6
     assert len(dataset.acl_negatives) == 41
     assert accounts[dataset.eval_user_email].departments == ()
 
@@ -174,6 +180,33 @@ def test_dataset_parser_accepts_a_docx_section_target_without_a_fake_page_number
 
     assert case.target_page is None
     assert case.target_section == "Рабочее время"
+
+
+def test_dataset_parser_accepts_no_answer_without_target_document():
+    dataset = _load_module("dataset")
+
+    case = dataset._parse_case(
+        {
+            "id": "no-answer-en",
+            "kind": "no_answer",
+            "question": "What is the boiling point of gallium?",
+            "ground_truth_answer": "",
+            "source_dataset": "synthetic-no-answer",
+        },
+        0,
+    )
+
+    assert case.target_doc_id is None
+    assert case.is_no_answer
+    assert not case.is_acl_negative
+
+
+def test_no_answer_cases_are_not_counted_as_answerable_positives():
+    dataset = _load_module("dataset")
+    golden = dataset.load_golden_dataset(_eval_dir() / "golden_dataset.json")
+
+    assert len(golden.no_answer_cases) == 6
+    assert all(case.kind == "positive" for case in golden.positives)
 
 
 def test_load_baseline_runs_each_positive_case_as_its_assigned_persona(monkeypatch):

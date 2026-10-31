@@ -1310,6 +1310,48 @@
         "aaaaaaaa-1111-4111-8111-000000000008",
         "aaaaaaaa-1111-4111-8111-000000000009"
       ]
+    },
+    {
+      "id": "no-answer-en-office-paint",
+      "kind": "no_answer",
+      "question": "What color should office walls be painted?",
+      "ground_truth_answer": "",
+      "source_dataset": "synthetic-no-answer"
+    },
+    {
+      "id": "no-answer-en-pet-policy",
+      "kind": "no_answer",
+      "question": "Can employees bring live parrots to the office?",
+      "ground_truth_answer": "",
+      "source_dataset": "synthetic-no-answer"
+    },
+    {
+      "id": "no-answer-en-lunar-travel",
+      "kind": "no_answer",
+      "question": "What is the reimbursement process for lunar tourism?",
+      "ground_truth_answer": "",
+      "source_dataset": "synthetic-no-answer"
+    },
+    {
+      "id": "no-answer-ru-office-paint",
+      "kind": "no_answer",
+      "question": "В какой цвет следует покрасить стены офиса?",
+      "ground_truth_answer": "",
+      "source_dataset": "synthetic-no-answer"
+    },
+    {
+      "id": "no-answer-ru-pet-policy",
+      "kind": "no_answer",
+      "question": "Разрешено ли сотрудникам приносить попугаев в офис?",
+      "ground_truth_answer": "",
+      "source_dataset": "synthetic-no-answer"
+    },
+    {
+      "id": "no-answer-ru-lunar-travel",
+      "kind": "no_answer",
+      "question": "Как оформить компенсацию расходов на лунный туризм?",
+      "ground_truth_answer": "",
+      "source_dataset": "synthetic-no-answer"
     }
   ]
 }

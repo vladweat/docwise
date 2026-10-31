@@ -19,7 +19,7 @@ class GoldenCase:
     id: str
     question: str
     ground_truth_answer: str
-    target_doc_id: str
+    target_doc_id: str | None
     target_page: int | None = None
     must_not_doc_ids: tuple[str, ...] = ()
     kind: str = "positive"
@@ -30,6 +30,10 @@ class GoldenCase:
     @property
     def is_acl_negative(self) -> bool:
         return self.kind == "acl_negative"
+
+    @property
+    def is_no_answer(self) -> bool:
+        return self.kind == "no_answer"
 
 
 @dataclass(frozen=True)
@@ -43,7 +47,11 @@ class GoldenDataset:
 
     @property
     def positives(self) -> list[GoldenCase]:
-        return [item for item in self.items if not item.is_acl_negative]
+        return [item for item in self.items if item.kind == "positive"]
+
+    @property
+    def no_answer_cases(self) -> list[GoldenCase]:
+        return [item for item in self.items if item.is_no_answer]
 
 
 def default_dataset_path() -> Path:
@@ -70,14 +78,26 @@ def load_golden_dataset(path: Path | None = None) -> GoldenDataset:
 def _parse_case(entry: object, index: int) -> GoldenCase:
     if not isinstance(entry, dict):
         raise GoldenDatasetError(f"items[{index}] must be an object")
+    kind = str(entry.get("kind") or "positive").strip() or "positive"
+    if kind not in {"positive", "acl_negative", "no_answer"}:
+        raise GoldenDatasetError(f"items[{index}].kind must be positive, acl_negative, or no_answer")
     question = str(entry.get("question") or "").strip()
     ground_truth = str(entry.get("ground_truth_answer") or "").strip()
-    target_doc_id = str(entry.get("target_doc_id") or "").strip()
-    if not question or not ground_truth or not target_doc_id:
-        raise GoldenDatasetError(
-            f"items[{index}] needs question, ground_truth_answer, and target_doc_id"
-        )
-    _require_uuid(target_doc_id, f"items[{index}].target_doc_id")
+    target_doc_value = str(entry.get("target_doc_id") or "").strip()
+    target_doc_id = target_doc_value or None
+    if not question:
+        raise GoldenDatasetError(f"items[{index}] needs question")
+    if kind == "no_answer":
+        if target_doc_id is not None:
+            raise GoldenDatasetError(f"items[{index}].target_doc_id must be omitted for no_answer")
+        if ground_truth:
+            raise GoldenDatasetError(f"items[{index}].ground_truth_answer must be empty for no_answer")
+    else:
+        if not ground_truth or target_doc_id is None:
+            raise GoldenDatasetError(
+                f"items[{index}] needs ground_truth_answer and target_doc_id"
+            )
+        _require_uuid(target_doc_id, f"items[{index}].target_doc_id")
     target_page = entry.get("target_page")
     page: int | None
     if target_page is None or target_page == "":
@@ -101,9 +121,6 @@ def _parse_case(entry: object, index: int) -> GoldenCase:
             continue
         _require_uuid(value, f"items[{index}].must_not_doc_ids")
         must_not.append(value)
-    kind = str(entry.get("kind") or "positive").strip() or "positive"
-    if kind not in {"positive", "acl_negative"}:
-        raise GoldenDatasetError(f"items[{index}].kind must be positive or acl_negative")
     case_id = str(entry.get("id") or f"q-{index + 1}").strip()
     eval_user_email = entry.get("eval_user_email")
     if eval_user_email is not None:

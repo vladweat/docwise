@@ -83,6 +83,11 @@ case errors и ACL leaks — `0`. Профиль остаётся кандида
 | `reports/rag_candidate_multilingual.md` | Multilingual candidate benchmark, срезы и per-question результаты |
 | `eval/prepare_miracl.py` | Загружает закреплённые MIRACL topics/qrels и выбранные Wikipedia passages; eval не запускает |
 
+Текущий синтетический golden set содержит 92 кейса: 45 answerable, 6 `no_answer` и 41 `acl_negative`.
+`no_answer` кейс не указывает `target_doc_id` и не участвует в retrieval recall; он измеряет, откажется
+ли generation отвечать на вопрос, отсутствующий в корпусе. ACL-negative cases измеряют изоляцию и
+остаются отдельным security gate. При сборке MIRACL набора исходные synthetic и ACL cases сохраняются.
+
 Пользователь по умолчанию — `eval-employee@docwise.example.com`, membership `employee`, без отделов.
 Для матрицы используются фиксированные синтетические evaluator accounts с подразделениями `hr`, `finance`,
 `legal`, `security` и `engineering`; поле `eval_user_email` в кейсе выбирает нужный аккаунт. Каждый кейс
@@ -102,6 +107,8 @@ case errors и ACL leaks — `0`. Профиль остаётся кандида
   для каждого evaluator account.
 - **Ноль ACL leaks и ноль case errors** — обязательные gates. Пороговые значения качества применяются к средним
   метрикам положительных кейсов; значение на границе проходит.
+- `No-answer refusal rate` оценивается только по `no_answer` cases; начальный floor — `0.800`. Он не
+  смешивается с answerable recall или ACL leak count. В retrieval-only запуске оценка generation имеет `N/A`.
 - Начальные regression floors: target document/page hit `≥ 0.980`, Faithfulness `≥ 0.800`, Context Precision
   `≥ 0.975`, English Answer Relevance `≥ 0.827`. Retrieval floors оставляют запас 0.02 от текущего baseline;
   Context Precision и English Answer Relevance также допускают снижение на 0.02. Faithfulness сохраняет ранее

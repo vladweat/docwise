@@ -8,11 +8,13 @@ TARGET_HIT_FLOOR = 0.98
 FAITHFULNESS_FLOOR = 0.80
 CONTEXT_PRECISION_FLOOR = 0.975
 ANSWER_RELEVANCE_FLOOR = 0.827
+NO_ANSWER_REFUSAL_FLOOR = 0.80
 
 GENERATION_GATES = (
     "Faithfulness",
     "Context Precision",
     "Answer Relevance (English)",
+    "No-answer refusal rate",
 )
 
 
@@ -53,6 +55,7 @@ def evaluate_gates(
     context_precision: float | None,
     answer_relevance: float | None,
     retrieval_only: bool,
+    no_answer_refusal_rate: float | None = None,
 ) -> list[GateResult]:
     """Evaluate aggregate gates; absent full-run judge scores are failures."""
     results = [
@@ -68,7 +71,8 @@ def evaluate_gates(
             [
                 _minimum_gate("Faithfulness", faithfulness, FAITHFULNESS_FLOOR),
                 _minimum_gate("Context Precision", context_precision, CONTEXT_PRECISION_FLOOR),
-        _minimum_gate("Answer Relevance (English)", answer_relevance, ANSWER_RELEVANCE_FLOOR),
+                _minimum_gate("Answer Relevance (English)", answer_relevance, ANSWER_RELEVANCE_FLOOR),
+                _optional_minimum_gate("No-answer refusal rate", no_answer_refusal_rate, NO_ANSWER_REFUSAL_FLOOR),
             ]
         )
     return results

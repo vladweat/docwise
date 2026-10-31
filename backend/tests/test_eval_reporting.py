@@ -355,6 +355,102 @@ def test_report_shows_generation_coverage_and_retrieval_stages_without_text():
     assert "A policy." not in report
 
 
+def test_report_separates_no_answer_and_acl_denominators():
+    run_eval = _eval_module("run_eval")
+    positive_case = run_eval.GoldenCase(
+        id="answerable",
+        question="What is documented?",
+        ground_truth_answer="A policy.",
+        target_doc_id="aaaaaaaa-1111-4111-8111-000000000010",
+    )
+    no_answer_case = run_eval.GoldenCase(
+        id="no-answer",
+        question="What is the boiling point of gallium?",
+        ground_truth_answer="",
+        target_doc_id=None,
+        kind="no_answer",
+        source_dataset="synthetic-no-answer",
+    )
+    acl_case = run_eval.GoldenCase(
+        id="acl-negative",
+        question="What is the restricted policy?",
+        ground_truth_answer=run_eval.no_context_answer("What is the restricted policy?"),
+        target_doc_id="aaaaaaaa-1111-4111-8111-000000000011",
+        kind="acl_negative",
+    )
+
+    def result(case, *, target_hit, refusal=None):
+        return run_eval.CaseResult(
+            case=case,
+            answer=run_eval.no_context_answer(case.question) if refusal else "answer text",
+            retrieved_doc_ids=[],
+            retrieved_pages=[],
+            contexts=[],
+            leaks=[],
+            target_doc_hit=target_hit,
+            target_page_hit=None,
+            no_answer_correct=refusal if case.kind == "no_answer" else None,
+        )
+
+    summary = run_eval.EvalSummary(
+        "eval@example.test",
+        "now",
+        "rev",
+        "hash",
+        results=[
+            result(positive_case, target_hit=True),
+            result(no_answer_case, target_hit=None, refusal=True),
+            result(acl_case, target_hit=False),
+        ],
+    )
+
+    report = run_eval.render_report(summary)
+
+    assert len(summary.positives) == 1
+    assert len(summary.no_answer_cases) == 1
+    assert len(summary.acl_rows) == 1
+    assert "Cases: 3 (1 positive, 1 no-answer, 1 ACL-negative)" in report
+    assert "Correct no-answer refusals | 1 / 1" in report
+    assert "answer text" not in report
+    assert "A policy." not in report
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("The provided documents do not contain information on this question.", True),
+        ("The office has a policy for that.", False),
+    ],
+)
+def test_no_answer_cases_record_refusal_without_ragas_judging(monkeypatch, answer, expected):
+    run_eval = _eval_module("run_eval")
+    case = run_eval.GoldenCase(
+        id="no-answer-case",
+        question="What is not documented?",
+        ground_truth_answer="",
+        target_doc_id=None,
+        kind="no_answer",
+    )
+    result = run_eval.CaseResult(
+        case=case,
+        answer="",
+        retrieved_doc_ids=[],
+        retrieved_pages=[],
+        contexts=[],
+        leaks=[],
+        target_doc_hit=None,
+        target_page_hit=None,
+    )
+    monkeypatch.setattr(run_eval, "_generate", lambda *_args: answer)
+    monkeypatch.setattr(run_eval, "score_case", lambda **_kwargs: pytest.fail("no-answer case must skip Ragas judges"))
+
+    evaluated = run_eval._evaluate_prepared_case(run_eval.PreparedCase(result, chunks=[]))
+
+    assert evaluated.no_answer_correct is expected
+    assert evaluated.ragas is None
+    assert evaluated.answer == answer
+
+
 def test_retrieval_only_report_shows_provenance_and_marks_generation_metrics_unavailable():
     run_eval = _eval_module("run_eval")
     case = run_eval.GoldenCase(
@@ -453,6 +549,26 @@ def test_quality_gates_accept_exact_thresholds_and_reject_any_lower_value():
     assert next(gate for gate in below_floor if gate.name == "Target document hit rate").status == "FAIL"
 
 
+def test_no_answer_refusal_gate_fails_when_corpus_supported_answer_is_given():
+    gates = _eval_module("quality_gates")
+
+    results = gates.evaluate_gates(
+        leaks=0,
+        errors=0,
+        target_doc_hit_rate=1.0,
+        target_page_hit_rate=None,
+        faithfulness=1.0,
+        context_precision=1.0,
+        answer_relevance=1.0,
+        no_answer_refusal_rate=0.75,
+        retrieval_only=False,
+    )
+
+    gate = next(item for item in results if item.name == "No-answer refusal rate")
+    assert gate.status == "FAIL"
+    assert gate.threshold == ">= 0.800"
+
+
 def test_quality_gates_fail_full_run_on_missing_metric_but_mark_generation_na_for_retrieval_only():
     gates = _eval_module("quality_gates")
 
@@ -479,7 +595,7 @@ def test_quality_gates_fail_full_run_on_missing_metric_but_mark_generation_na_fo
 
     assert not gates.all_gates_pass(full)
     assert gates.all_gates_pass(retrieval)
-    assert [gate.status for gate in retrieval if gate.name in gates.GENERATION_GATES] == ["N/A"] * 3
+    assert [gate.status for gate in retrieval if gate.name in gates.GENERATION_GATES] == ["N/A"] * 4
 
 
 def test_quality_gate_marks_target_pages_na_when_dataset_has_no_page_labels():

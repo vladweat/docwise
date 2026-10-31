@@ -90,6 +90,7 @@ def test_eval_generation_does_not_send_leaked_chunks_to_the_prompt(monkeypatch):
             question="question",
             ground_truth_answer="answer",
             is_acl_negative=False,
+            is_no_answer=False,
         ),
         leaks=["restricted-doc"],
         contexts=["[redacted restricted chunk]"],
