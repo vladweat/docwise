@@ -72,7 +72,7 @@ def evaluate_gates(
                 _minimum_gate("Faithfulness", faithfulness, FAITHFULNESS_FLOOR),
                 _minimum_gate("Context Precision", context_precision, CONTEXT_PRECISION_FLOOR),
                 _minimum_gate("Answer Relevance (English)", answer_relevance, ANSWER_RELEVANCE_FLOOR),
-                _optional_minimum_gate("No-answer refusal rate", no_answer_refusal_rate, NO_ANSWER_REFUSAL_FLOOR),
+                _minimum_gate("No-answer refusal rate", no_answer_refusal_rate, NO_ANSWER_REFUSAL_FLOOR),
             ]
         )
     return results

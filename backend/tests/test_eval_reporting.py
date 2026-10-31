@@ -532,6 +532,7 @@ def test_quality_gates_accept_exact_thresholds_and_reject_any_lower_value():
         context_precision=0.975,
         answer_relevance=0.827,
         retrieval_only=False,
+        no_answer_refusal_rate=1.0,
     )
     below_floor = gates.evaluate_gates(
         leaks=0,
@@ -542,6 +543,7 @@ def test_quality_gates_accept_exact_thresholds_and_reject_any_lower_value():
         context_precision=0.975,
         answer_relevance=0.827,
         retrieval_only=False,
+        no_answer_refusal_rate=1.0,
     )
 
     assert gates.all_gates_pass(at_floor)
@@ -567,6 +569,26 @@ def test_no_answer_refusal_gate_fails_when_corpus_supported_answer_is_given():
     gate = next(item for item in results if item.name == "No-answer refusal rate")
     assert gate.status == "FAIL"
     assert gate.threshold == ">= 0.800"
+
+
+def test_full_generation_gate_fails_when_no_answer_cases_are_absent():
+    gates = _eval_module("quality_gates")
+
+    results = gates.evaluate_gates(
+        leaks=0,
+        errors=0,
+        target_doc_hit_rate=1.0,
+        target_page_hit_rate=1.0,
+        faithfulness=1.0,
+        context_precision=1.0,
+        answer_relevance=1.0,
+        retrieval_only=False,
+    )
+
+    no_answer_gate = next(item for item in results if item.name == "No-answer refusal rate")
+    assert no_answer_gate.status == "FAIL"
+    assert no_answer_gate.threshold == ">= 0.800"
+    assert not gates.all_gates_pass(results)
 
 
 def test_quality_gates_fail_full_run_on_missing_metric_but_mark_generation_na_for_retrieval_only():
