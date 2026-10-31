@@ -155,14 +155,14 @@ citation support, language parity и ACL gates остаются пройдены
 **Interfaces:** `prompt.no_context_answer(question: str) -> str` is the source of truth;
 `metrics.is_refusal(answer: str) -> bool` classifies either supported localized response.
 
-- [ ] **Step 1: Write failing tests** named `test_build_messages_localizes_no_context_instruction`,
+- [x] **Step 1: Write failing tests** named `test_build_messages_localizes_no_context_instruction`,
   `test_eval_is_refusal_recognizes_ru_and_en`, and `test_eval_empty_retrieval_uses_localized_refusal`.
-- [ ] **Step 2: Run tests to verify expected failures** with the focused pytest selection.
-- [ ] **Step 3: Implement localized refusal text** in the system prompt and reuse `no_context_answer` in eval.
-- [ ] **Step 4: Implement bilingual refusal classification** in `eval/metrics.py` and use it for all refusal metrics.
-- [ ] **Step 5: Run focused tests, then full backend suite**; record results.
-- [ ] **Step 6: Run full benchmark** if LLM/eval infrastructure is configured; save report with code and dataset provenance.
-- [ ] **Step 7: Commit** as `fix: align localized RAG refusals in chat and eval`.
+- [x] **Step 2: Run tests to verify expected failures** with the focused pytest selection.
+- [x] **Step 3: Implement localized refusal text** in the system prompt and reuse `no_context_answer` in eval.
+- [x] **Step 4: Implement bilingual refusal classification** in `eval/metrics.py` and use it for all refusal metrics.
+- [x] **Step 5: Run focused tests, then full backend suite**; record results.
+- [x] **Step 6: Run full benchmark** if LLM/eval infrastructure is configured; save report with code and dataset provenance.
+- [x] **Step 7: Commit** as `fix: align localized RAG refusals in chat and eval`.
 
 ### Task 2: Answerability dataset and separate ACL slices
 
@@ -174,13 +174,13 @@ citation support, language parity и ACL gates остаются пройдены
 **Interfaces:** `GoldenCase.kind` supports `positive`, `acl_negative`, and `no_answer`;
 `target_doc_id` is required for the first two kinds and absent for `no_answer`.
 
-- [ ] **Step 1: Write failing parser/report tests** for `no_answer`, missing target UUID, answerable recall denominator, and refusal/false-answer counts.
-- [ ] **Step 2: Run them and confirm expected failures** before changing parser or report code.
-- [ ] **Step 3: Add `GoldenCase.is_no_answer` and nullable target handling**; keep ACL-negative checks separate.
-- [ ] **Step 4: Add no-answer coverage fields and report slices** without writing answer/context text.
-- [ ] **Step 5: Add a small fixed set of RU/EN questions absent from the synthetic corpus** and compose it with the existing ACL cases.
-- [ ] **Step 6: Run dataset/report tests and a fixed 30-case retrieval-only integration slice**; inspect generated report for restricted content. Defer the full combined benchmark until Task 4 reduces its measured resource cost.
-- [ ] **Step 7: Commit** as `eval: add no-answer cases and separate retrieval coverage gates`.
+- [x] **Step 1: Write failing parser/report tests** for `no_answer`, missing target UUID, answerable recall denominator, and refusal/false-answer counts.
+- [x] **Step 2: Run them and confirm expected failures** before changing parser or report code.
+- [x] **Step 3: Add `GoldenCase.is_no_answer` and nullable target handling**; keep ACL-negative checks separate.
+- [x] **Step 4: Add no-answer coverage fields and report slices** without writing answer/context text.
+- [x] **Step 5: Add a small fixed set of RU/EN questions absent from the synthetic corpus** and compose it with the existing ACL cases.
+- [x] **Step 6: Run dataset/report tests and a fixed 30-case retrieval-only integration slice**; inspect generated report for restricted content. Defer the full combined benchmark until Task 4 reduces its measured resource cost.
+- [x] **Step 7: Commit** as `eval: add no-answer cases and separate retrieval coverage gates`.
 
 ### Task 3: Evidence-led retrieval and generation improvements
 
@@ -200,18 +200,19 @@ citation support, language parity и ACL gates остаются пройдены
 ### Task 4: Faster evaluation with batching, without async migration
 
 **Files:** If timings justify changes, modify `eval/run_eval.py`, `eval/concurrency.py`,
-`backend/app/services/retrieval/__init__.py`, `backend/app/services/retrieval/search.py`, and tests.
+`backend/app/services/retrieval/__init__.py`, `backend/app/services/retrieval/search.py`, `Makefile`,
+`docs/product/evaluation.md`, and tests.
 
 **Interfaces:** Retrieval accepts either a query or a precomputed vector while deriving organization and roles only from the authenticated principal.
 
-- [ ] **Step 1: Add stage timing output** and test that timings are complete, non-negative, and contain no query/content.
-- [ ] **Step 2: Measure the fixed 30-case integration slice** to identify whether embedding or DB/retrieval dominates, while recording CPU and peak memory.
-- [ ] **Step 3: If embedding is material, write failing order/alignment tests** for batched queries before implementing batch encoding.
-- [ ] **Step 4: If DB search is still material, write failing isolation/order tests** before bounded workers with one RLS-bound session each.
-- [ ] **Step 5: Re-run the same slice and compare quality, wall time, CPU, and peak memory.** Keep only measured gains; run the full combined baseline before Task 3 only if resource use stays within the VPS budget.
-- [ ] **Step 6: Commit batching and retrieval concurrency separately** with `perf:` messages; skip a change that does not improve the complete run.
+- [x] **Step 1: Add stage timing output** and test that timings are complete, non-negative, and contain no query/content.
+- [x] **Step 2: Measure the fixed 30-case integration slice** to identify whether embedding or DB/retrieval dominates, while recording CPU and peak memory.
+- [x] **Step 3: Write failing order/alignment tests** for bounded query/document pair batches; leave query embedding batch size at `1` by default because size `32` did not improve the slice.
+- [x] **Step 4: Skip retrieval DB workers**; DB search was under 1% of measured retrieval time, so concurrent sessions would add RLS complexity without targeting the bottleneck.
+- [x] **Step 5: Re-run the same slice and compare quality, wall time, CPU, and peak memory.** The cross-query reranker candidate improved the measured rerank and wall time; full combined baseline remains gated on VPS resources.
+- [x] **Step 6: Commit the measured reranker batching separately** with a `perf:` message; do not add DB concurrency without evidence.
 
-**Execution order note:** A first full retrieval-only attempt on the 132-case combined MIRACL/synthetic corpus was stopped after about 14 minutes when available RAM fell below 0.5 GB; no report was written. The 30-case synthetic integration slice completed with 0 case errors, 0 ACL leaks, and 1.000 target-document hit rate (12 positive cases). Therefore run Task 4 before the full Task 3 baseline, and monitor resource use on the same VPS.
+**Execution order note:** A first full retrieval-only attempt on the 132-case combined MIRACL/synthetic corpus was stopped after about 14 minutes when available RAM fell below 0.5 GB; no report was written. On the fixed synthetic 30-case slice, batch-1 control took `73.05 s`, `2,181,088 KB` peak RSS, with query embedding `1.16 s`, DB search `0.53 s`, rerank `68.15 s`. Embedding batch `32` took `75.22 s` and did not improve retrieval, so the default remains `1`. Length-bucketed cross-query rerank batches of `64` took `71.87 s`, `2,172,012 KB` peak RSS; rerank was `65.60 s`, target-document hit stayed `1.000`, ACL leaks/errors stayed `0`. This is a single small-slice comparison and must be rechecked on the full combined dataset before treating the gain as representative. Keep Task 4 before the full Task 3 baseline and monitor VPS resources.
 
 ### Task 5: Final verification and handoff
 

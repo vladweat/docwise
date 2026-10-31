@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
+from time import perf_counter
 
 EVAL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = EVAL_DIR.parent
@@ -28,7 +29,7 @@ from acl import leaked_doc_ids  # noqa: E402
 from corpus import CATALOG_BY_ID, DEFAULT_EVAL_EMAIL, EVAL_ACCOUNTS, FOREIGN_ORG_DOC_ID, seed_corpus, seed_external_corpus  # noqa: E402
 from concurrency import map_bounded  # noqa: E402
 from app.services.ingestion.embedding_profiles import supported_profiles  # noqa: E402
-from app.services.ingestion.embeddings import active_embedding_profile, select_evaluation_embedding_profile  # noqa: E402
+from app.services.ingestion.embeddings import active_embedding_profile, embed_texts, select_evaluation_embedding_profile  # noqa: E402
 from dataset import GoldenCase, load_golden_dataset  # noqa: E402
 from metrics import RagasScores, is_refusal, score_answer_relevance_batch, score_case  # noqa: E402
 from provenance import code_revision, dataset_sha256, evaluation_config  # noqa: E402
@@ -40,6 +41,7 @@ from reporting import (  # noqa: E402
     rerank_threshold_case_metrics,
     rerank_threshold_metrics,
     retrieval_stage_metrics,
+    runtime_timing_metrics,
     stage_target_ranks,
 )
 
@@ -50,9 +52,9 @@ from app.models.user import User  # noqa: E402
 from app.services.chat import build_messages  # noqa: E402
 from app.services.chat.prompt import no_context_answer  # noqa: E402
 from app.services.chat.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai  # noqa: E402
-from app.services.retrieval import retrieve  # noqa: E402
-from app.services.retrieval.reranker import select_evaluation_reranker_profile  # noqa: E402
-from app.services.retrieval.types import RetrievedChunk  # noqa: E402
+from app.services.retrieval import finish_retrieval, hybrid_search, retrieve  # noqa: E402
+from app.services.retrieval.reranker import get_reranker, select_evaluation_reranker_profile  # noqa: E402
+from app.services.retrieval.types import HybridPool, RetrievedChunk  # noqa: E402
 from app.services.org.tenancy import resolve_principal  # noqa: E402
 
 logger = logging.getLogger("eval")
@@ -75,6 +77,7 @@ class CaseResult:
     ragas: RagasScores | None = None
     error: str | None = None
     no_answer_correct: bool | None = None
+    stage_timings_ms: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -86,6 +89,10 @@ class EvalSummary:
     config: dict[str, str | int | float] = field(default_factory=dict)
     results: list[CaseResult] = field(default_factory=list)
     retrieval_only: bool = False
+    query_embedding_ms: float = 0.0
+    query_embedding_count: int = 0
+    rerank_ms: float = 0.0
+    rerank_pair_count: int = 0
 
     @property
     def positives(self) -> list[CaseResult]:
@@ -122,6 +129,7 @@ class PreparedCase:
 
     result: CaseResult
     chunks: list[RetrievedChunk]
+    pool: HybridPool | None = None
 
 
 def default_report_path() -> Path:
@@ -153,6 +161,18 @@ def main(argv: list[str] | None = None) -> int:
         help="Select a model profile for an isolated seeded evaluation",
     )
     parser.add_argument("--limit", type=int, default=0, help="Run only the first N cases")
+    parser.add_argument(
+        "--embedding-batch-size",
+        type=_positive_int,
+        default=os.environ.get("EVAL_EMBEDDING_BATCH_SIZE", "1"),
+        help="Maximum eval query embeddings per synchronous batch (default: 1)",
+    )
+    parser.add_argument(
+        "--rerank-batch-size",
+        type=_positive_int,
+        default=os.environ.get("EVAL_RERANK_BATCH_SIZE", "64"),
+        help="Maximum query/document pairs per synchronous reranker batch (default: 64)",
+    )
     parser.add_argument(
         "--concurrency",
         type=_positive_int,
@@ -207,6 +227,8 @@ def main(argv: list[str] | None = None) -> int:
         config={
             **evaluation_config(),
             "eval_concurrency": args.concurrency,
+            "eval_embedding_batch_size": args.embedding_batch_size,
+            "eval_rerank_batch_size": args.rerank_batch_size,
             "eval_limit": args.limit,
         },
         retrieval_only=args.retrieval_only,
@@ -214,9 +236,26 @@ def main(argv: list[str] | None = None) -> int:
     evaluator_accounts = {account.email: account for account in EVAL_ACCOUNTS}
     users: dict[str, Principal] = {}
     prepared_cases: list[PreparedCase] = []
+    embedding_started = perf_counter()
+    try:
+        query_vectors = embed_questions_batched(
+            [case.question for case in items],
+            batch_size=args.embedding_batch_size,
+        )
+    except Exception as exc:
+        logger.error("Could not embed evaluation questions: %s", exc)
+        return 2
+    summary.query_embedding_ms = (perf_counter() - embedding_started) * 1000
+    summary.query_embedding_count = len(query_vectors)
+    logger.info(
+        "Embedded %s eval questions in %.1f ms (batch_size=%s)",
+        len(query_vectors),
+        summary.query_embedding_ms,
+        args.embedding_batch_size,
+    )
     db = SessionLocal()
     try:
-        for case in items:
+        for case, query_vector in zip(items, query_vectors, strict=True):
             case_email = case.eval_user_email or email
             account = evaluator_accounts.get(case_email)
             if case.eval_user_email is not None:
@@ -246,9 +285,22 @@ def main(argv: list[str] | None = None) -> int:
                     )
                     return 2
                 users[case_email] = user
-            prepared_cases.append(_prepare_case(db, user, case))
+            prepared_cases.append(_prepare_case(db, user, case, query_vector=query_vector))
     finally:
         db.close()
+
+    rerank_started = perf_counter()
+    summary.rerank_pair_count = _finish_prepared_retrievals(
+        prepared_cases,
+        batch_size=args.rerank_batch_size,
+    )
+    summary.rerank_ms = (perf_counter() - rerank_started) * 1000
+    logger.info(
+        "Reranked %s candidate pairs in %.1f ms (batch_size=%s)",
+        summary.rerank_pair_count,
+        summary.rerank_ms,
+        args.rerank_batch_size,
+    )
 
     if args.retrieval_only:
         summary.results = [_retrieval_only_result(item) for item in prepared_cases]
@@ -312,6 +364,30 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
+def embed_questions_batched(
+    questions: list[str],
+    *,
+    batch_size: int,
+    embed_fn=None,
+) -> list[list[float]]:
+    """Embed eval questions in bounded batches while preserving exact input alignment."""
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    if not questions:
+        return []
+    embed = embed_fn or embed_texts
+    vectors: list[list[float]] = []
+    for start in range(0, len(questions), batch_size):
+        batch = questions[start : start + batch_size]
+        encoded = embed(batch)
+        if len(encoded) != len(batch):
+            raise ValueError("Embedding count does not match question batch")
+        vectors.extend(encoded)
+    if len(vectors) != len(questions):
+        raise ValueError("Embedding count does not match question list")
+    return vectors
+
+
 def _run_case(db, user: User, case: GoldenCase, *, retrieval_only: bool) -> CaseResult:
     prepared = _prepare_case(db, user, case)
     if retrieval_only:
@@ -321,9 +397,113 @@ def _run_case(db, user: User, case: GoldenCase, *, retrieval_only: bool) -> Case
     return result
 
 
-def _prepare_case(db, user: User, case: GoldenCase) -> PreparedCase:
+def _prepare_case(
+    db,
+    user: User,
+    case: GoldenCase,
+    *,
+    query_vector: list[float] | None = None,
+) -> PreparedCase:
     bind_session_rls(db, organization_id=user.organization_id)
-    retrieval = retrieve(db, user, case.question)
+    if query_vector is None:
+        retrieval_started = perf_counter()
+        retrieval = retrieve(db, user, case.question)
+        result = CaseResult(
+            case=case,
+            answer="",
+            retrieved_doc_ids=[],
+            retrieved_pages=[],
+            contexts=[],
+            leaks=[],
+            target_doc_hit=None,
+            target_page_hit=None,
+            stage_timings_ms={"retrieval_total": (perf_counter() - retrieval_started) * 1000},
+        )
+        return _populate_prepared_case(PreparedCase(result=result, chunks=[]), retrieval)
+
+    db_search_started = perf_counter()
+    pool = hybrid_search(db, user, case.question, query_vector)
+    result = CaseResult(
+        case=case,
+        answer="",
+        retrieved_doc_ids=[],
+        retrieved_pages=[],
+        contexts=[],
+        leaks=[],
+        target_doc_hit=None,
+        target_page_hit=None,
+        stage_timings_ms={"db_search": (perf_counter() - db_search_started) * 1000},
+    )
+    return PreparedCase(result=result, chunks=[], pool=pool)
+
+
+def score_rerank_pairs_batched(
+    groups: list[list[tuple[str, str]]],
+    *,
+    batch_size: int,
+    score_fn=None,
+) -> list[list[float]]:
+    """Score query/document pairs in bounded batches and restore per-case order."""
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    lengths = [len(group) for group in groups]
+    pairs = [pair for group in groups for pair in group]
+    if not pairs:
+        return [[] for _ in groups]
+    scorer = score_fn or get_reranker().score_pairs
+    ordered_pairs = sorted(
+        enumerate(pairs),
+        key=lambda item: (len(item[1][0]) + len(item[1][1]), item[0]),
+    )
+    scores_by_index: list[float | None] = [None] * len(pairs)
+    for start in range(0, len(ordered_pairs), batch_size):
+        batch = ordered_pairs[start : start + batch_size]
+        batch_pairs = [pair for _index, pair in batch]
+        batch_scores = [float(value) for value in scorer(batch_pairs)]
+        if len(batch_scores) != len(batch_pairs):
+            raise ValueError("Reranker score count does not match pair batch")
+        for (index, _pair), score in zip(batch, batch_scores, strict=True):
+            scores_by_index[index] = score
+    if any(score is None for score in scores_by_index):
+        raise ValueError("Reranker score count does not match query/document pairs")
+    scores = [float(score) for score in scores_by_index]
+    output: list[list[float]] = []
+    start = 0
+    for length in lengths:
+        output.append(scores[start : start + length])
+        start += length
+    return output
+
+
+def _finish_prepared_retrievals(prepared_cases: list[PreparedCase], *, batch_size: int) -> int:
+    """Rerank ACL-filtered pool records after their database sessions have closed."""
+    batched_cases = [prepared for prepared in prepared_cases if prepared.pool is not None]
+    record_groups = [
+        [prepared.pool.records[cid] for cid, _score in prepared.pool.fused if cid in prepared.pool.records]
+        for prepared in batched_cases
+    ]
+    pair_groups = [
+        [(prepared.result.case.question, record.content) for record in records]
+        for prepared, records in zip(batched_cases, record_groups, strict=True)
+    ]
+    pair_count = sum(len(group) for group in pair_groups)
+    scores_by_case = score_rerank_pairs_batched(pair_groups, batch_size=batch_size)
+    for prepared, scores in zip(batched_cases, scores_by_case, strict=True):
+        pool = prepared.pool
+        if pool is None:
+            continue
+        retrieval = finish_retrieval(
+            prepared.result.case.question,
+            pool,
+            precomputed_scores=scores,
+        )
+        _populate_prepared_case(prepared, retrieval)
+        prepared.pool = None
+    return pair_count
+
+
+def _populate_prepared_case(prepared: PreparedCase, retrieval) -> PreparedCase:
+    case = prepared.result.case
     chunks = list(retrieval.chunks)
     retrieved_doc_ids = [str(chunk.document_id) for chunk in chunks]
     retrieved_pages = [chunk.page_number for chunk in chunks]
@@ -366,21 +546,18 @@ def _prepare_case(db, user: User, case: GoldenCase) -> PreparedCase:
     else:
         contexts = [chunk.content for chunk in chunks]
 
-    result = CaseResult(
-        case=case,
-        answer="",
-        retrieved_doc_ids=retrieved_doc_ids,
-        retrieved_pages=retrieved_pages,
-        contexts=contexts,
-        leaks=leaks,
-        target_doc_hit=target_doc_hit,
-        target_page_hit=target_page_hit,
-        target_section_hit=target_section_hit,
-        retrieval_stage_doc_hits=retrieval_stage_doc_hits,
-        retrieval_stage_ranks=retrieval_stage_ranks,
-        rerank_threshold_sweep=rerank_threshold_sweep,
-    )
-    return PreparedCase(result=result, chunks=chunks)
+    prepared.result.retrieved_doc_ids = retrieved_doc_ids
+    prepared.result.retrieved_pages = retrieved_pages
+    prepared.result.contexts = contexts
+    prepared.result.leaks = leaks
+    prepared.result.target_doc_hit = target_doc_hit
+    prepared.result.target_page_hit = target_page_hit
+    prepared.result.target_section_hit = target_section_hit
+    prepared.result.retrieval_stage_doc_hits = retrieval_stage_doc_hits
+    prepared.result.retrieval_stage_ranks = retrieval_stage_ranks
+    prepared.result.rerank_threshold_sweep = rerank_threshold_sweep
+    prepared.chunks = chunks
+    return prepared
 
 
 def _retrieval_only_result(prepared: PreparedCase) -> CaseResult:
@@ -582,6 +759,51 @@ def render_report(summary: EvalSummary) -> str:
                 f"| False no-answer answers | {sum(row.no_answer_correct is False for row in no_answer_rows)} / {len(no_answer_rows)} |",
             ]
         )
+    lines.extend(
+        [
+            "",
+            "## Runtime profile",
+            "",
+            "Timings are aggregate milliseconds only; query and passage text are not repeated in this section.",
+            "",
+            "| Stage | Total ms | Mean ms/item | Count |",
+            "| --- | ---: | ---: | ---: |",
+            "| Query embedding | {total} | {average} | {cases} |".format(
+                total=_fmt(summary.query_embedding_ms),
+                average=(
+                    _fmt(summary.query_embedding_ms / summary.query_embedding_count)
+                    if summary.query_embedding_count
+                    else "n/a"
+                ),
+                cases=summary.query_embedding_count,
+            ),
+        ]
+    )
+    for timing in runtime_timing_metrics(summary.results):
+        stage_label = {
+            "retrieval_total": "Retrieval total",
+            "db_search": "DB search",
+            "rerank": "Rerank",
+        }[str(timing["stage"])]
+        lines.append(
+            "| {stage} | {total} | {average} | {cases} |".format(
+                stage=stage_label,
+                total=_fmt(float(timing["total_ms"])),
+                average=_fmt(float(timing["mean_ms"])),
+                cases=int(timing["cases"]),
+            )
+        )
+    lines.append(
+        "| Rerank (batched) | {total} | {average} | {count} |".format(
+            total=_fmt(summary.rerank_ms),
+            average=(
+                _fmt(summary.rerank_ms / len(summary.results))
+                if summary.results
+                else "n/a"
+            ),
+            count=summary.rerank_pair_count,
+        )
+    )
     lines.extend(["", "## No-answer behavior", ""])
     lines.extend(
         [

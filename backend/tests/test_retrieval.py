@@ -99,6 +99,81 @@ def test_finish_retrieval_preserves_scored_thresholded_and_top4_stages(monkeypat
     assert [hit.section_title for hit in result.reranked] == [f"section-{i}" for i in range(4)]
 
 
+def test_finish_retrieval_accepts_scores_from_bounded_cross_case_batch(monkeypatch):
+    import app.services.retrieval as retrieval_module
+
+    document_id = uuid4()
+    records = {}
+    for index in range(3):
+        chunk_id = uuid4()
+        records[chunk_id] = ChunkRecord(
+            id=chunk_id,
+            document_id=document_id,
+            chunk_id=f"chunk-{index}",
+            doc_title="Evaluation fixture",
+            page_number=1,
+            content=f"text {index}",
+            access_roles=("all",),
+            section_title=f"section-{index}",
+        )
+    pool = HybridPool(
+        records=records,
+        fused=[(chunk_id, 1.0) for chunk_id in records],
+        allowed_roles=("all",),
+    )
+    monkeypatch.setattr(retrieval_module, "get_settings", lambda: type("Settings", (), {"rerank_threshold": 0.25})())
+
+    class _Scorer:
+        def score(self, *_args):
+            raise AssertionError("Precomputed scores should bypass per-query scoring")
+
+    result = finish_retrieval(
+        "target question",
+        pool,
+        reranker=_Scorer(),
+        precomputed_scores=[0.1, 0.9, 0.8],
+    )
+
+    assert [hit.section_title for hit in result.rerank_scored] == ["section-1", "section-2", "section-0"]
+    assert [hit.section_title for hit in result.rerank_thresholded] == ["section-1", "section-2"]
+
+
+def test_finish_retrieval_rejects_scores_for_empty_hybrid_pool():
+    from app.services.retrieval import RetrievalError
+
+    with pytest.raises(RetrievalError, match="score count"):
+        finish_retrieval(
+            "target question",
+            HybridPool(allowed_roles=("all",)),
+            precomputed_scores=[0.5],
+        )
+
+
+def test_fastembed_reranker_scores_pairs_and_validates_alignment():
+    from app.services.retrieval.reranker import FastEmbedReranker, RerankError
+
+    class _Model:
+        def __init__(self, values):
+            self.values = values
+            self.calls = []
+
+        def rerank_pairs(self, pairs, *, batch_size):
+            self.calls.append((pairs, batch_size))
+            return self.values
+
+    model = _Model([0.0, 2.0])
+    scorer = FastEmbedReranker(model)
+    pairs = [("q1", "doc1"), ("q2", "doc2")]
+
+    scores = scorer.score_pairs(pairs, batch_size=16)
+
+    assert model.calls == [(pairs, 16)]
+    assert scores[0] == pytest.approx(0.5)
+    assert scores[1] == pytest.approx(1 / (1 + __import__("math").exp(-2.0)))
+    with pytest.raises(RerankError, match="pair scores"):
+        FastEmbedReranker(_Model([0.0])).score_pairs(pairs)
+
+
 def test_fts_query_drops_stopwords_and_ors_content_terms():
     q = _fts_or_query("What is the default Python version for engineering?")
     assert q is not None

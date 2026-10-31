@@ -75,6 +75,15 @@ class FastEmbedReranker:
             raise RerankError("Reranker returned the wrong number of scores")
         return [_sigmoid(float(value)) for value in raw]
 
+    def score_pairs(self, pairs: list[tuple[str, str]], *, batch_size: int = 64) -> list[float]:
+        """Score bounded cross-query batches while preserving input order."""
+        if not pairs:
+            return []
+        raw = list(self._model.rerank_pairs(pairs, batch_size=batch_size))
+        if len(raw) != len(pairs):
+            raise RerankError("Reranker returned the wrong number of pair scores")
+        return [_sigmoid(float(value)) for value in raw]
+
 
 def get_reranker():
     global _reranker

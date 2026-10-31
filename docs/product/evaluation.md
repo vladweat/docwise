@@ -228,12 +228,18 @@ generation/judges; следующий bottleneck — последователь�
 ## Запуск
 
 ```bash
-make eval                 # retrieval + generation + judges, до 4 кейсов одновременно
-make eval EVAL_CONCURRENCY=2 # снизить параллельность при rate limit провайдера
-make eval-retrieval       # retrieval/ACL без LLM judges
+make eval                                      # retrieval + generation + judges, до 4 кейсов одновременно
+make eval EVAL_CONCURRENCY=2                  # снизить параллельность generation/judges
+make eval-retrieval                           # retrieval/ACL без LLM judges
+make eval-retrieval EVAL_EMBEDDING_BATCH_SIZE=16 # ограничить размер batch query embeddings
+make eval-retrieval EVAL_RERANK_BATCH_SIZE=32     # ограничить размер batch query/document pairs
 ```
 
 Нужны запущенный Compose stack; полному evaluation — LLM key и FastEmbed cache.
+Query embeddings считаются до открытия DB-сессии; default batch size — `1`, поскольку на фиксированном 30-case срезе batch `32` не ускорил прогон.
+Каждый retrieval по-прежнему отдельно привязывает RLS-контекст и получает tenant/ACL из resolved principal.
+После закрытия per-case DB-сессий разрешённые пары query/document передаются cross-encoder пакетами; default — `64` пар.
+Пары сортируются по оценочной длине до пакетирования, а затем scores возвращаются в исходный порядок; в одном сопоставимом прогоне rerank стал быстрее на `3.7%`, весь прогон — на `1.6%`, с теми же retrieval метриками. Это небольшой предварительный выигрыш, который нужно сверить на полном benchmark. Benchmark report содержит агрегированное время query embedding, DB search и rerank без текста запросов и passages.
 `run_eval.py --seed` создаёт шесть тестовых evaluator personas, synthetic corpus и foreign-tenant decoy.
 Retrieval выполняется последовательно; после него до четырёх независимых кейсов одновременно проходят generation
 и judges через существующий HTTP-клиент. Answer Relevance embeddings считаются следующими пакетно: по языковому профилю,

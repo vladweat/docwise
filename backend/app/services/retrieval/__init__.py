@@ -82,6 +82,7 @@ def finish_retrieval(
     pool: HybridPool,
     *,
     reranker=None,
+    precomputed_scores: list[float] | None = None,
 ) -> RetrievalResult:
     """Cross-encoder rerank. Must not run while a DB session is held."""
     allowed = pool.allowed_roles
@@ -97,9 +98,11 @@ def finish_retrieval(
     )
     fused_records = [pool.records[cid] for cid, _score in pool.fused if cid in pool.records]
     if not fused_records:
+        if precomputed_scores:
+            raise RetrievalError("Reranker score count does not match chunk count")
         return blank
 
-    scored = _rerank_records(query, fused_records, reranker)
+    scored = _rerank_records(query, fused_records, reranker, scores=precomputed_scores)
     rerank_scored = [_stage_hit(record, score) for record, score in scored]
     threshold = get_settings().rerank_threshold
     thresholded = [(record, score) for record, score in scored if score >= threshold]
@@ -158,15 +161,22 @@ def _rerank_records(
     query: str,
     records: list[ChunkRecord],
     reranker,
+    *,
+    scores: list[float] | None = None,
 ) -> list[tuple[ChunkRecord, float]]:
     if not records:
+        if scores:
+            raise RetrievalError("Reranker score count does not match chunk count")
         return []
-    scorer = reranker if reranker is not None else _default_reranker()
-    texts = [record.content for record in records]
-    scores = [float(value) for value in scorer.score(query, texts)]
-    if len(scores) != len(records):
+    if scores is None:
+        scorer = reranker if reranker is not None else _default_reranker()
+        texts = [record.content for record in records]
+        values = [float(value) for value in scorer.score(query, texts)]
+    else:
+        values = [float(value) for value in scores]
+    if len(values) != len(records):
         raise RetrievalError("Reranker score count does not match chunk count")
-    paired = list(zip(records, scores, strict=True))
+    paired = list(zip(records, values, strict=True))
     paired.sort(key=lambda item: item[1], reverse=True)
     return paired
 

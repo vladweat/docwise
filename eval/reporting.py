@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from statistics import mean
 from typing import Literal
 
@@ -196,6 +197,31 @@ def rerank_threshold_metrics(results) -> list[dict[str, object]]:
                 "section_mrr": _avg([1.0 / rank if rank is not None else 0.0 for rank in ranks]),
                 "mean_returned": _avg([float(value.get("returned", 0)) for value in all_values]),
                 "empty_rate": _avg([float(value.get("returned", 0) == 0) for value in all_values]),
+            }
+        )
+    return output
+
+
+def runtime_timing_metrics(results) -> list[dict[str, float | int | str]]:
+    """Aggregate numeric stage timings without including case inputs or outputs."""
+    stages = ("retrieval_total", "db_search")
+    output: list[dict[str, float | int | str]] = []
+    for stage in stages:
+        values = [
+            float(value)
+            for row in results
+            if (value := getattr(row, "stage_timings_ms", {}).get(stage)) is not None
+        ]
+        if not values:
+            continue
+        if any(not math.isfinite(value) or value < 0 for value in values):
+            raise ValueError(f"{stage} timings must be finite and non-negative")
+        output.append(
+            {
+                "stage": stage,
+                "cases": len(values),
+                "total_ms": sum(values),
+                "mean_ms": mean(values) if values else 0.0,
             }
         )
     return output

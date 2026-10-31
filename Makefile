@@ -120,11 +120,13 @@ load-baseline:
 
 # Live RAG eval (not default CI): LLM key + fixture PDFs. Writes reports/rag_benchmark.md
 EVAL_CONCURRENCY ?= 4
+EVAL_EMBEDDING_BATCH_SIZE ?= 1
+EVAL_RERANK_BATCH_SIZE ?= 64
 eval:
-	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --concurrency $(EVAL_CONCURRENCY)
+	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --concurrency $(EVAL_CONCURRENCY) --embedding-batch-size $(EVAL_EMBEDDING_BATCH_SIZE) --rerank-batch-size $(EVAL_RERANK_BATCH_SIZE)
 
 eval-retrieval:
-	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --retrieval-only
+	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --retrieval-only --embedding-batch-size $(EVAL_EMBEDDING_BATCH_SIZE) --rerank-batch-size $(EVAL_RERANK_BATCH_SIZE)
 
 # Local demo: employee vs HR + 12 PDFs (all / hr / finance)
 demo:
