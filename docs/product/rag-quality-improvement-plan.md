@@ -1,4 +1,34 @@
-# План масштабного улучшения RAG
+# RAG Quality Improvement Implementation Plan
+
+> **For agentic workers:** Implement this plan task by task. Each task ends with its own verification and commit.
+
+**Goal:** Improve RAG quality and verifiability using valid evaluation data, stage diagnostics, answerability checks, and measured end-to-end changes.
+
+**Architecture:** Keep the existing synchronous FastAPI/SQLAlchemy architecture. First align production and evaluation semantics, then evaluate retrieval and answer changes on one combined dataset containing positive, no-answer, and ACL-negative cases. Optimize eval throughput only after per-stage timing identifies a bottleneck.
+
+**Tech Stack:** FastAPI, SQLAlchemy/PostgreSQL/pgvector, FastEmbed/ONNX, Celery, pytest, MIRACL-derived evaluation fixtures, OpenAI-compatible LLM API.
+
+**Spec:** The goal, selected approach, known evidence, constraints, and acceptance criteria in this document are the approved design brief.
+
+## Global Constraints
+
+- `organization_id` comes only from the authenticated session or trusted DB record.
+- Dense and FTS retrieval apply organization and `access_roles` filters before RRF, reranking, and LLM.
+- Restricted chunk text never enters prompt, cache, audit, errors, logs, or committed reports.
+- ORM changes require a new Alembic migration; existing migrations are immutable.
+- Ingestion changes require restarting `celery-worker`.
+- Do not promote model profiles or thresholds unless full quality and ACL gates pass.
+- Do not convert the project to async as part of this work.
+
+## Review Focus
+
+- English/Russian no-context responses must match production language behavior and count as refusals.
+- An ACL-negative query must not send a leaked chunk into generation even if the eval detects a leak.
+- A no-answer case must not be treated as a positive target-hit case or inflate answerable recall.
+- Concurrent eval tasks must bind independent sessions and RLS context per case.
+- Candidate models, threshold changes, and batching must preserve vector-profile consistency and input/result order.
+
+---
 
 ## Цель
 
@@ -112,75 +142,80 @@ citation support, language parity и ACL gates остаются пройдены
 
 ## Исполнительные задачи
 
-### Задача 1 — parity отказов
+### Task 1: Локализованный отказ и parity production/eval
 
-**Изменяем:** `backend/app/services/chat/prompt.py`, `eval/run_eval.py`, `eval/metrics.py`.
-**Проверяем:** `backend/tests/test_chat.py`, `backend/tests/test_eval_reporting.py`,
-`backend/tests/test_rag_multilingual.py`.
+**Files:**
+- Modify: `backend/app/services/chat/prompt.py`
+- Modify: `eval/run_eval.py`
+- Modify: `eval/metrics.py`
+- Test: `backend/tests/test_chat.py`
+- Test: `backend/tests/test_eval_reporting.py`
+- Test: `backend/tests/test_rag_multilingual.py`
 
-- [ ] Тесты: prompt задаёт локализованный стандартный отказ, не конфликтующий с языком пользователя;
-  английский и русский отказ определяются evaluator-ом, включая текст с вводной фразой.
-- [ ] Тесты: пустой retrieval в eval возвращает ровно тот ответ, который вернул бы production.
-- [ ] Прогнать целевые тестовые модули, затем полный backend suite.
-- [ ] Пересчитать полный benchmark и сохранить отчёт с новой provenance.
-- [ ] Commit: `fix: align localized RAG refusals in chat and eval`.
+**Interfaces:** `prompt.no_context_answer(question: str) -> str` is the source of truth;
+`metrics.is_refusal(answer: str) -> bool` classifies either supported localized response.
 
-### Задача 2 — валидные answerability и ACL slices
+- [ ] **Step 1: Write failing tests** named `test_build_messages_localizes_no_context_instruction`,
+  `test_eval_is_refusal_recognizes_ru_and_en`, and `test_eval_empty_retrieval_uses_localized_refusal`.
+- [ ] **Step 2: Run tests to verify expected failures** with the focused pytest selection.
+- [ ] **Step 3: Implement localized refusal text** in the system prompt and reuse `no_context_answer` in eval.
+- [ ] **Step 4: Implement bilingual refusal classification** in `eval/metrics.py` and use it for all refusal metrics.
+- [ ] **Step 5: Run focused tests, then full backend suite**; record results.
+- [ ] **Step 6: Run full benchmark** if LLM/eval infrastructure is configured; save report with code and dataset provenance.
+- [ ] **Step 7: Commit** as `fix: align localized RAG refusals in chat and eval`.
 
-**Изменяем:** `eval/dataset.py`, `eval/run_eval.py`, `eval/reporting.py`,
-`eval/quality_gates.py`, `eval/golden_dataset.json`, `backend/tests/test_eval_golden_dataset.py`,
-`backend/tests/test_eval_reporting.py`.
+### Task 2: Answerability dataset and separate ACL slices
 
-- [ ] Добавить отдельный `no_answer` kind с вопросами, на которые корпус не содержит ответа;
-  сохранить существующий `acl_negative` и требования к UUID для answerable cases.
-- [ ] Тесты: parser валидирует `no_answer`, отчёт отдельно считает правильные отказы, ложные ответы,
-  ACL утечки и answerable recall.
-- [ ] Объединённый полный dataset включает synthetic ACL matrix и real MIRACL cases; отчёт показывает
-  разрезы по `source_dataset`, языку и kind.
-- [ ] Не писать в report ответы, passages или restricted chunk text.
-- [ ] Прогнать dataset/report tests и полный retrieval-only suite; сохранить report.
-- [ ] Commit: `eval: add no-answer cases and separate retrieval coverage gates`.
+**Files:**
+- Modify: `eval/dataset.py`, `eval/run_eval.py`, `eval/reporting.py`, `eval/quality_gates.py`, `eval/golden_dataset.json`
+- Test: `backend/tests/test_eval_golden_dataset.py`, `backend/tests/test_eval_reporting.py`
 
-### Задача 3 — измеренное улучшение retrieval и generation
+**Interfaces:** `GoldenCase.kind` supports `positive`, `acl_negative`, and `no_answer`;
+`target_doc_id` is required for the first two kinds and absent for `no_answer`.
 
-**Изменяем только после benchmark из задач 1–2:** `backend/app/services/retrieval/`,
+- [ ] **Step 1: Write failing parser/report tests** for `no_answer`, missing target UUID, answerable recall denominator, and refusal/false-answer counts.
+- [ ] **Step 2: Run them and confirm expected failures** before changing parser or report code.
+- [ ] **Step 3: Add `GoldenCase.is_no_answer` and nullable target handling**; keep ACL-negative checks separate.
+- [ ] **Step 4: Add no-answer coverage fields and report slices** without writing answer/context text.
+- [ ] **Step 5: Add a small fixed set of RU/EN questions absent from the synthetic corpus** and compose it with the existing ACL cases.
+- [ ] **Step 6: Run dataset/report tests and full retrieval-only suite**; inspect generated report for restricted content.
+- [ ] **Step 7: Commit** as `eval: add no-answer cases and separate retrieval coverage gates`.
+
+### Task 3: Evidence-led retrieval and generation improvements
+
+**Files:** Change only after measuring: `backend/app/services/retrieval/`,
 `backend/app/services/ingestion/embedding_profiles.py`, `backend/app/services/chat/prompt.py`,
-`eval/quality_gates.py` и соответствующие тесты.
+`eval/quality_gates.py`, and tests that reproduce each selected weak case.
 
-- [ ] Сначала сохранить полный baseline report на том же combined dataset и активном профиле.
-- [ ] Сравнить candidate profiles и пороги `0.10–0.30` на одинаковом наборе, включая positive,
-  no-answer и ACL-negative cases.
-- [ ] До production-изменения добавить regression test на каждый выявленный слабый сценарий.
-- [ ] Выбирать candidate только по совместным gates: retrieval hit, Context Precision, Answer
-  Relevance, правильные отказы, Faithfulness, citations и ACL leaks.
-- [ ] Сохранить baseline/candidate отчёты; commit отдельным сообщением для каждого подтверждённого
-  product change. Если ни один candidate не проходит gates, не менять runtime defaults и записать
-  конкретный вывод в отчёт.
+**Interfaces:** Keep `retrieve(db, user, query)` tenant/ACL semantics; keep candidate embedding and reranker profiles isolated from production defaults.
 
-### Задача 4 — ускорение eval без async-перехода
+- [ ] **Step 1: Run and save the full combined-dataset baseline** at current production profiles.
+- [ ] **Step 2: Compare multilingual profiles and threshold sweep** on identical positive, no-answer, and ACL-negative cases.
+- [ ] **Step 3: Inspect named weak cases and add one regression test per chosen behavior** before production changes.
+- [ ] **Step 4: Change only the best-supported retrieval or prompt behavior**; preserve runtime defaults until gates pass.
+- [ ] **Step 5: Re-run full evaluation and verify all quality/ACL gates** against the recorded baseline.
+- [ ] **Step 6: Save candidate report and commit each confirmed product change separately.** If no candidate passes, record findings and leave defaults unchanged.
 
-**Изменяем при наличии профиля длительности:** `eval/run_eval.py`, `eval/concurrency.py`,
-`backend/app/services/retrieval/__init__.py`, `backend/app/services/retrieval/search.py` и тесты.
+### Task 4: Faster evaluation with batching, without async migration
 
-- [ ] Измерить отдельное время seeding, embedding, DB search, rerank, generation и judges на одном
-  полном прогоне.
-- [ ] Если query embedding занимает заметную часть времени, сначала добавить пакетное embedding API
-  и тест порядка результатов; затем передавать заранее вычисленный вектор в retrieval без повторного
-  embedding.
-- [ ] Если DB/retrieval остаётся узким местом, ограниченно распараллелить независимые кейсы с отдельной
-  `SessionLocal`, `bind_session_rls` и сохранением входного порядка результатов.
-- [ ] Проверить то же качество/ACL gates и замерить wall time, peak memory и CPU; не повышать
-  concurrency выше того, что выдерживает VPS.
-- [ ] Commit: `perf: batch eval query embeddings` и отдельный commit для retrieval concurrency,
-  только если каждый шаг измеримо ускоряет полный прогон.
+**Files:** If timings justify changes, modify `eval/run_eval.py`, `eval/concurrency.py`,
+`backend/app/services/retrieval/__init__.py`, `backend/app/services/retrieval/search.py`, and tests.
 
-### Задача 5 — итоговая проверка и отчётность
+**Interfaces:** Retrieval accepts either a query or a precomputed vector while deriving organization and roles only from the authenticated principal.
 
-- [ ] Запустить `make lint`, `make test-smoke`, `make test`, `make typecheck`, `make test-frontend`;
-  команды, требующие compose, запускать только при доступной инфраструктуре и достаточных ресурсах.
-- [ ] Запустить полный RAG eval и приложить dataset hash, revision и итоговые gates.
-- [ ] Проверить ACL границы, diff и документацию; не пушить и не разворачивать демо без отдельного запроса.
-- [ ] Финальный review изменений и список отложенных проблем.
+- [ ] **Step 1: Add stage timing output** and test that timings are complete, non-negative, and contain no query/content.
+- [ ] **Step 2: Measure one full run** to identify whether embedding or DB/retrieval dominates.
+- [ ] **Step 3: If embedding is material, write failing order/alignment tests** for batched queries before implementing batch encoding.
+- [ ] **Step 4: If DB search is still material, write failing isolation/order tests** before bounded workers with one RLS-bound session each.
+- [ ] **Step 5: Re-run the same dataset and compare quality, wall time, CPU, and peak memory.** Keep only measured gains.
+- [ ] **Step 6: Commit batching and retrieval concurrency separately** with `perf:` messages; skip a change that does not improve the complete run.
+
+### Task 5: Final verification and handoff
+
+- [ ] Run `make lint`, `make test-smoke`, `make test`, `make typecheck`, and `make test-frontend` when required infrastructure is available.
+- [ ] Run the full RAG eval and record code revision, dataset hash, configuration, and gate outcomes.
+- [ ] Review ACL boundaries, docs, and complete diff; do not push or deploy the demo without a separate request.
+- [ ] Complete a fresh whole-branch review and report deferred issues.
 
 ## Ограничения
 
