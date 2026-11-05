@@ -1,17 +1,17 @@
-# README screenshots
+# Скриншоты главной страницы
 
-PNG set for the root [README](../../../README.md) gallery.
+Набор изображений для галереи в корневом [README](../../../README.md).
 
-| File | Scene |
+| Файл | Что показано |
 | --- | --- |
-| `01-chat-citation.png` | Employee chat: answer + citation chips |
-| `02-pdf-highlight.png` | Same flow: PDF pane with snippet highlight |
-| `03-acl-refuse.png` | Employee: L3 salary question → grounded refuse (no HR doc) |
-| `04-inspect-pipeline.png` | Org-admin `/inspect` → stages table |
+| `01-chat-citation.png` | Чат сотрудника: ответ и ссылки на цитаты |
+| `02-pdf-highlight.png` | Тот же ответ: область PDF с подсвеченным фрагментом |
+| `03-acl-refuse.png` | Сотрудник спрашивает о зарплате уровня L3 — отказ без доступа к HR-документу |
+| `04-inspect-pipeline.png` | Администратор организации открывает `/inspect` и видит таблицу этапов поиска |
 
-## Regenerate
+## Повторное создание
 
-From repo root, with `make up` + `make demo` and an LLM key in `.env`:
+Из корня репозитория, после `make up` и `make demo`, с ключом языковой модели в `.env`:
 
 ```bash
 cd scripts
@@ -21,4 +21,4 @@ cd ..
 node scripts/capture-portfolio-screenshots.mjs
 ```
 
-Manual clicks follow the ACL walkthrough in the root README.
+Для ручной проверки пройдите сценарий доступа из корневого README.

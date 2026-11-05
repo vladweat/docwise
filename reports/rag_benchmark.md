@@ -1,9 +1,9 @@
-# RAG benchmark
+# Замер качества RAG
 
-Generated: `2026-10-30T13:15:42+00:00`
-Code revision: `eca0b58-working-tree`
-Golden dataset SHA-256: `1d4c5af6bb8c85ba8e79ef643a8d543eabba54247b51fc4f7d44b14c524a5477`
-Run configuration (safe fields only):
+Создано: `2026-10-30T13:15:42+00:00`
+Ревизия кода: `eca0b58-working-tree`
+SHA-256 эталонного набора данных: `1d4c5af6bb8c85ba8e79ef643a8d543eabba54247b51fc4f7d44b14c524a5477`
+Параметры запуска (только безопасные поля):
 - `dense_top_k`: `25`
 - `embedding_model`: `BAAI/bge-small-en-v1.5`
 - `llm_model`: `openai/gpt-5-nano`
@@ -14,53 +14,53 @@ Run configuration (safe fields only):
 - `rrf_top_k`: `15`
 - `sparse_top_k`: `25`
 - `system_prompt_sha256`: `481a5c41865174724c7abb196eb8669bf3c2e3e0a9e87ada043bb956c65a91bd`
-Eval personas: `employee`, `hr`, `finance`, `legal`, `security`, `engineering`
-Cases: 69 (33 positive, 36 ACL-negative)
-Case errors: 0
-Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` (retrieval + generation + Ragas judges)
+Роли оценки: `employee`, `hr`, `finance`, `legal`, `security`, `engineering`
+Случаи: 69 (33 `positive`, 36 `ACL-negative`)
+Ошибки случаев: 0
+Конвейер: гибридный `retrieve` → Top-4 → `build_messages` + `stream_openai` (поиск + генерация + оценки Ragas)
 
-Metrics follow Ragas definitions (Faithfulness, Context Precision, Answer Relevance) using the same OpenAI-compatible client as chat. LangChain is not used.
+Метрики «верность контексту» (`Faithfulness`), «точность контекста» (`Context Precision`) и «релевантность ответа» (`Answer Relevance`) рассчитываются по определениям Ragas через тот же клиент, совместимый с OpenAI, что и чат. `LangChain` не используется.
 
-## Ragas (positive cases)
+## Ragas (положительные случаи)
 
-| Metric | Score | n |
+| Метрика | Оценка | n |
 | --- | ---: | ---: |
-| Faithfulness | 1.000 | 33 |
-| Context Precision | 0.995 | 33 |
-| Answer Relevance | 0.847 | 33 |
+| Верность контексту (`Faithfulness`) | 1.000 | 33 |
+| Точность контекста (`Context Precision`) | 0.995 | 33 |
+| Релевантность ответа (`Answer Relevance`) | 0.847 | 33 |
 
-## Retrieval
+## Поиск
 
-| Metric | Score | n |
+| Метрика | Оценка | n |
 | --- | ---: | ---: |
-| Target document hit rate | 1.000 | 33 |
-| Target page hit rate | 1.000 | 33 |
+| Доля попаданий в целевой документ (`Target document hit rate`) | 1.000 | 33 |
+| Доля попаданий на целевую страницу (`Target page hit rate`) | 1.000 | 33 |
 
-## Quality gates
+## Критерии качества
 
-Initial regression floors are based on this full run; they are not statistical confidence bounds.
+Начальные пороги регрессии заданы по этому полному запуску; это не статистические доверительные границы.
 
-| Gate | Observed | Threshold | Status |
+| Критерий качества | Результат | Порог | Статус |
 | --- | ---: | ---: | --- |
-| ACL leaks | 0 | = 0 | PASS |
-| Case errors | 0 | = 0 | PASS |
-| Target document hit rate | 1.000 | >= 0.980 | PASS |
-| Target page hit rate | 1.000 | >= 0.980 | PASS |
-| Faithfulness | 1.000 | >= 0.800 | PASS |
-| Context Precision | 0.995 | >= 0.975 | PASS |
-| Answer Relevance | 0.847 | >= 0.827 | PASS |
+| Утечки ACL | 0 | = 0 | PASS |
+| Ошибки случаев | 0 | = 0 | PASS |
+| Доля попаданий в целевой документ (`Target document hit rate`) | 1.000 | >= 0.980 | PASS |
+| Доля попаданий на целевую страницу (`Target page hit rate`) | 1.000 | >= 0.980 | PASS |
+| Верность контексту (`Faithfulness`) | 1.000 | >= 0.800 | PASS |
+| Точность контекста (`Context Precision`) | 0.995 | >= 0.975 | PASS |
+| Релевантность ответа (`Answer Relevance`) | 0.847 | >= 0.827 | PASS |
 
-## Quality slices (positive cases)
+## Срезы качества (положительные случаи)
 
-### By language
+### По языку
 
-| Group | Cases | Doc hit | Page hit | Faithfulness | Context precision | Answer relevance | Errors |
+| Группа | Случаи | Попадание в документ | Попадание на страницу | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Ошибки |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | en | 33 | 1.000 | 1.000 | 1.000 | 0.995 | 0.847 | 0 |
 
-### By persona
+### По роли
 
-| Group | Cases | Doc hit | Page hit | Faithfulness | Context precision | Answer relevance | Errors |
+| Группа | Случаи | Попадание в документ | Попадание на страницу | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Ошибки |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | eval-employee@docwise.example.com | 28 | 1.000 | 1.000 | 1.000 | 0.994 | 0.849 | 0 |
 | eval-engineering@docwise.example.com | 1 | 1.000 | 1.000 | 1.000 | 1.000 | 0.914 | 0 |
@@ -69,25 +69,25 @@ Initial regression floors are based on this full run; they are not statistical c
 | eval-legal@docwise.example.com | 1 | 1.000 | 1.000 | 1.000 | 1.000 | 0.729 | 0 |
 | eval-security@docwise.example.com | 1 | 1.000 | 1.000 | 1.000 | 1.000 | 0.741 | 0 |
 
-### By kind
+### По типу случая
 
-| Group | Cases | Doc hit | Page hit | Faithfulness | Context precision | Answer relevance | Errors |
+| Группа | Случаи | Попадание в документ | Попадание на страницу | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Ошибки |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | positive | 33 | 1.000 | 1.000 | 1.000 | 0.995 | 0.847 | 0 |
 
-## ACL negatives
+## Отрицательные случаи ACL
 
-| Metric | Value |
+| Метрика | Значение |
 | --- | --- |
-| Cases | 36 |
-| Cases with a `must_not_doc_ids` leak | **0** |
-| Result | PASS |
+| Случаи | 36 |
+| Случаи с утечкой `must_not_doc_ids` | **0** |
+| Результат | PASS |
 
-Each case lists documents outside that persona's access in `must_not_doc_ids`. A leak is any Top-4 chunk from those documents. Restricted chunk text is not written here.
+Для каждого случая в `must_not_doc_ids` перечислены документы, недоступные этой роли. Утечкой считается любой фрагмент Top-4 из этих документов. Текст ограниченных фрагментов здесь не сохраняется.
 
-## Per-question
+## По вопросам
 
-| id | persona | kind | target doc | page | ACL leak | faith | ctx p | ans rel | question |
+| `id` | `persona` | `kind` | Целевой документ | Страница | Утечка ACL | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Вопрос |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |
 | hb-hours | eval-employee@docwise.example.com | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.758 | What are the core working hours at Docwise? |
 | hb-lunch | eval-employee@docwise.example.com | positive | employee-handbook | hit | 0 | 1.000 | 1.000 | 0.918 | When is the unpaid lunch break? |

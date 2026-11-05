@@ -1,338 +1,355 @@
-# RAG quality diagnostics: full retrieval and generation slice
+# Диагностика качества RAG: полный срез поиска и генерации
 
-- Run date: `2026-10-31`
-- Code revision: `a5356e1`
-- Profile: current `BAAI/bge-small-en-v1.5` + `BAAI/bge-reranker-base`; threshold `0.25`; Top-K `4`
+- Дата запуска: `2026-10-31`
+- Ревизия кода: `a5356e1`
+- Профиль: текущий `BAAI/bge-small-en-v1.5` + `BAAI/bge-reranker-base`; порог `0.25`; Top-K `4`
 
-The full 132-case run covers retrieval, generation, and judges on 85 positive, 6 no-answer, and
-41 ACL-negative cases. No query text, answers, chunk content, secrets, or restricted document
-content are included below.
+Полный запуск на 132 случаях охватывает поиск, генерацию и оценки судей: 85 положительных, 6 `no-answer`
+и 41 `ACL-negative`. Ниже нет текста запросов, ответов, содержимого фрагментов, секретов или данных
+из документов с ограниченным доступом.
 
-## Full 132-case retrieval-only run
+## Полный запуск поиска на 132 случаях без генерации
 
-Dataset SHA-256: `619eb9cec165a432e5da1ac3346a434b2c56d78e48f63428f29a10e08dda1f9f`
+SHA-256 набора данных: `619eb9cec165a432e5da1ac3346a434b2c56d78e48f63428f29a10e08dda1f9f`
 
-| Check | Observed | Interpretation |
+| Проверка | Наблюдение | Толкование |
 | --- | ---: | --- |
-| Positive target-document hits | `66 / 85` (`0.776`) | Below the `0.980` regression floor |
-| MIRACL target-document hits | `25 / 40` (`0.625`) | Main weak slice |
-| Synthetic target-document hits | `41 / 45` (`0.911`) | Also below the floor |
-| ACL leaks | `0 / 41` | ACL gate passed |
-| Case errors | `0` | All retrieval cases completed |
-| Generation / no-answer refusal | not run | Retrieval-only mode |
+| Попадания в целевой документ, положительные случаи | `66 / 85` (`0.776`) | Ниже порога регрессии `0.980` |
+| Попадания в целевой документ, MIRACL | `25 / 40` (`0.625`) | Основной слабый срез |
+| Попадания в целевой документ, синтетические данные | `41 / 45` (`0.911`) | Также ниже порога |
+| Утечки ACL | `0 / 41` | Критерий ACL пройден |
+| Ошибки случаев | `0` | Поиск завершился во всех случаях |
+| Генерация / отказ на случай `no-answer` | не запускались | Режим только для поиска |
 
-For MIRACL, target-document hit was `0.975` after RRF and reranker scoring, then fell to `0.625`
-after thresholding and Top-4. On the same scores, threshold `0.10` raised MIRACL hit to `0.675`
-and synthetic hit to `0.956`, or `70 / 85` (`0.824`) overall. That is a measurable coverage gain,
-but still misses the `0.980` floor and has not been checked for answer quality or false answers on
-no-answer cases. It is not a production change candidate yet.
+Для MIRACL попадание в целевой документ составляло `0.975` после RRF и оценки моделью повторного
+ранжирования, затем упало до `0.625` после применения порога и отбора Top-4. На тех же оценках порог
+`0.10` повысил попадание MIRACL до `0.675`, а синтетического среза — до `0.956`; общий результат составил
+`70 / 85` (`0.824`). Это измеримое увеличение охвата, но он всё ещё ниже порога `0.980`; качество
+ответов и ложные ответы на случаях `no-answer` не проверялись. Пока этот вариант не рассматривается
+для производственного использования.
 
-Runtime: query embedding `3.48 s`, DB search `3.15 s`, reranking `642.55 s` for 1,980 pairs at
-batch size 16. Reranking accounts for about `99%` of measured retrieval time.
+Время выполнения: построение векторного представления запроса — `3.48 s`, поиск в БД — `3.15 s`,
+повторное ранжирование — `642.55 s` для 1,980 пар при размере пакета 16. На повторное ранжирование
+приходится около `99%` измеренного времени поиска.
 
-## Full 132-case generation and judge run
+## Полный запуск генерации и оценок судей на 132 случаях
 
-Code revision: `3d3a034`. The full run used the same dataset hash and current production profiles
-as the retrieval baseline, with both answer-relevance encoders cached. It completed all 132 cases
-with zero case errors. Aggregate metrics:
+Ревизия кода: `3d3a034`. Полный запуск использовал тот же хеш набора данных и текущие производственные
+профили, что и исходный замер поиска; оба кодировщика метрики релевантности ответа (`Answer Relevance`) были загружены в кэш.
+Все 132 случая завершились без ошибок. Агрегированные метрики:
 
-| Check | Observed | Interpretation |
+| Проверка | Наблюдение | Толкование |
 | --- | ---: | --- |
-| Positive target-document hits | `66 / 85` (`0.776`) | Below the `0.980` floor |
-| Target-page hit rate | `1.000` | Gate passed |
-| Faithfulness | `0.984` (`n=62`) | Gate passed; refusals and cases without context are excluded |
-| Context Precision | `0.961` (`n=68`) | Below the `0.975` floor |
-| English Answer Relevance | `0.722` (`n=53`) | Below the `0.827` floor |
-| Answer Relevance, all positive cases | `0.591` (`n=85`) | Includes Russian and mixed-language cases |
-| Citation support | `0.980` (`n=62`) | Exploratory judge metric |
-| Correct no-answer refusals | `6 / 6` | All English and Russian no-answer cases refused |
-| ACL leaks | `0 / 41` | ACL gate passed |
-| Case errors | `0` | All cases completed |
+| Попадания в целевой документ, положительные случаи | `66 / 85` (`0.776`) | Ниже порога `0.980` |
+| Полнота поиска по целевой странице | `1.000` | Критерий пройден |
+| Верность контексту (`Faithfulness`) | `0.984` (`n=62`) | Критерий пройден; отказы и случаи без контекста исключены |
+| Точность контекста (`Context Precision`) | `0.961` (`n=68`) | Ниже порога `0.975` |
+| Релевантность ответа на английском языке (`English Answer Relevance`) | `0.722` (`n=53`) | Ниже порога `0.827` |
+| Релевантность ответа (`Answer Relevance`), все случаи категории `positive` | `0.591` (`n=85`) | Включает случаи на русском и смешанном языке |
+| Поддержка цитатами (`Citation support`) | `0.980` (`n=62`) | Исследовательская метрика судьи |
+| Корректные отказы на `no-answer` | `6 / 6` | Модель отказала во всех случаях на английском и русском |
+| Утечки ACL | `0 / 41` | Критерий ACL пройден |
+| Ошибки случаев | `0` | Все случаи завершились |
 
-The system answered `62 / 85` positive cases and refused `23 / 85`; `68 / 85` had retrieved
-context. The full report's quality slices show the largest Answer Relevance gap on Russian and
-mixed-language questions, while the English slice also remains below its regression floor. The
-current run therefore validates the evaluator path and the safety gates, but does not pass the
-combined quality gates and does not justify changing the production profile or threshold.
+Система ответила на `62 / 85` положительных случаев и отказала в `23 / 85`; в `68 / 85` случаях был
+найден контекст. Срезы качества полного отчёта показывают наибольший разрыв в релевантности ответа (`Answer Relevance`)
+для русского и смешанного языка; английский срез тоже остаётся ниже порога регрессии. Этот запуск
+подтверждает работу оценщика и критериев безопасности, но не проходит совокупные критерии качества
+и не обосновывает изменение производственного профиля или порога.
 
-Runtime profile: query embedding `2.57 s`, database search `3.30 s`, and reranking `612.04 s`
-for 1,980 pairs at batch size 16. Reranking remains the dominant measured local stage. During
-generation/judging the eval container was observed around `2.40 / 2.73 GiB`; host available RAM
-was about `0.64 GiB`. No demo containers were running.
+Для этого профиля построение векторного представления запроса заняло `2.57 s`, поиск в базе данных —
+`3.30 s`, а повторное ранжирование 1,980 пар при размере пакета 16 — `612.04 s`. Повторное ранжирование
+остаётся самым длительным измеренным локальным этапом. Во время генерации и оценки контейнер оценки
+использовал около `2.40 / 2.73 GiB`; на хосте оставалось примерно `0.64 GiB` памяти. Контейнеры демо
+не были запущены.
 
-The raw per-question generation report is generated under `/tmp` on the VPS and intentionally is
-not committed because it contains question text. The sanitized per-case JSON artifact described
-below contains IDs, ranks, scores, and metrics only.
+Исходный отчёт генерации с отдельными вопросами создаётся в `/tmp` на VPS и намеренно не включается
+в Git, поскольку содержит тексты вопросов. Описанный ниже обезличенный JSON по случаям содержит только
+идентификаторы, ранги, оценки и метрики.
 
-## Same-dataset multilingual candidate comparison
+## Сравнение мультиязычного варианта-кандидата на том же наборе данных
 
-The current and `multilingual-compact` profiles were run on the same 132 cases and dataset SHA-256
-`619eb9cec165a432e5da1ac3346a434b2c56d78e48f63428f29a10e08dda1f9f`, with the same prompt, LLM,
-threshold `0.25`, Top-K `4`, and concurrency `4`. Candidate profile: multilingual MiniLM embeddings,
-80-token chunks, and `BAAI/bge-reranker-v2-m3-int8`. Candidate run code was `3d3a034`.
+Текущий профиль и `multilingual-compact` запускались на тех же 132 случаях и наборе данных с SHA-256
+`619eb9cec165a432e5da1ac3346a434b2c56d78e48f63428f29a10e08dda1f9f`, с той же инструкцией модели,
+LLM, порогом `0.25`, Top-K `4` и параллельностью `4`. Профиль-кандидат использовал мультиязычные
+векторные представления MiniLM, фрагменты по 80 токенов и `BAAI/bge-reranker-v2-m3-int8`. Код запуска
+варианта-кандидата: `3d3a034`.
 
-| Metric | Current `0.25` | Multilingual `0.25` | Multilingual `0.10` |
+| Метрика | Текущий профиль `0.25` | Мультиязычный профиль `0.25` | Мультиязычный профиль `0.10` |
 | --- | ---: | ---: | ---: |
-| Target document hit, all positive | `0.776` (`66/85`) | `0.953` (`81/85`) | `0.965` (`82/85`) |
-| MIRACL target document hit | `0.625` (`25/40`) | `0.900` (`36/40`) | `0.925` (`37/40`) |
-| Synthetic target document hit | `0.911` (`41/45`) | `1.000` (`45/45`) | `1.000` (`45/45`) |
-| Target section hit | `0.596` (`31/52`) | `0.846` (`44/52`) | `0.885` (`46/52`) |
-| Faithfulness | `0.984` (`n=62`) | `0.979` (`n=70`) | `0.986` (`n=71`) |
-| Context Precision | `0.961` (`n=68`) | `0.944` (`n=83`) | `0.927` (`n=83`) |
-| English Answer Relevance | `0.722` (`n=53`) | `0.741` (`n=53`) | `0.739` (`n=53`) |
-| Answer Relevance, all languages | `0.591` (`n=85`) | `0.666` (`n=85`) | `0.661` (`n=85`) |
-| Citation support | `0.980` (`n=62`) | `0.966` (`n=70`) | `0.891` (`n=71`) |
-| Correct no-answer refusals | `6/6` | `6/6` | `6/6` |
-| ACL leaks | `0/41` | `0/41` | `0/41` |
-| Case errors | `0` | `0` | `0` |
+| Попадание в целевой документ во всех положительных случаях (`Target document hit`) | `0.776` (`66/85`) | `0.953` (`81/85`) | `0.965` (`82/85`) |
+| Попадание в целевой документ на MIRACL (`MIRACL target document hit`) | `0.625` (`25/40`) | `0.900` (`36/40`) | `0.925` (`37/40`) |
+| Попадание в целевой документ в синтетической выборке (`Synthetic target document hit`) | `0.911` (`41/45`) | `1.000` (`45/45`) | `1.000` (`45/45`) |
+| Попадание в целевой раздел (`Target section hit`) | `0.596` (`31/52`) | `0.846` (`44/52`) | `0.885` (`46/52`) |
+| Верность контексту (`Faithfulness`) | `0.984` (`n=62`) | `0.979` (`n=70`) | `0.986` (`n=71`) |
+| Точность контекста (`Context Precision`) | `0.961` (`n=68`) | `0.944` (`n=83`) | `0.927` (`n=83`) |
+| Релевантность ответа на английском языке (`English Answer Relevance`) | `0.722` (`n=53`) | `0.741` (`n=53`) | `0.739` (`n=53`) |
+| Релевантность ответа для всех языков (`Answer Relevance`) | `0.591` (`n=85`) | `0.666` (`n=85`) | `0.661` (`n=85`) |
+| Поддержка цитатами (`Citation support`) | `0.980` (`n=62`) | `0.966` (`n=70`) | `0.891` (`n=71`) |
+| Корректные отказы в случаях без ответа | `6/6` | `6/6` | `6/6` |
+| Утечки ACL | `0/41` | `0/41` | `0/41` |
+| Ошибки случаев | `0` | `0` | `0` |
 
-The candidate at `0.25` substantially improves multilingual retrieval, but misses the target-document
-floor (`0.980`) by `0.027`; its Context Precision (`0.944`) and English Answer Relevance (`0.741`)
-also remain below their `0.975` and `0.827` floors. Four MIRACL target documents remain absent from
-Top-4; eight MIRACL cases miss the exact target section (3 English, 5 Russian). Synthetic target
-documents are all found. This localizes the residual retrieval gap to the real-text slice, with a
-larger section-recall gap on the Russian questions.
+Вариант-кандидат с порогом `0.25` существенно улучшает мультиязычный поиск, но не достигает критерия
+попадания в целевой документ (`0.980`) на `0.027`; точность контекста (`Context Precision`) составляет `0.944`, а релевантность ответа на английском языке (`English Answer Relevance`) — `0.741`. Оба показателя ниже порогов `0.975` и `0.827`. Четыре целевых документа MIRACL
+не попали в Top-4; в восьми случаях MIRACL не найден точный целевой раздел (3 на английском, 5 на
+русском). Все целевые документы синтетического среза найдены. Оставшийся разрыв поиска локализован
+в срезе реальных текстов; разрыв по полноте поиска разделов больше для русских запросов.
 
-MIRACL exact-section misses at candidate threshold `0.25` (case IDs only):
+Случаи MIRACL, где не найден точный раздел при пороге варианта-кандидата `0.25` (только идентификаторы):
 `miracl-en-2679`, `miracl-en-3809`, `miracl-en-2204`, `miracl-ru-2468`, `miracl-ru-4559`,
-`miracl-ru-223`, `miracl-ru-1086`, and `miracl-ru-4489`.
+`miracl-ru-223`, `miracl-ru-1086` и `miracl-ru-4489`.
 
-Threshold sweep on the candidate's saved scores raises MIRACL document hit from `0.900` at `0.25`
-to `0.925` at `0.10`, and MIRACL section Recall@4 from `0.800` to `0.850`. Synthetic document hit
-stays `1.000`, giving `82/85` (`0.965`) combined document hits at `0.10`, still below the floor.
-The full candidate run at `0.10` confirmed `6/6` correct no-answer refusals, `0/41` ACL leaks,
-and zero case errors. It also measured Context Precision `0.927`, English Answer Relevance `0.739`,
-all-language Answer Relevance `0.661`, and citation support `0.891`. Against candidate threshold
-`0.25`, the document hit gain is only `+0.012`, while Context Precision drops `0.017` and citation
-support drops `0.075`; the three quality floors still fail. Therefore `0.10` is not a safe
-promotion candidate even though the refusal and ACL gates pass.
+Срез сохранённых оценок варианта-кандидата повышает попадание в документ MIRACL с `0.900` при `0.25`
+до `0.925` при `0.10`, а `Recall@4` по разделам MIRACL — с `0.800` до `0.850`. Попадание в синтетические
+документы остаётся `1.000`, поэтому при пороге `0.10` общий результат по документам составляет `82/85`
+(`0.965`) и всё ещё ниже порога. Полный запуск варианта-кандидата при `0.10` подтвердил `6/6` правильных
+отказов на `no-answer`, `0/41` утечек ACL и отсутствие ошибок. Также измерены показатели: точность контекста (`Context Precision`) — `0.927`, релевантность ответа на английском языке (`English Answer Relevance`) — `0.739`, релевантность ответа для всех языков (`Answer Relevance`) — `0.661` и поддержка цитатами (`Citation support`) — `0.891`. По сравнению с порогом варианта-кандидата `0.25`, попадание в документ выросло лишь на
+`+0.012`, точность контекста (`Context Precision`) снизилась на `0.017`, а поддержка цитатами (`Citation support`) — на `0.075`; три критерия
+качества всё ещё не пройдены. Поэтому `0.10` нельзя безопасно продвигать, хотя критерии отказов и ACL
+пройдены.
 
-The stage metrics localize a specific part of the retrieval loss: on MIRACL, the exact target
-section is in Top-4 for `39/40` cases after reranker scoring, but only `34/40` after threshold `0.10`
-and `32/40` after threshold `0.25`. A global threshold discards some relevant multilingual
-passages; lowering it recovers two sections, while the full answer run shows worse Context Precision
-and citation support. This does not prove a per-language threshold is the fix: there are too few
-cases to calibrate one safely, and answer relevance still needs a separate improvement.
+Метрики этапов локализуют часть потерь при поиске: в MIRACL точный целевой раздел сохраняется в Top-4
+для `39/40` случаев после оценки моделью повторного ранжирования, для `34/40` при пороге `0.10` и для
+`32/40` при пороге `0.25`. Общий порог отбрасывает часть релевантных мультиязычных фрагментов; его
+снижение возвращает два раздела, но полный запуск генерации показывает ухудшение точности контекста (`Context Precision`)
+и поддержки цитатами (`Citation support`). Это не доказывает, что нужно установить отдельные пороги для языков: случаев
+слишком мало для их безопасной настройки, а релевантность ответов требует отдельного улучшения.
 
-At `0.10`, the six remaining MIRACL exact-section misses are `miracl-en-2204`,
-`miracl-en-2679`, `miracl-ru-1086`, `miracl-ru-223`, `miracl-ru-2468`, and `miracl-ru-4489`.
-The report records only IDs here; the detailed per-question report remains on the VPS. These are
-real-text factoid cases with specific entities or terminology, so entity/term matching is a plausible
-next hypothesis, not a confirmed root cause. Retrieved passage inspection would be needed before
-choosing a code change.
+При пороге `0.10` остаются шесть случаев MIRACL без точного раздела: `miracl-en-2204`,
+`miracl-en-2679`, `miracl-ru-1086`, `miracl-ru-223`, `miracl-ru-2468` и `miracl-ru-4489`.
+В отчёте здесь приведены только идентификаторы; подробный отчёт с вопросами остаётся на VPS. Это случаи
+с фактами из реальных текстов и конкретными сущностями или терминами, поэтому сопоставление сущностей
+и терминов — правдоподобная гипотеза для дальнейшей проверки, а не подтверждённая первопричина. Перед
+выбором изменения кода нужно изучить найденные фрагменты.
 
-### Full end-to-end candidate at threshold `0.01`
+### Полный сквозной запуск варианта-кандидата при пороге `0.01`
 
-To test whether the remaining five section misses were caused by the cutoff, the same 132-case
-candidate run was repeated at `0.01`, changing only the reranker threshold. The isolated evaluation
-completed all cases against the same dataset hash; no production setting was changed.
+Чтобы проверить, были ли оставшиеся пять пропусков разделов вызваны порогом отсечения, тот же запуск
+варианта-кандидата на 132 случаях повторили при `0.01`, изменив только порог модели повторного
+ранжирования. Изолированный прогон охватил все случаи и использовал тот же хеш набора данных;
+производственные настройки не менялись.
 
-| Metric | Candidate `0.10` | Candidate `0.01` | Change |
+| Метрика | Вариант-кандидат `0.10` | Вариант-кандидат `0.01` | Изменение |
 | --- | ---: | ---: | ---: |
-| Target document hit | `0.965` (`82/85`) | `1.000` (`85/85`) | `+0.035` |
-| Target section hit | `0.885` (`46/52`) | `0.981` (`51/52`) | `+0.096` |
-| MIRACL target section hit | `0.850` (`34/40`) | `0.975` (`39/40`) | `+0.125` |
-| Faithfulness | `0.986` | `0.969` | `-0.017` |
-| Context Precision | `0.927` | `0.922` | `-0.005` |
-| English Answer Relevance | `0.739` | `0.777` | `+0.038` |
-| Answer Relevance, all languages | `0.661` | `0.720` | `+0.059` |
-| Citation support | `0.891` | `0.935` | `+0.044` |
-| Correct no-answer refusals | `6/6` | `6/6` | unchanged |
-| ACL leaks | `0/41` | `0/41` | unchanged |
-| Case errors | `0` | `0` | unchanged |
+| Попадание в целевой документ (`Target document hit`) | `0.965` (`82/85`) | `1.000` (`85/85`) | `+0.035` |
+| Попадание в целевой раздел (`Target section hit`) | `0.885` (`46/52`) | `0.981` (`51/52`) | `+0.096` |
+| Попадание в целевой раздел MIRACL (`MIRACL target section hit`) | `0.850` (`34/40`) | `0.975` (`39/40`) | `+0.125` |
+| Верность контексту (`Faithfulness`) | `0.986` | `0.969` | `-0.017` |
+| Точность контекста (`Context Precision`) | `0.927` | `0.922` | `-0.005` |
+| Релевантность ответа на английском языке (`English Answer Relevance`) | `0.739` | `0.777` | `+0.038` |
+| Релевантность ответа для всех языков (`Answer Relevance`) | `0.661` | `0.720` | `+0.059` |
+| Поддержка цитатами (`Citation support`) | `0.891` | `0.935` | `+0.044` |
+| Корректные отказы в случаях без ответа | `6/6` | `6/6` | без изменений |
+| Утечки ACL | `0/41` | `0/41` | без изменений |
+| Ошибки случаев | `0` | `0` | без изменений |
 
-The lower cutoff recovered five of the six previously missed MIRACL sections; the sixth (`miracl-ru-223`)
-was absent from dense, sparse, RRF, and reranker-scored results, so threshold changes cannot recover it.
-This supports the cutoff as a real source of missed relevant context. It still does not pass the
-Context Precision (`0.922` vs `0.975` floor) or English Answer Relevance (`0.777` vs `0.827` floor)
-gates. Target-document recall and all-language relevance improve, while precision declines slightly.
-Three judge responses were malformed JSON on the first attempt and succeeded on the evaluator's
-single retry; all 132 cases completed with zero errors. Reranking took about `1,201.5 s` for 1,980
-pairs, roughly `1.96×` the current profile's `612.04 s` on this VPS.
+Более низкий порог вернул пять из шести ранее пропущенных разделов MIRACL; шестой (`miracl-ru-223`)
+отсутствовал в результатах этапов `dense`, `sparse`, `rrf` и оценки модели повторного ранжирования, поэтому смена
+порога не может его восстановить. Это подтверждает, что порог отсечения действительно приводил к потере
+релевантного контекста. Однако критерии точности контекста (`Context Precision`, `0.922` при пороге `0.975`) и релевантности ответа на английском языке (`English Answer Relevance`, `0.777` при пороге `0.827`) по-прежнему не пройдены. Полнота поиска целевых
+документов и релевантность для всех языков улучшились, а точность немного снизилась. Три ответа судьи
+содержали некорректный JSON при первой попытке, но прошли единственный повтор; все 132 случая завершились
+без ошибок. Повторное ранжирование заняло около `1,201.5 s` для 1,980 пар — примерно в `1.96×` дольше,
+чем `612.04 s` у текущего профиля на этой VPS.
 
-Decision: `0.01` demonstrates a strong recall gain but is not a production-ready configuration because
-the combined quality gates still fail and reranking is nearly twice as slow. Keep production profile
-and threshold unchanged. The next improvement should target context precision and answer relevance
-while preserving the recovered relevant sections. In the multilingual candidate run, the remaining
-exact-section miss was absent from all first-stage lists; the current-profile rerun below shows a
-different rank path for the same case. The detailed report containing per-case question text was
-removed after analysis and is not committed; a later rerun produced the sanitized JSON artifact
-described below.
+Решение: `0.01` заметно повышает полноту поиска, но не готов к производственному использованию, потому
+что совокупные критерии качества не пройдены, а повторное ранжирование занимает почти вдвое больше
+времени. Оставить производственные профиль и порог без изменений. Следующее улучшение должно повысить
+точность контекста и релевантность ответов, сохранив восстановленные целевые разделы. В запуске
+мультиязычного варианта-кандидата пропущенный точный раздел отсутствовал во всех списках первых этапов;
+ниже повторный запуск текущего профиля показывает для того же случая иной путь по рангам. Подробный
+отчёт с текстами вопросов удалён после анализа и не включён в Git; позднее создан описанный ниже
+обезличенный JSON-артефакт.
 
-### Unicode FTS diagnosis and current-profile verification
+### Диагностика Unicode FTS и проверка текущего профиля
 
-The query for `miracl-ru-223` contains Cyrillic letters followed by Unicode combining acute accents.
-PostgreSQL `to_tsvector('simple', ...)` keeps each marked word as one lexeme (for example, `ру́аль`),
-while Python's previous lexical regex split it into fragments (`ру`, `аль`). The generated FTS query
-then rejected those fragments as unsafe because `str.isalpha()`/`str.isalnum()` return false for
-combining marks. `lexical_tokens` now keeps Unicode category `M` marks attached to the preceding
-letter, and FTS query validation explicitly allows attached marks. The regression tests cover both
-token construction and an actual ACL-filtered `sparse_search` against PostgreSQL.
+В запросе для `miracl-ru-223` за кириллическими буквами следуют комбинируемые символы ударения Unicode.
+PostgreSQL `to_tsvector('simple', ...)` сохраняет каждое слово с таким знаком как одну лексему
+(например, `ру́аль`), тогда как прежнее регулярное выражение Python делило его на части (`ру`, `аль`).
+Сформированный FTS-запрос затем отклонял эти части как небезопасные, поскольку `str.isalpha()` и
+`str.isalnum()` возвращают false для комбинируемых символов. Теперь `lexical_tokens` сохраняет знаки
+категории Unicode `M` вместе с предыдущей буквой, а проверка FTS-запроса явно разрешает такие
+присоединённые знаки. Регрессионные тесты проверяют и построение токенов, и реальный вызов
+`sparse_search` с ACL-фильтрацией в PostgreSQL.
 
-The full current-profile retrieval-only run after this fix completed the same 132 cases at threshold
-`0.25`: target-document hit remained `0.776` (`66/85`), MIRACL target-document hit `0.625` (`25/40`),
-ACL leaks `0/41`, and case errors `0`. On the named case, the exact target section was rank `8` at
-dense, absent from the sparse exact-section list, rank `9` after RRF, and rank `1` after reranker
-scoring; the final `0.25` cutoff still removed it. This separates two facts: FTS tokenization had a
-real Unicode correctness bug, but that bug was not the remaining final-stage failure in this current
-profile run. Here, the measured failure occurs at thresholding. The candidate multilingual profile
-has a different earlier-stage result for this case, so it remains a separate profile-specific
-diagnostic. Retrieval-only metrics do not measure Context Precision or Answer Relevance; this fix
-does not claim an end-to-end quality gain, and production threshold/profile remain unchanged.
+Полный прогон поиска только для текущего профиля после исправления охватил те же 132 случая при пороге
+`0.25`: доля найденных целевых документов осталась `0.776` (`66/85`), для MIRACL — `0.625` (`25/40`),
+утечек ACL было `0/41`, ошибок случаев — `0`. В указанном случае точный целевой раздел находился на
+ранге `8` в выдаче этапа `dense`, отсутствовал в списке точных разделов этапа `sparse`, занял ранг `9` после RRF
+и ранг `1` после оценки модели повторного ранжирования; итоговый порог `0.25` всё же исключил его.
+Здесь важно разделить два факта: в токенизации FTS действительно была ошибка обработки Unicode, но
+она не была причиной оставшегося сбоя на последнем этапе в этом прогоне текущего профиля. Измеренная
+проблема здесь возникла при применении порога. Для этого случая мультиязычный вариант-кандидат дал
+другой результат на более раннем этапе, поэтому это отдельная диагностика конкретного профиля.
+Метрики поиска без генерации не измеряют точность контекста (`Context Precision`) или релевантность ответа (`Answer Relevance`); это исправление
+не означает улучшения качества всего процесса, а производственные порог и профиль остаются без изменений.
 
-The candidate's query embedding and DB search took `1.50 s` and `5.86 s`; reranking took
-`1,257.78 s` for 1,980 pairs, versus `2.57 s`, `3.30 s`, and `612.04 s` for the current profile.
-At threshold `0.10`, query embedding and DB search took `1.45 s` and `3.16 s`, while reranking
-took `1,192.39 s`. Candidate reranking is `2.06×` slower at `0.25` and `1.95×` slower at `0.10`
-than current on this VPS. No profile or threshold change is promoted: the recall gain is meaningful,
-but the full quality gates still fail and reranking cost nearly doubles. The full per-question
-candidate report was stored in `/tmp` for analysis and removed afterward; see the sanitized case
-diagnostic below.
+У варианта-кандидата получение векторного представления запроса и поиск в БД заняли `1.50 s` и
+`5.86 s`; повторное ранжирование 1,980 пар заняло `1,257.78 s`. Для текущего профиля эти показатели
+составили `2.57 s`, `3.30 s` и `612.04 s`. При пороге `0.10` получение векторного представления
+запроса и поиск в БД заняли `1.45 s` и `3.16 s`, а повторное ранжирование — `1,192.39 s`. На этой VPS
+повторное ранжирование варианта-кандидата медленнее текущего в `2.06×` при пороге `0.25` и в `1.95×`
+при `0.10`. Изменение профиля или порога не предлагается: прирост полноты поиска существенный, но
+полные критерии качества всё ещё не пройдены, а стоимость повторного ранжирования почти удваивается.
+Полный отчёт варианта-кандидата с вопросами хранился в `/tmp` для анализа и затем был удалён; см.
+приведённую ниже диагностику случаев без исходного текста.
 
-## 30-case generation diagnostic (earlier run)
+## Диагностика генерации на 30 случаях (ранний запуск)
 
-Dataset slice SHA-256: `9741a67c195a419149a09e2a645f39ccc10bee0ca3a6ee62b90c329a8dfd72d2`. It contains
-12 positive cases (4 synthetic, 8 MIRACL), all 6 no-answer cases, and 12 ACL-negative cases.
+SHA-256 выборки набора данных: `9741a67c195a419149a09e2a645f39ccc10bee0ca3a6ee62b90c329a8dfd72d2`. В выборке
+12 положительных случаев (4 синтетических, 8 MIRACL), все 6 случаев без ответа и 12 случаев с
+отрицательной ACL-проверкой.
 
-| Check | Observed | Interpretation |
+| Проверка | Наблюдение | Толкование |
 | --- | ---: | --- |
-| Positive target-document hits | `9 / 12` (`0.750`) | Below the regression floor |
-| Synthetic positive target hits | `4 / 4` (`1.000`) | Small synthetic slice |
-| MIRACL positive target hits | `5 / 8` (`0.625`) | Small real-text slice |
-| Correct no-answer refusals | `6 / 6` (`1.000`) | All six English and Russian cases refused |
-| ACL leaks | `0 / 12` | ACL gate passed for this slice |
-| Faithfulness | `1.000` (`n=9`) | Generated positive answers with context |
-| Context Precision | `0.944` (`n=9`) | Below the `0.975` floor |
-| Citation support | `0.833` (`n=9`) | Exploratory on this small slice |
-| Answer Relevance | unavailable in that run | The image lacked the multilingual MiniLM ONNX cache; 9 cases were marked errors by the evaluator. The later full run above used the cached model and had zero case errors. |
+| Найден целевой документ в положительных случаях | `9 / 12` (`0.750`) | Ниже минимального порога регрессии |
+| Найден целевой документ в синтетических положительных случаях | `4 / 4` (`1.000`) | Небольшая синтетическая выборка |
+| Найден целевой документ в положительных случаях MIRACL | `5 / 8` (`0.625`) | Небольшая выборка реальных текстов |
+| Корректные отказы в случаях без ответа | `6 / 6` (`1.000`) | Во всех шести случаях на английском и русском был отказ |
+| Утечки ACL | `0 / 12` | Критерий ACL пройден на этой выборке |
+| Верность контексту (`Faithfulness`) | `1.000` (`n=9`) | Сгенерированы положительные ответы с контекстом |
+| Точность контекста (`Context Precision`) | `0.944` (`n=9`) | Ниже порога `0.975` |
+| Поддержка цитатами (`Citation support`) | `0.833` (`n=9`) | Предварительная оценка на небольшой выборке |
+| Релевантность ответа (`Answer Relevance`) | отсутствует в этом запуске | В образе не было кэша multilingual MiniLM ONNX; оценщик отметил 9 случаев как ошибки. В приведённом выше полном запуске использовалась закэшированная модель и ошибок случаев не было. |
 
-For the eight MIRACL cases, expected documents survived reranker scoring in `8 / 8` cases, then
-thresholding and Top-4 retained `5 / 8`. Exact-section Recall@4 fell from `1.000` to `0.625`.
-The `0.10–0.30` threshold sweep did not change target hit on this small slice. The four synthetic
-cases remained `4 / 4` across those stages. This points to a real-text ranking/selection weakness,
-but does not establish a safe replacement policy.
+В восьми случаях MIRACL ожидаемые документы сохранились после оценки модели повторного ранжирования
+в `8 / 8` случаев, но после применения порога и Top-4 осталось `5 / 8`. Полнота поиска точных разделов на ранге 4 (`Recall@4`)
+снизился с `1.000` до `0.625`. Перебор порогов `0.10–0.30` не изменил долю найденных целевых
+документов на этой небольшой выборке. Четыре синтетических случая сохраняли результат `4 / 4` на
+всех этапах. Это указывает на слабость ранжирования/отбора на реальных текстах, но не подтверждает
+безопасность замены текущей политики.
 
-## Resource limits and decision
+## Ограничения по ресурсам и решение
 
-The full retrieval-only run completed with Docker memory limit `--memory=2500m`; observed process
-RSS was about `2.25 GiB` (`2,353,732 KiB`). The later full generation run completed at a 2.8 GiB
-container memory limit, with about `0.64 GiB` host available during generation/judging. On the
-30-case diagnostic, batch 16 reached about
-`2.23 GiB` RSS (`2,335,236 KiB`). A retry with batch 32 took `171.11 s` for 450 pairs and reached
-about `2.47 GiB` RSS (`2,594,328 KiB`) while using swap; batch 16 took `155.50 s` on the same
-slice. Batch 32 was slower and used more memory for these longer passages.
+Полный прогон поиска без генерации завершился при лимите памяти Docker `--memory=2500m`; RSS процесса
+составил около `2.25 GiB` (`2,353,732 KiB`). Более поздний полный прогон генерации завершился при
+лимите контейнера 2.8 GiB; во время генерации и оценки было доступно около `0.64 GiB` памяти хоста.
+В диагностике на 30 случаях размер пакета 16 достиг RSS около `2.23 GiB` (`2,335,236 KiB`). Повторный запуск
+с размером пакета 32 занял `171.11 s` для 450 пар и достиг RSS около `2.47 GiB` (`2,594,328 KiB`), используя
+область подкачки (`swap`); размер пакета 16 на той же выборке занял `155.50 s`. На этих длинных фрагментах пакет из 32 работал
+медленнее и использовал больше памяти.
 
-Earlier multilingual-candidate reports use different dataset revisions and fail one or more quality
-floors. They are context, not a same-dataset comparison:
-[MIRACL candidate report](rag_miracl_candidate.md) and
-[MIRACL stage diagnostic](rag_miracl_stage_diagnostic.md).
+В более ранних отчётах по мультиязычному варианту-кандидату использованы другие версии набора данных,
+и в них не пройден один или несколько порогов качества. Эти отчёты дают контекст, но не позволяют
+сравнить результаты на одном наборе данных:
+[Отчёт по варианту-кандидату MIRACL](rag_miracl_candidate.md) и
+[диагностика этапов MIRACL](rag_miracl_stage_diagnostic.md).
 
-Decisions:
+Решения:
 
-- Keep the current production profile and threshold unchanged.
-- Do not claim that the multilingual candidate passes the current combined gates.
-- Do not introduce async retrieval or concurrent database sessions; measured DB search is a small
-  fraction of this slice, while reranking dominates.
-- Before selecting a retrieval change, rerun the same combined dataset on a larger-memory worker
-  with both evaluator encoders cached, then compare current and candidate profiles against all
-  positive, no-answer, and ACL-negative gates.
+- Оставить текущие производственные профиль и порог без изменений.
+- Не утверждать, что мультиязычный вариант-кандидат проходит действующие совокупные критерии.
+- Не вводить асинхронный поиск или параллельные сеансы базы данных: измеренный поиск в БД занимает
+  небольшую часть времени на этой выборке, основное время уходит на повторное ранжирование.
+- До выбора изменения поиска повторить запуск на том же объединённом наборе данных на рабочем узле
+  с большим объёмом памяти и закэшированными кодировщиками оценщика, а затем сравнить текущий профиль
+  и вариант-кандидат по всем критериям для положительных случаев, случаев без ответа и случаев с
+  отрицательной ACL-проверкой.
 
-## Repeated full candidate diagnostic: 2026-10-31
+## Повторная полная диагностика варианта-кандидата: 2026-10-31
 
-The full `multilingual-compact` run at threshold `0.01` was repeated on the same 132-case dataset
-(`04e8b54242c9951607330e39030a6a461f1398c9eab50d4c33e066aacf225f84`). All cases completed without
-errors. Target-document hit remained `1.000` (`85/85`), target-section hit `0.981` (`51/52`), and
-MIRACL exact-section recall `0.975` (`39/40`). Context Precision was `0.941` (floor `0.975`), and
-English Answer Relevance was `0.768` (floor `0.827`); both gates still fail. Faithfulness was
-`0.980`, citation support `0.970`, no-answer refusals `6/6`, ACL leaks `0/41`. Reranking took
-`1,203.6 s` for 1,980 candidate pairs; the run used about `1.96 GiB` of its `2.73 GiB` container
-limit, with roughly `1.0 GiB` host memory available and no OOM event.
+Полный запуск `multilingual-compact` при пороге `0.01` повторили на том же наборе данных из 132 случаев
+(`04e8b54242c9951607330e39030a6a461f1398c9eab50d4c33e066aacf225f84`). Все случаи завершились без
+ошибок. Доля найденных целевых документов осталась `1.000` (`85/85`), целевых разделов — `0.981`
+(`51/52`), а полнота поиска точных разделов MIRACL — `0.975` (`39/40`). Точность контекста (`Context Precision`) составила
+`0.941` при пороге `0.975`, а релевантность ответа на английском языке (`English Answer Relevance`) — `0.768` при пороге `0.827`; оба критерия
+по-прежнему не пройдены. Верность контексту (`Faithfulness`) составила `0.980`, поддержка цитатами (`Citation support`) — `0.970`, корректные
+отказы в случаях без ответа — `6/6`, утечки ACL — `0/41`. Повторное ранжирование 1,980 пар заняло
+`1,203.6 s`; запуск использовал около `1.96 GiB` из лимита контейнера `2.73 GiB`, при этом было
+доступно около `1.0 GiB` памяти хоста и события OOM не было.
 
-The earlier full `0.01` run measured Context Precision `0.922` and English Answer Relevance `0.777`.
-The repeated scores vary while leaving both gate decisions unchanged; generation and LLM-judged
-metrics should be read as observed run results, not exact deterministic values.
+В предыдущем полном запуске при `0.01` измерены точность контекста (`Context Precision`) `0.922` и релевантность ответа на английском языке (`English Answer Relevance`) `0.777`. Результаты повторных запусков различаются, но оба критерия остаются непройденными;
+метрики генерации и оценки LLM следует считать наблюдениями конкретного запуска, а не строго
+детерминированными значениями.
 
-The sanitized per-case artifact is
+Обезличенный артефакт по отдельным случаям:
 [`rag_quality_candidate_001_case_diagnostics.json`](rag_quality_candidate_001_case_diagnostics.json).
-It contains case IDs, dataset/kind, retrieval ranks, reranker scores, aggregate per-case metrics,
-and boolean safety outcomes; it omits questions, expected/generated answers, context text, identities,
-and exception text. Its source-level slices show Context Precision `0.996` on synthetic-golden
-(`n=45`) versus `0.878` on MIRACL (`n=40`). The average is `1.000` for cases returning one or two
-contexts (`n=35`), `0.827` for three (`n=14`), and `0.927` for four (`n=36`). These are correlations
-across different queries, not a controlled Top-K comparison. The current report also lacks per-rank
-judge verdicts, so reranker scores cannot yet identify which individual contexts to remove. The next
-controlled experiment should persist only per-rank relevance booleans and compare context Top-K on
-the same cases before any retrieval behavior change. Production profile and threshold remain
-unchanged.
+В нём есть идентификаторы случаев, тип и набор данных, ранги результатов поиска, оценки модели
+повторного ранжирования, агрегированные метрики по случаям и логические исходы проверок безопасности;
+вопросы, ожидаемые и сгенерированные ответы, текст контекста, идентифицирующие данные и текст исключений
+не включены. Разрезы по источнику показывают точность контекста (`Context Precision`) `0.996` для synthetic-golden
+(`n=45`) и `0.878` для MIRACL (`n=40`). Среднее значение — `1.000` для случаев с одним или двумя
+фрагментами контекста (`n=35`), `0.827` для трёх (`n=14`) и `0.927` для четырёх (`n=36`). Это
+корреляции для разных запросов, а не контролируемое сравнение Top-K. В текущем отчёте также нет
+оценок судьи для каждого ранга, поэтому по оценкам модели повторного ранжирования пока нельзя
+определить, какие отдельные фрагменты контекста следует исключить. В следующем контролируемом
+эксперименте следует сохранять только логические оценки релевантности для каждого ранга и сравнить
+Top-K контекста на тех же случаях до любого изменения поведения поиска. Производственные профиль и
+порог остаются без изменений.
 
-## Instrumented case rerun and Top-K simulation: 2026-10-31
+## Повторный прогон с диагностикой случаев и симуляцией Top-K: 2026-10-31
 
-The evaluator now stores one `context_relevance_by_rank` boolean per returned chunk plus
-`answer_is_refusal`, without writing any question, answer, or context text. A full same-config rerun
-completed all 132 cases; one case error left 84/85 positive context-precision observations. ACL
-leaks remained `0/41`, no-answer refusals `6/6`, target-document hit `1.000`, target-section hit
-`0.981`, Context Precision `0.940`, and English Answer Relevance `0.770`. Both quality gates still
-fail, and this generation/judge run is excluded from answer-quality comparisons because one case
-errored.
+Теперь оценщик сохраняет одно логическое значение `context_relevance_by_rank` для каждого
+возвращённого фрагмента, а также `answer_is_refusal`, не записывая текст вопросов, ответов или
+контекста. Полный повторный запуск с теми же настройками охватил все 132 случая; из-за одной ошибки
+случая осталось 84/85 наблюдений метрики точности контекста (`Context Precision`) для положительных случаев. Утечки ACL остались
+на уровне `0/41`, корректные отказы в случаях без ответа — `6/6`, доля найденных целевых документов
+составила `1.000`, целевых разделов — `0.981`, точность контекста (`Context Precision`) — `0.940`, релевантность ответа на английском языке (`English Answer Relevance`) — `0.770`. Оба критерия качества по-прежнему не пройдены; запуск генерации и оценки судьями
+исключён из сравнения качества ответов из-за ошибки одного случая.
 
-Using the stored per-rank labels, Top-2 gives Context Precision `0.952` versus `0.940` at Top-4,
-while retaining `91.3%` of judge-relevant Top-4 contexts and `49/52` exact target sections versus
-`51/52` at Top-4. Raising the score threshold to `0.05` or `0.10` lowers Context Precision to
-`0.932` or `0.930` and exact section recall to `47/52` or `46/52` in this same run. The full sweep
-and calculation definitions are in [context selection Top-K diagnostic](rag_quality_context_selection_topk.md).
+По сохранённым оценкам для каждого ранга Top-2 даёт точность контекста (`Context Precision`) `0.952` против `0.940` у
+Top-4 и сохраняет `91.3%` контекстов Top-4, признанных релевантными судьями, а также `49/52` точных
+целевых разделов против `51/52` у Top-4. Повышение порога оценки до `0.05` или `0.10` снижает
+точность контекста (`Context Precision`) до `0.932` или `0.930`, а полноту поиска точных разделов — до `47/52` или `46/52`
+в этом же запуске. Полный перебор и определения расчётов приведены в [диагностике выбора контекста
+Top-K](rag_quality_context_selection_topk.md).
 
-This supports a Top-2 hypothesis for a further isolated end-to-end test, but does not establish a
-production change: Context Precision still misses its `0.975` floor, target-document hit@2 is not
-present in the safe artifact, and generation/citation metrics cannot be recomputed by truncating the
-already-generated Top-4 answer. The run also had one case error, so its Case errors gate failed;
-Top-K context calculations use the 84 positive cases with successful context-judge results.
-Production defaults remain unchanged.
+Это обосновывает гипотезу о Top-2 для отдельного сквозного теста, но не подтверждает необходимость
+производственного изменения: точность контекста (`Context Precision`) всё ещё ниже порога `0.975`, показатель поиска
+целевого документа `hit@2` отсутствует в безопасном артефакте, а метрики генерации и цитирования нельзя
+пересчитать, просто обрезав уже сгенерированный ответ Top-4. Кроме того, в запуске была ошибка случая,
+поэтому критерий «ошибки случаев» (`Case errors`) не пройден; расчёты контекста Top-K используют 84 положительных случая
+с успешной оценкой контекста. Производственные значения по умолчанию остаются без изменений.
 
-## Corrected refusal classifier and paired end-to-end Top-2: 2026-11-01
+## Исправленный классификатор отказов и парный сквозной запуск Top-2: 2026-11-01
 
-The refusal classifier now counts only the exact localized standard refusal as an exact refusal;
-embedded refusal language is reported separately. A corrected full Top-4 baseline and a full Top-2
-run then completed on the same 132-case dataset (`85` positive, `6` no-answer, `41` ACL-negative),
-with the same SHA-256 and all settings held fixed except `rerank_top_k`. Both runs had zero case
-errors, zero ACL leaks, and `6/6` correct no-answer refusals.
+Теперь классификатор отказов считает точным отказом только точное стандартное сообщение на нужном
+языке; отказная формулировка внутри более длинного ответа учитывается отдельно. Затем исправленный
+полный исходный замер Top-4 и полный запуск Top-2 завершились на одном наборе данных из 132 случаев
+(`85` положительных, `6` без ответа, `41` с отрицательной ACL-проверкой), с тем же SHA-256 и
+одинаковыми настройками, кроме `rerank_top_k`. В обоих запусках не было ошибок случаев и утечек ACL;
+корректные отказы получены в `6/6` случаев без ответа.
 
-| Metric | Top-4 | Top-2 |
+| Метрика | Top-4 | Top-2 |
 | --- | ---: | ---: |
-| Target document | `85/85` | `84/85` |
-| Exact target section | `51/52` | `48/52` |
-| Context Precision | `0.952` | `0.959` |
-| Faithfulness | `0.974` | `0.952` |
-| Citation support | `0.931` | `0.932` |
-| English Answer Relevance | `0.798` | `0.743` |
-| Russian Answer Relevance | `0.597` | `0.581` |
+| Попадание в целевой документ (`Target document`) | `85/85` | `84/85` |
+| Точный целевой раздел (`Exact target section`) | `51/52` | `48/52` |
+| Точность контекста (`Context Precision`) | `0.952` | `0.959` |
+| Верность контексту (`Faithfulness`) | `0.974` | `0.952` |
+| Поддержка цитатами (`Citation support`) | `0.931` | `0.932` |
+| Релевантность ответа на английском языке (`English Answer Relevance`) | `0.798` | `0.743` |
+| Релевантность ответа на русском языке (`Russian Answer Relevance`) | `0.597` | `0.581` |
 
-Top-2 reduces the average returned context count from `2.79` to `1.78`, while reranking still scores
-all `1,980` pairs and takes `1,243.27 s` on CPU. Context Precision improves by `0.007` but remains
-below the `0.975` gate; English Answer Relevance remains below `0.827` in both runs. The loss in
-document/section recall and lower answer metrics do not justify Top-2 as a default. Keep production
-Top-4 and threshold `0.01` unchanged. See the [full sanitized comparison](rag_quality_corrected_classifier_comparison.md)
-and the [product evaluation record](../docs/product/evaluation.md).
+Top-2 сокращает среднее число возвращаемых фрагментов контекста с `2.79` до `1.78`, при этом модель
+повторного ранжирования по-прежнему оценивает все `1,980` пар, что занимает `1,243.27 s` на CPU.
+точность контекста (`Context Precision`) улучшается на `0.007`, но остаётся ниже критерия `0.975`; релевантность ответа на английском языке (`English Answer Relevance`) не достигает `0.827` в обоих запусках. Снижение полноты поиска документов и разделов вместе
+с ухудшением метрик ответов не оправдывает Top-2 в качестве значения по умолчанию. Оставить
+производственные Top-4 и порог `0.01` без изменений. См. [полное сравнение без исходного текста]
+(rag_quality_corrected_classifier_comparison.md) и [запись оценки продукта](../docs/product/evaluation.md).
 
-Both artifacts contain only safe per-case diagnostics; prompts, answers and passage text were not
-persisted. Evaluation used an isolated temporary PostgreSQL/pgvector database with the RLS session
-role. Object-storage writes were stubbed only for seeding this disposable database; no user
-S3/MinIO or public demo was used. LLM generation and judges are stochastic, so answer-metric deltas
-are run observations and should not be attributed solely to Top-K without repeated runs.
+Оба артефакта содержат только безопасную диагностику отдельных случаев; промпты, ответы и текст
+фрагментов не сохранялись. Оценка выполнялась в изолированной временной базе PostgreSQL/pgvector с
+ролью сеанса RLS. Записи в объектное хранилище подменялись заглушками только при заполнении этой
+одноразовой базы; пользовательское S3/MinIO и публичная демонстрация не использовались. Генерация LLM
+и оценки судей недетерминированы, поэтому различия метрик ответов — наблюдения конкретных запусков;
+без повторных запусков их нельзя объяснять только значением Top-K.
 
-The case-level follow-up found that exact positive-case refusals account for all English gate loss:
-without three refused English cases the Top-4 non-refusal answer-relevance mean is `0.847` (gate
-`0.827`), while the full score stays `0.799`. For MIRACL, target-document hit is `40/40` but judge
-relevance drops sharply after rank 1. See the [failure analysis](rag_quality_failure_analysis.md)
-for per-rank rates, language-bucket correction, and the evidence still needed before attributing
-the Context Precision result to ranking/chunk noise rather than judge mistakes.
+Последующий анализ отдельных случаев показал, что все недобранные баллы английского критерия связаны
+с точными отказами в положительных случаях: без трёх английских случаев с отказом среднее значение
+релевантности ответов Top-4 без отказов составляет `0.847` при критерии `0.827`, тогда как полный
+результат равен `0.799`. Для MIRACL целевой документ найден в `40/40` случаев, но оценка релевантности
+судьёй резко падает после ранга 1. В [анализе ошибок](rag_quality_failure_analysis.md) приведены
+частоты по рангам, исправление языковых групп и данные, необходимые прежде чем связывать результат
+точность контекста (`Context Precision`) с шумом ранжирования/фрагментов, а не с ошибками судьи.
 
-The targeted refusal follow-up is documented in
-[refusal case analysis](rag_quality_refusal_case_analysis.md). Across two repeats of the 11 prior
-positive refusals, the first classified `9/11` as refusals and the second `10/11`. In the latest
-replay, five responses were exact refusals, five embedded a refusal phrase in a longer response, and
-one was a regular answer. The first replay's same-model rubric called context sufficient in 6 cases,
-partial in 1, and insufficient in 4; it considered refusal inappropriate in 7/11. These labels are
-provisional, not independent verification, and do not describe the second replay. All 11 latest
-cases had nonempty chunks and no ACL leaks; the code path passed chunks into `build_messages`. The
-serialized prompt and response text were not retained. Per-rank verdict vectors matched the original
-run for `6/11` cases, underscoring run-to-run variability.
+Целевой анализ отказов описан в [разборе случаев отказа](rag_quality_refusal_case_analysis.md). В двух
+повторах 11 прежних положительных случаев с отказом первый прогон классифицировал как отказы `9/11`,
+второй — `10/11`. В последнем повторе пять ответов были точными отказами, пять содержали фразу отказа
+в более длинном ответе, а один был обычным ответом. В первом повторе критерии той же модели оценили
+контекст как достаточный в 6 случаях, частично достаточный в 1 и недостаточный в 4; отказ сочли
+неуместным в `7/11` случаев. Эти оценки предварительные, не являются независимой проверкой и не
+описывают второй повтор. Во всех 11 последних случаях были непустые фрагменты и не было утечек ACL;
+код передал фрагменты в `build_messages`. Сериализованные промпт и текст ответа не сохранялись.
+Векторы оценок для каждого ранга совпали с исходным запуском в `6/11` случаев, что подчёркивает
+изменчивость результатов между запусками.

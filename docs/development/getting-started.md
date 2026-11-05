@@ -1,19 +1,19 @@
 # Локальная разработка
 
-Этот документ описывает подтверждённый репозиторием Compose-сценарий. Архитектура и
+Этот документ описывает проверенный по репозиторию сценарий запуска через Compose. Архитектура и
 ограничения среды — в [обзоре архитектуры](../product/architecture.md).
 
 ## Требования
 
-- Docker с Compose plugin;
-- Python 3.12 для подготовки backend virtualenv и локальных lint-проверок;
-- Node.js 20 и npm для frontend;
+- Docker с модулем Compose;
+- Python 3.12 для подготовки виртуального окружения серверной части и локальных проверок кода;
+- Node.js 20 и npm для клиентской части;
 - доступ в интернет на шаге `make deps`;
-- ключ OpenAI-compatible API для генерации ответов. Индексация и retrieval-only проверки
-  работают без ключа LLM.
+- ключ API, совместимого с OpenAI, для генерации ответов. Индексация и проверки только поиска
+  работают без ключа языковой модели.
 
-Backend-зависимости устанавливаются по exact pins из `backend/requirements.lock`; исходные
-ranges лежат в `backend/requirements.txt`. Точные frontend-версии зафиксированы в
+Зависимости серверной части устанавливаются по точным версиям из `backend/requirements.lock`; исходные
+диапазоны указаны в `backend/requirements.txt`. Точные версии клиентской части зафиксированы в
 `frontend/package-lock.json`. Сборка контейнеров выполняется с
 `build.network: none`, поэтому зависимости и ONNX-модели подготавливаются на хосте заранее.
 
@@ -21,7 +21,7 @@ ranges лежат в `backend/requirements.txt`. Точные frontend-верс�
 
 ```bash
 cp .env.example .env
-# Задайте безопасный SECRET_KEY и, если нужен chat, OPENAI_API_KEY.
+# Задайте безопасный SECRET_KEY и, если нужен чат, OPENAI_API_KEY.
 make deps
 make up
 curl -fsS http://localhost:8001/ready | python3 -m json.tool
@@ -30,39 +30,41 @@ make demo
 
 ```mermaid
 flowchart LR
-  Prepare[make deps] --> Migrate[db-migrate]
-  Migrate --> Services[API + worker + frontend]
-  Services --> Ready[/ready]
-  Ready --> Seed[make demo]
+  Prepare[Подготовить зависимости] --> Migrate[Применить миграции]
+  Migrate --> Services[API + фоновый обработчик + интерфейс]
+  Services --> Ready[Проверить готовность]
+  Ready --> Seed[Загрузить тестовые данные]
 ```
 
 Интерфейс доступен на `http://localhost:3001`, API — на `http://localhost:8001`.
-MinIO API и console используют `9000` и `9001`; PostgreSQL и Redis — `5432` и `6379`.
-Эти порты опубликованы Compose на хосте и не должны без firewall выставляться наружу.
+API и консоль MinIO используют порты `9000` и `9001`; PostgreSQL и Redis — `5432` и `6379`.
+Compose публикует эти порты на хосте; без сетевого экрана не открывайте их во внешнюю сеть.
 
 `make up` собирает и запускает `postgres`, `redis`, `minio`, `db-migrate`, `backend`, `celery-worker`,
-`celery-beat` и `frontend`. Единственный `db-migrate` создаёт/проверяет runtime RLS role и применяет
-`alembic upgrade head` до старта API/worker. Backend отдельно проверяет и создаёт закрытый bucket MinIO.
+`celery-beat` и `frontend`. Единственный `db-migrate` создаёт или проверяет роль RLS для среды выполнения
+и применяет `alembic upgrade head` до старта API и фонового обработчика. Серверная часть отдельно
+проверяет и создаёт закрытый бакет MinIO.
 Для явного запуска миграций:
 
 ```bash
 make migrate
 ```
 
-`make demo` создаёт demo organization, три учётные записи и 12 PDF. Пароли и сценарий
+`make demo` создаёт тестовую организацию, три учётные записи и 12 PDF. Пароли и сценарий
 проверки ACL приведены в корневом `README.md`; это только локальные тестовые данные.
-Сброс локальных чатов и пользовательских upload только в Demo organization с повторной индексацией fixtures:
-`python eval/seed_demo.py --reset --confirm-reset` (или соответствующая команда в Compose backend).
+Сброс локальных чатов и загруженных пользователями файлов только в тестовой организации с повторной
+индексацией заготовок: `python eval/seed_demo.py --reset --confirm-reset` (или соответствующая команда
+в контейнере серверной части Compose).
 
 ## Быстрый цикл
 
-Backend в Compose запущен с Uvicorn `--reload`. Worker не перезапускается автоматически:
+Серверная часть в Compose запущена с Uvicorn `--reload`. Фоновый обработчик не перезапускается автоматически:
 
 ```bash
 make restart-worker
 ```
 
-Для frontend без пересборки контейнера:
+Для запуска клиентской части без пересборки контейнера:
 
 ```bash
 make deps-frontend
@@ -71,9 +73,9 @@ cd frontend
 API_BASE_URL=http://localhost:8001 npm run dev
 ```
 
-Dev server будет доступен на `http://localhost:3000`. Переменные `NEXT_PUBLIC_*` в
-production image задаются во время build; изменение runtime environment без пересборки
-образа не меняет встроенный URL.
+Сервер разработки будет доступен на `http://localhost:3000`. Переменные `NEXT_PUBLIC_*` в
+переменные для производственного образа встраиваются во время сборки; изменение настроек среды выполнения без пересборки
+образа не меняет встроенный адрес.
 
 ## Проверки
 
@@ -86,15 +88,15 @@ make test-frontend
 ```
 
 - `make lint` запускает Ruff и mypy через `backend/.venv`.
-- `make test-smoke` и `make test` запускают pytest внутри работающего backend-контейнера.
-- Pytest создаёт отдельную БД `docwise_test`; рабочая `docwise_db` не используется.
-- `make typecheck` и `make test-frontend` выполняются на хосте в `frontend/`.
-- Browser E2E сценарии можно запустить после production build: `cd frontend && npx playwright install chromium && NEXT_PUBLIC_SHOW_DEMO_LOGINS=true npm run build && npm run test:e2e`.
-- E2E поднимает frontend на `:13000` и локальный API fixture на `:18081`; он проверяет UI поток, но не заменяет backend/ingestion integration tests.
-- Полная CI дополнительно запускает frontend lint/build и advisory `pip-audit`/`npm audit`.
+- `make test-smoke` и `make test` запускают pytest внутри работающего контейнера серверной части.
+- Pytest создаёт отдельную базу `docwise_test`; рабочая база `docwise_db` не используется.
+- `make typecheck` и `make test-frontend` выполняются на хосте в каталоге `frontend/`.
+- Браузерные сквозные сценарии можно запустить после сборки производственной версии: `cd frontend && npx playwright install chromium && NEXT_PUBLIC_SHOW_DEMO_LOGINS=true npm run build && npm run test:e2e`.
+- Сквозная проверка поднимает клиентскую часть на `:13000` и локальный тестовый API на `:18081`; она проверяет поток в интерфейсе, но не заменяет интеграционные проверки серверной части и обработки документов.
+- Полная CI дополнительно запускает проверку кода и сборку клиентской части, а также необязательные проверки `pip-audit` и `npm audit`.
 
-Команды выше подтверждены по `Makefile` и CI. В ходе последнего аудита документации
-runtime-стек не запускался; актуальный результат проверок фиксируется в
+Команды выше подтверждены по `Makefile` и CI. Во время последнего аудита документации
+сервисы не запускались; актуальный результат проверок фиксируется в
 [аудите документации](../maintenance/documentation-audit.md).
 
 ## Сброс локальных данных
@@ -103,27 +105,28 @@ runtime-стек не запускался; актуальный результ�
 make demo-fresh
 ```
 
-Повторно применяет миграции и demo seed, сохраняя volumes.
+Повторно применяет миграции и загружает тестовые данные, сохраняя тома.
 
 ```bash
 make demo-fresh-volumes
 ```
 
-Удаляет Compose volumes PostgreSQL и MinIO. Команда необратима и предназначена только для
-локальной среды. `make restore-drill` требует `RESTORE_DRILL_CONFIRM=YES`, останавливает writers
-источника на время backup и восстанавливает копию в отдельный временный Compose project.
+Удаляет тома Compose для PostgreSQL и MinIO. Команда необратима и предназначена только для
+локальной среды. `make restore-drill` требует `RESTORE_DRILL_CONFIRM=YES`, останавливает процессы,
+записывающие данные в источник, на время резервного копирования и восстанавливает копию в отдельный
+временный проект Compose.
 
 ## Типовые проблемы
 
 | Симптом | Проверка |
 | --- | --- |
-| `/health` отвечает, но приложение не готово | Используйте `/ready`: он проверяет PostgreSQL, pgvector, Redis, MinIO и billing adapter |
-| Ingestion не меняет статус | `docker compose logs celery-worker`; после изменения worker-кода выполните `make restart-worker` |
-| Ошибка модели FastEmbed | Повторите `make embeddings`; worker ожидает `backend/.models` как `/app/.models` |
-| Chat не генерирует ответ | Проверьте `OPENAI_API_KEY`, а при custom gateway — `OPENAI_BASE_URL` и `OPENAI_MODEL` |
-| Cookie auth не работает между `:3001` и `:8001` | Сверьте `COOKIE_SAMESITE`, `COOKIE_SECURE`, `CORS_ORIGINS` и используемый hostname |
-| Endpoint inspect возвращает `404` | Проверьте `ENABLE_SEARCH_INSPECT`; в production он выключен по умолчанию |
-| Миграция не применяется | Проверьте `docker compose logs db-migrate`; при ошибке миграции backend и worker не запустятся |
+| `/health` отвечает, но приложение не готово | Используйте `/ready`: он проверяет PostgreSQL, pgvector, Redis, MinIO и обработчик оплаты |
+| Обработка документа не меняет статус | `docker compose logs celery-worker`; после изменения кода фонового обработчика выполните `make restart-worker` |
+| Ошибка модели FastEmbed | Повторите `make embeddings`; фоновый обработчик ожидает `backend/.models` по пути `/app/.models` |
+| Чат не генерирует ответ | Проверьте `OPENAI_API_KEY`, а при использовании шлюза — `OPENAI_BASE_URL` и `OPENAI_MODEL` |
+| Аутентификация через cookie не работает между `:3001` и `:8001` | Сверьте `COOKIE_SAMESITE`, `COOKIE_SECURE`, `CORS_ORIGINS` и используемое имя узла |
+| Маршрут `/inspect` возвращает `404` | Проверьте `ENABLE_SEARCH_INSPECT`; в производственной среде он выключен по умолчанию |
+| Миграция не применяется | Проверьте `docker compose logs db-migrate`; при ошибке миграции серверная часть и фоновый обработчик не запустятся |
 
 Остановка стека:
 

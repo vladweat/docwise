@@ -1,74 +1,75 @@
 # Аутентификация и ACL
 
-Основной клиентский механизм — cookie session. Организация берётся из текущей сессии; роль и отделы читаются
-из `organization_memberships`. Другие границы — в [tenancy](tenancy.md) и [security](../security/overview.md).
+Основной механизм входа — сессия на основе cookie. Организация берётся из текущей сессии; роль и отделы читаются
+из `organization_memberships`. Другие границы описаны в [изоляции организаций](tenancy.md) и [обзоре безопасности](../security/overview.md).
 
 ## Сессия и обновление токена
 
 ```mermaid
 sequenceDiagram
-  participant Browser
+  participant Browser as Браузер
   participant API as FastAPI
   participant DB as PostgreSQL
   participant R as Redis
-  Browser->>API: login / refresh
-  API->>DB: user + current membership
-  API->>R: refresh jti/session state
-  API-->>Browser: HttpOnly dw_access + dw_refresh cookies
-  Browser->>API: protected request
-  API->>DB: validate active session + membership
+  Browser->>API: вход / обновление токена
+  API->>DB: пользователь + текущее членство
+  API->>R: jti обновления + состояние сессии
+  API-->>Browser: cookie HttpOnly dw_access + dw_refresh
+  Browser->>API: защищённый запрос
+  API->>DB: проверить активную сессию + членство
 ```
 
 - `dw_access` действует 15 минут; `dw_refresh` — 7 дней.
-- JWT включает `sub`, текущий `org_id`, `typ`, `exp`; refresh token также имеет `jti`.
+- JWT включает `sub`, текущий `org_id`, `typ`, `exp`; токен обновления также содержит `jti`.
 - Роль и отделы не являются источником полномочий из JWT: они повторно читаются из БД.
-- Login/register/Google возвращают user JSON и ставят cookies; access token в JSON не возвращается.
-- Bearer auth в v1 не поддерживается.
-- Logout отзывает текущую сессию; смена/сброс пароля отзывает сессии пользователя.
-- `/health` и `/ready` публичны; остальные protected API требуют cookie session, кроме публичных auth/SSO/webhook routes.
+- Маршруты `login`, `register` и входа через Google возвращают JSON с пользователем и устанавливают cookie; токен доступа в JSON не возвращается.
+- Авторизация по схеме Bearer в версии v1 не поддерживается.
+- Выход отзывает текущую сессию; смена или сброс пароля отзывает сессии пользователя.
+- `/health` и `/ready` доступны без входа; остальные защищённые маршруты API требуют сессию на основе cookie, кроме открытых маршрутов входа, SSO и вебхуков.
 
-## CSRF, Origin и hostname
+## CSRF, источник запроса и имя узла организации
 
-При `COOKIE_SAMESITE=none` mutating API requests требуют разрешённый `Origin`/`Referer` либо
-`X-Requested-With: Docwise`. CORS допускает настроенный origin и проверенный hostname организации.
-Cookies host-only, без parent `Domain`.
+При `COOKIE_SAMESITE=none` запросы API, меняющие данные, требуют разрешённый `Origin` или `Referer`, либо
+`X-Requested-With: Docwise`. CORS допускает настроенный источник запроса и проверенное имя узла организации.
+Cookie действуют только для текущего узла; общий родительский атрибут `Domain` не задаётся.
 
-Если `Host` закреплён за tenant, он должен совпадать с `org_id` сессии. Непроверенный hostname не закрепляет org.
+Если `Host` закреплён за организацией, он должен совпадать с `org_id` сессии. Непроверенное имя узла не закрепляет организацию.
 
 ## Роли и действия
 
-| Роль membership | Права |
+| Роль участника организации | Права |
 | --- | --- |
-| `admin` | Knowledge Base, invites, billing, SSO, domain, Inspect при включённом флаге |
-| `manager` | Upload/delete/ACL для Knowledge Base; не управляет пользователями и billing |
-| `employee` | Чтение разрешённых документов, chat и свои сессии |
+| `admin` | База знаний, приглашения, оплата, SSO, домен, диагностика при включённом флаге |
+| `manager` | Загрузка и удаление документов, изменение ACL базы знаний; не управляет пользователями и оплатой |
+| `employee` | Чтение разрешённых документов, чат и собственные сессии |
 
-`admin` и `manager` также имеют `departments[]` — например, `hr` и `finance`.
-UI может скрывать кнопки, но API всегда проверяет права повторно.
+У участников с ролями `admin` и `manager` также есть `departments[]` — например, `hr` и `finance`.
+Интерфейс может скрывать кнопки, но API всегда повторно проверяет права.
 
-## Разрешённые document roles
+## Разрешённые роли доступа к документам
 
 ```text
 allowed_roles = {membership.role} ∪ departments ∪ {"all"}
 ```
 
-Каждая document list/raw/status и обе поисковые ветки используют текущую организацию и пересечение ролей:
+В списке документов, при чтении оригинала и состояния, а также в обеих ветках поиска используются текущая организация и пересечение ролей:
 
 ```sql
 WHERE organization_id = :current_org
   AND access_roles && :allowed_roles
 ```
 
-Org-admin не обходит внутреннюю ACL: HR-only документ требует `hr` в membership role или departments.
-При изменении тегов обновляются `documents.access_roles` и все chunks этого документа.
+Администратор организации не обходит внутренний ACL: для документа только для HR участник должен иметь `hr` в роли или отделах.
+При изменении тегов обновляются `documents.access_roles` и все текстовые фрагменты документа.
 
-## SSO: проектное решение и runtime
+## SSO: проектное решение и текущая реализация
 
-Идеальная модель: connector принадлежит одной org, его slug определяет tenant; assertion не может назначить org.
-JIT-membership, если включена, создаёт membership только в этой org.
+Целевая модель: соединение SSO принадлежит одной организации, его `slug` определяет организацию;
+ответ провайдера удостоверений не может выбрать организацию. Если включено JIT-членство,
+новый участник добавляется только в эту организацию.
 
-**Что доступно сейчас:** `SSO_PROVIDER=dev` включает development fixture и не выполняет настоящий SAML/OIDC обмен.
-Публичный demo задаёт `SSO_PROVIDER=disabled`; login/ACS там возвращают `404`. Производственного IdP adapter нет.
-Google login — отдельный consumer OIDC-вариант, не замена корпоративному SSO.
+**Текущая реализация:** `SSO_PROVIDER=dev` включает локальные тестовые данные и не выполняет настоящий обмен SAML/OIDC.
+Публичный профиль задаёт `SSO_PROVIDER=disabled`; маршруты login/ACS отвечают `404`. Подключения к производственному
+провайдеру удостоверений нет. Вход через Google — отдельный пользовательский вариант OIDC, а не замена корпоративному SSO.
 
-SSO и plan gates: [billing](billing.md), [ADR-014](../engineering/decisions.md#adr-014-sso-org-from-connector-not-assertion).
+SSO и ограничения тарифных планов: [тарифные планы](billing.md), [ADR-014](../engineering/decisions.md#adr-014-sso-организацию-определяет-подключение-а-не-ответ-провайдера).

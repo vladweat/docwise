@@ -1,9 +1,9 @@
-# Organizations, планы и enterprise endpoints
+# Организации, планы и корпоративные маршруты
 
-Все операции работают с текущей организацией из cookie session. Переданные клиентом `organization_id` и `plan`
+Все операции работают с текущей организацией из сессии cookie. Переданные клиентом `organization_id` и `plan`
 не заменяют контекст сессии.
 
-## Регистрация, участники и переключение org
+## Регистрация, участники и смена организации
 
 ```http
 POST /api/v1/auth/register
@@ -12,14 +12,14 @@ GET  /api/v1/organizations/members
 POST /api/v1/organizations/invites
 ```
 
-- Регистрация без invite создаёт user, organization и membership `admin`.
-- Invite принимает `{ "email", "role", "departments" }`; существующему user добавляется membership,
-  новый принимает приглашение при регистрации.
-- Seat quota проверяется до создания membership; превышение — `402`.
-- Switch принимает `{ "organization_id": "<uuid>" }` только при существующем membership.
-- Если hostname закреплён за другой org, смена организации через этот host запрещена.
+- Регистрация без приглашения создаёт пользователя, организацию и членство с ролью `admin`.
+- Приглашение принимает `{ "email", "role", "departments" }`; существующему пользователю сразу добавляется членство,
+  новый пользователь принимает приглашение при регистрации.
+- Квота участников проверяется до создания членства; при превышении возвращается `402`.
+- Для смены организации передаётся `{ "organization_id": "<uuid>" }`; пользователь должен состоять в ней.
+- Если имя узла закреплено за другой организацией, смена организации через этот узел запрещена.
 
-Роли и границы tenant: [tenancy.md](../../platform/tenancy.md).
+Роли и границы изоляции организаций: [tenancy.md](../../platform/tenancy.md).
 
 ## План и квоты
 
@@ -29,22 +29,24 @@ GET  /api/v1/billing/usage
 POST /api/v1/billing/plan
 ```
 
-Org-admin видит текущий план, usage, entitlements и provider. Тело `POST /billing/plan`:
-`{ "plan": "team" }` — это целевой план **текущей org**, не произвольной организации.
+Администратор организации видит текущий план, использование квот, доступные возможности и способ оплаты.
+Тело `POST /billing/plan`: `{ "plan": "team" }` — это целевой план **текущей организации**, а не произвольной организации.
 
-| Provider | Поведение |
+| Способ оплаты | Поведение |
 | --- | --- |
-| `dev` | Сразу обновляет состояние в Postgres; используется local, CI и public demo |
-| `stripe` | Использует checkout/webhook adapter; без ключей недоступен и влияет на readiness |
+| `dev` | Сразу обновляет состояние в Postgres; используется локально, в CI и в публичном профиле |
+| `stripe` | Использует обработчик оплаты и вебхуков; без ключей недоступен и снижает готовность сервиса |
 
 ```http
 POST /api/v1/billing/dev/simulate
 ```
 
-Dev-only смена состояния (`set_plan`, `past_due`, `cancel`, `activate`). Если `BILLING_PROVIDER != dev`
-или caller не org-admin, route не доступен. Webhook Stripe не требует cookie, но проверяет подпись и event id.
+Маршрут только для разработки: меняет состояние (`set_plan`, `past_due`, `cancel`, `activate`). Если `BILLING_PROVIDER != dev`
+или вызывающий пользователь не администратор организации, маршрут недоступен. Вебхук Stripe не требует cookie,
+но проверяет подпись и ID события.
 
-Quota — `402`, rate limit — `429`, отсутствие entitlement — `403`. Подробности: [billing.md](../../platform/billing.md).
+Превышение квоты возвращает `402`, ограничение частоты запросов — `429`, отсутствие доступа к возможности — `403`.
+Подробности: [billing.md](../../platform/billing.md).
 
 ## SSO
 
@@ -55,13 +57,13 @@ GET  /api/v1/organizations/sso
 PUT  /api/v1/organizations/sso
 ```
 
-`{slug}` выбирает org через connector; assertion не выбирает tenant. Connector settings требуют org-admin и
-SSO entitlement. Если `SSO_PROVIDER != dev`, login/ACS отвечают `404`.
+`{slug}` выбирает организацию через подключение; утверждение поставщика удостоверений не выбирает организацию. Настройки подключения доступны
+только администратору организации при наличии возможности SSO. Если `SSO_PROVIDER != dev`, маршруты login/ACS отвечают `404`.
 
-В local Compose `dev` включает fixture, а не настоящий SAML/OIDC. Публичный demo задаёт `disabled`.
-Реального production IdP adapter нет. См. [auth.md](../../platform/auth.md).
+В локальном профиле Compose `dev` включает тестовую заготовку, а не настоящий обмен SAML/OIDC. Публичный профиль задаёт `disabled`.
+Подключения к производственному провайдеру удостоверений пока нет. См. [auth.md](../../platform/auth.md).
 
-## Custom domain
+## Пользовательский домен
 
 ```http
 GET  /api/v1/organizations/domain
@@ -69,8 +71,8 @@ PUT  /api/v1/organizations/domain
 POST /api/v1/organizations/domain/verify
 ```
 
-Требуется org-admin и соответствующий entitlement. `PUT` принимает hostname или `null` для отключения.
-Verification использует TXT/HTTP token; в Compose это проверка dev token, не настройка Let's Encrypt.
-Непроверенный hostname не закрепляет текущую сессию за организацией.
+Требуется администратор организации и соответствующая возможность. `PUT` принимает имя узла или `null` для отключения.
+Проверка использует TXT/HTTP-токен; в Compose это тестовый токен, а не настройка Let's Encrypt.
+Непроверенное имя узла не закрепляет текущую сессию за организацией.
 
-Неизвестная/чужая организация не раскрывается через hostname, slug или body ID.
+API не раскрывает сведения о неизвестной или чужой организации через имя узла, `slug` или ID из тела запроса.

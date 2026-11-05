@@ -1,111 +1,115 @@
 # Архитектурные решения (ADR)
 
 Короткий журнал ключевых решений и причин. История не заменяет актуальный контракт: детали см. в
-[архитектуре](../product/architecture.md), [tenancy](../platform/tenancy.md), [API](api.md) и коде.
+[архитектуре](../product/architecture.md), [изоляции организаций](../platform/tenancy.md), [API](api.md) и коде.
 
 ## Карта решений
 
 | Тема | Решение | ADR |
 | --- | --- | --- |
-| Приложение и база | Существующий FastAPI/Celery stack, sync SQLAlchemy, PostgreSQL | 001–003, 009–010 |
-| Поиск | pgvector + FTS, RRF, rerank; без загрузки всего corpus в RAM | 005, 008, 010 |
-| Auth и tenants | Cookie session; shared SaaS; `organization_id` — внешняя граница | 007, 012 |
-| Биллинг и SSO | Provider port; connector выбирает org; fixture не является IdP | 013–014 |
-| Hostname и RLS | Host только pin-ит org; RLS дополнительно защищает corpus tables | 015–016 |
-| SSE и retention | JSON envelopes; ранний session meta; audit retention по сроку | 004, 017 |
+| Приложение и база | FastAPI/Celery, синхронный SQLAlchemy, PostgreSQL | 001–003, 009–010 |
+| Поиск | pgvector + FTS, RRF, повторное ранжирование; без загрузки всего корпуса в память | 005, 008, 010 |
+| Аутентификация и организации | Сессия на cookie; общая SaaS-система; `organization_id` — внешняя граница | 007, 012 |
+| Оплата и SSO | Интерфейс поставщика; подключение выбирает организацию; тестовая заготовка не является IdP | 013–014 |
+| Имя узла и RLS | Имя узла только закрепляет организацию; RLS дополнительно защищает таблицы корпуса | 015–016 |
+| SSE и хранение данных | Конверты JSON; ранние метаданные сессии; срок хранения журнала аудита | 004, 017 |
 
 ## Решения
 
-### ADR-001. Существующий application skeleton, не greenfield
+### ADR-001. Используем существующую основу приложения
 
-Переиспользуем FastAPI, Celery, cookie auth, Compose и frontend API client. Corpus ingestion/retrieval реализованы
-специально для Docwise; существующая инфраструктурная обвязка не означает, что corpus RAG был готов заранее.
+Повторно используем FastAPI, Celery, аутентификацию через cookie, Compose и клиент API в интерфейсе.
+Загрузка корпуса и поиск реализованы специально для Docwise; наличие готовой инфраструктуры не означает,
+что поиск с генерацией по корпусу был заранее подготовлен.
 
-### ADR-002. Sync SQLAlchemy Session
+### ADR-002. Синхронная SQLAlchemy Session
 
-Используется SQLAlchemy 2 sync Session. HTTP handlers могут быть sync; тяжёлая обработка вынесена в Celery.
-Переход на async не нужен без отдельной измеренной причины.
+Используется синхронная SQLAlchemy Session версии 2. HTTP-обработчики могут быть синхронными;
+тяжёлая обработка вынесена в Celery. Переход на асинхронный режим не нужен без отдельной измеренной причины.
 
-### ADR-003. UUID primary keys
+### ADR-003. Первичные ключи UUID
 
 Основные сущности используют UUID; `chunk_id` — отдельный стабильный строковый ключ для upsert.
 Публичные ID не раскрывают последовательный номер записи.
 
-### ADR-004. SSE JSON envelopes `data:`, not named `event:`
+### ADR-004. Конверты событий SSE в формате JSON с `data:`, без имён `event:`
 
-Все события передаются как `data: {json}\n\n`; тип находится в поле `type`. Для нового uncached чата после
-успешного retrieval порядок: ранний `meta` (`session_id`, `message_id: null`) → `citations` → token events →
-финальный `meta` → `[DONE]`. У existing session/cache hit раннего `meta` нет.
+Все события передаются как `data: {json}\n\n`; тип находится в поле `type`. Для нового чата без ответа в кэше
+после успешного поиска порядок такой: раннее `meta` (`session_id`, `message_id: null`) → `citations` → события
+`token` → финальное `meta` → `[DONE]`. Для существующей сессии и при попадании в кэш раннего `meta` нет.
 
-**Почему:** общий envelope упрощает frontend parser; ранний session ID позволяет показать chat до конца генерации.
+**Почему:** общий конверт упрощает обработку событий в интерфейсе; ранний ID сессии позволяет показать чат до завершения генерации.
 Полный контракт: [api/chat.md](api/chat.md).
 
-### ADR-005. Hybrid search без полного scroll corpus
+### ADR-005. Гибридный поиск без полной загрузки корпуса
 
-Dense Top-25 в pgvector и FTS Top-25 в PostgreSQL применяют одинаковые tenant/ACL-фильтры до RRF (`k=60`).
-В production нельзя загружать все chunks в память для BM25.
+Поиск по векторам Top-25 в pgvector и полнотекстовый поиск Top-25 в PostgreSQL применяют одинаковые
+фильтры организаций и ACL до RRF (`k=60`). В производственной среде нельзя загружать все текстовые фрагменты в память для BM25.
 
 ### ADR-006. `last_error` и `processing`
 
 Документ хранит `last_error`; активная индексация обозначается `processing`. Ошибка не раскрывает внутренний stack.
 
-### ADR-007. Cookie session
+### ADR-007. Сессия на основе cookie
 
-Клиент получает HttpOnly `dw_access`/`dw_refresh`, а не token в JSON. Role и departments читаются из membership,
-не из JWT claim. Регистрация создаёт organization; вход в существующую выполняется через invite.
+Клиент получает HttpOnly `dw_access`/`dw_refresh`, а не токен в JSON. Роль и подразделения читаются из записи
+членства, а не из утверждения JWT. Регистрация создаёт организацию; присоединение к существующей выполняется по приглашению.
 Подробности: [auth.md](../platform/auth.md).
 
 ### ADR-008. FastEmbed `bge-small`
 
-Для embeddings используется `BAAI/bge-small-en-v1.5` (384d cosine); rerank — `BAAI/bge-reranker-base`.
-Модельные версии следует менять вместе с evaluation и reindex plan.
+Для векторных представлений используется `BAAI/bge-small-en-v1.5` (384d cosine); для повторного ранжирования —
+`BAAI/bge-reranker-base`. Версии моделей следует менять вместе с оценкой качества и планом переиндексации.
 
 ### ADR-009. PostgreSQL 15 + pgvector + MinIO/S3
 
-Metadata и vectors хранятся в PostgreSQL; исходные файлы — в private S3-compatible storage.
-Локально это MinIO; публичный single-node demo использует Garage.
+Метаданные и векторы хранятся в PostgreSQL; исходные файлы — в закрытом S3-совместимом хранилище.
+Локально используется MinIO; публичный демонстрационный профиль использует один узел Garage.
 
 ### ADR-010. pgvector вместо отдельного Qdrant
 
-Vectors находятся в `document_chunks.embedding`; tenant и role ACL применяются SQL предикатами для dense и FTS.
-Отдельный vector-only сервис не нужен текущему масштабу проекта.
+Векторы находятся в `document_chunks.embedding`; фильтры организации и роли ACL применяются SQL-условиями
+для поиска по векторам и FTS. Отдельный сервис только для векторного поиска не нужен при текущем масштабе проекта.
 
 ### ADR-011. Duplicate `file_hash` → `409`
 
-Повтор файла в одной организации возвращает `409 resource.conflict`, без существующего ID/title.
-Уникальность `(organization_id, file_hash)` не подтверждает совпадение между разными организациями.
+Повторная загрузка файла в одну организацию возвращает `409 resource.conflict`, не раскрывая существующие ID и название.
+Ограничение `(organization_id, file_hash)` не проверяет совпадения между разными организациями.
 
-### ADR-012. Shared B2B SaaS: `org_id` as outer wall
+### ADR-012. Общая B2B SaaS-система: `org_id` как внешняя граница
 
-Пользователи глобальные; документы, сессии и audit принадлежат организации. `organization_id` — внешняя граница,
-а `access_roles` — внутренний ACL. Текущая org определяется сессией, не prompt/body.
+Учётные записи пользователей общие; документы, сессии и журнал аудита принадлежат организации. `organization_id` —
+внешняя граница, а `access_roles` — внутренний ACL. Текущая организация определяется сессией, а не запросом или его телом.
 Канонический документ: [tenancy.md](../platform/tenancy.md).
 
-### ADR-013. Billing provider port, quotas in DB, default `dev`
+### ADR-013. Интерфейс поставщика оплаты, квоты в БД, значение по умолчанию `dev`
 
-Plan/status/quota хранятся на organization row; handlers читают БД. `dev` не списывает деньги и используется в local,
-CI и публичном demo. Stripe подключается отдельно; коммерческая интеграция не ослабляет tenant/ACL проверки.
+Тариф, состояние и квоты хранятся в записи организации; обработчики читают их из БД. `dev` не списывает деньги и
+используется локально, в CI и публичной демонстрации. Stripe подключается отдельно; платная интеграция не ослабляет
+проверки организации и ACL.
 
-### ADR-014. SSO: org from connector, not assertion
+### ADR-014. SSO: организацию определяет подключение, а не ответ провайдера
 
-Целевая модель определяет tenant по connector slug; assertion не задаёт `organization_id`.
-**Текущий runtime:** production SAML/OIDC adapter отсутствует. `SSO_PROVIDER=dev` — fixture; public demo использует `disabled`.
+Целевая модель определяет организацию по значению `slug` подключения; данные `assertion` не задают `organization_id`.
+**Текущая среда выполнения:** адаптера SAML/OIDC для производственной среды нет. `SSO_PROVIDER=dev` — тестовая заготовка;
+публичный демонстрационный профиль использует `disabled`.
 Подробности и ограничения: [auth.md](../platform/auth.md).
 
-### ADR-015. Custom domain pins organization; cookie remains host-only
+### ADR-015. Собственный домен закрепляет организацию; cookie действует только на текущем узле
 
-Проверенный hostname — дополнительное условие для текущей org, не замена SQL tenant filter.
-Cookie не устанавливает parent `Domain`; смена tenant на hostname другой org запрещена.
+Проверенное имя узла — дополнительное условие для текущей организации, а не замена SQL-фильтра организации.
+Cookie не устанавливает родительский атрибут `Domain`; переход в организацию с другого имени узла запрещён.
 
-### ADR-016. PostgreSQL RLS только на corpus
+### ADR-016. RLS в PostgreSQL применяется только к корпусу
 
-RLS защищает `documents` и `document_chunks`; inner `access_roles` проверяется приложением.
-Base/public-demo Compose задаёт `DOCWISE_RLS_SESSION_ROLE=docwise_rls`, а `db-migrate` создаёт роль/grants.
-PostgreSQL superuser обходит RLS; application filters обязательны даже при включённом RLS.
+RLS защищает `documents` и `document_chunks`; внутренний фильтр `access_roles` проверяет приложение.
+Базовая конфигурация и публичный демонстрационный профиль Compose задают `DOCWISE_RLS_SESSION_ROLE=docwise_rls`,
+а `db-migrate` создаёт роль и выдаёт разрешения. Учётная запись суперпользователя PostgreSQL обходит RLS; фильтры приложения
+обязательны даже при включённом RLS.
 
-### ADR-017. Data retention and erasure (EU pilot policy)
+### ADR-017. Срок хранения и удаление данных (политика пилотной среды ЕС)
 
-Audit не хранит body chunks; срок хранения настраивается через `AUDIT_LOG_RETENTION_DAYS` (default 90).
-Один Celery Beat ежедневно очищает просроченные audit rows. Chat history удаляется вместе с сессией;
-удаление файла использует повторяемый storage outbox.
-Актуальная policy и ограничения: [data-retention.md](../platform/data-retention.md).
+Журнал аудита не хранит текст фрагментов; срок хранения настраивается через `AUDIT_LOG_RETENTION_DAYS`
+(значение по умолчанию — 90 дней). Один Celery Beat ежедневно удаляет просроченные записи журнала.
+История чата удаляется вместе с сессией; при удалении файла используется повторяемая очередь операций с хранилищем.
+Актуальные правила и ограничения: [data-retention.md](../platform/data-retention.md).

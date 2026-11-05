@@ -1,41 +1,43 @@
 # Эксплуатация
 
-Репозиторий поддерживает local/self-host pilot. Для публичного интервью-демо есть отдельный
-[Compose overlay](public-demo.md). Он добавляет Caddy/TLS, но не превращает single-VPS профиль в HA production.
-Kubernetes, secret manager и автоматическое point-in-time recovery не входят в репозиторий.
+Репозиторий поддерживает локальный запуск и самостоятельное развёртывание пилотной среды. Для публичной
+демонстрации на интервью предусмотрена отдельная [конфигурация Compose](public-demo.md). Она добавляет Caddy/TLS,
+но не превращает профиль на одном VPS в отказоустойчивую производственную среду. Kubernetes, менеджер секретов
+и автоматическое восстановление на момент времени в репозиторий не входят.
 
 ## Сервисы и трафик
 
 ```mermaid
 flowchart LR
-  Browser[Browser] --> Caddy[Caddy / HTTPS<br/>public demo only]
+  Browser[Браузер] --> Caddy[Caddy / HTTPS<br/>только публичная демонстрация]
   Caddy --> Frontend[Next.js]
   Caddy --> API[FastAPI]
   Frontend --> API
   API --> DB[(PostgreSQL + pgvector)]
   API --> Redis[(Redis)]
   API --> S3[(MinIO / Garage)]
-  API --> Queue[Celery queue]
-  Queue --> Worker[Celery worker]
+  API --> Queue[Очередь Celery]
+  Queue --> Worker[Фоновый обработчик Celery]
   Worker --> DB
   Worker --> S3
-  Beat[Celery Beat · one replica] --> DB
+  Beat[Celery Beat · одна копия] --> DB
 ```
 
-| Сервис | Назначение | Local host port | Проверка |
+| Сервис | Назначение | Порт узла для локального доступа | Проверка |
 | --- | --- | --- | --- |
 | `postgres` | Данные, pgvector и FTS | `127.0.0.1:5432` | `pg_isready` |
-| `redis` | Queue, sessions, limits, locks и cache | `127.0.0.1:6379` | `redis-cli ping` |
+| `redis` | Очередь, сессии, ограничения, блокировки и кэш | `127.0.0.1:6379` | `redis-cli ping` |
 | `minio` | Оригиналы документов | `127.0.0.1:9000`, console `9001` | `/ready` проверяет bucket |
 | `backend` | FastAPI | `127.0.0.1:8001` → `8000` | `/ready` |
-| `celery-worker` | Ingestion и storage cleanup | не публикуется | Celery ping |
-| `celery-beat` | Retention и периодические задачи | не публикуется | один scheduler; alert check |
-| `frontend` | Next.js | `127.0.0.1:3001` → `3000` | public-profile healthcheck |
-| `db-migrate` | RLS role/grants и Alembic upgrade | не публикуется | завершение до API/worker |
+| `celery-worker` | Обработка документов и очистка хранилища | не публикуется | Проверка Celery |
+| `celery-beat` | Очистка по сроку хранения и периодические задачи | не публикуется | один планировщик; проверка оповещений |
+| `frontend` | Next.js | `127.0.0.1:3001` → `3000` | проверка работоспособности публичного профиля |
+| `db-migrate` | Настройка роли и разрешений RLS, обновление Alembic | не публикуется | завершение до запуска API и фонового обработчика |
 
-В public demo `minio` заменяется на одноузловой Garage; внутренние ports закрыты, наружу смотрит Caddy.
+В публичной демонстрации `minio` заменяется на одноузловой Garage; внутренние порты закрыты,
+внешний трафик принимает Caddy.
 
-## Запуск и readiness
+## Запуск и проверка готовности
 
 ```bash
 make deps
@@ -43,23 +45,23 @@ make up
 curl -fsS http://localhost:8001/ready | python3 -m json.tool
 ```
 
-`/health` проверяет только процесс. `/ready` проверяет PostgreSQL/pgvector, Redis, S3 и billing adapter;
+`/health` проверяет только процесс. `/ready` проверяет PostgreSQL/pgvector, Redis, S3 и обработчик оплаты;
 при деградации возвращает `503`.
 
-Единственный `db-migrate` создаёт/проверяет `docwise_rls`, выдаёт grants и применяет миграции.
-Ошибка migration job блокирует API и worker. Вне этих Compose profiles миграции и non-superuser role
-должны быть настроены отдельным deployment process.
+Единственная задача `db-migrate` создаёт или проверяет `docwise_rls`, выдаёт разрешения и применяет миграции.
+Ошибка этой задачи блокирует API и фоновый обработчик. За пределами этих профилей Compose миграции и роль
+без прав суперпользователя нужно настраивать отдельным процессом развёртывания.
 
 ## Конфигурация и ограничения профиля
 
-- Base Compose — development: backend работает с `--reload` и bind mount.
-- Host ports base Compose привязаны к loopback; public-demo ports сервисов внутри закрыты.
-- Images собираются с подготовленными локально dependencies/models; build context без сети.
-- Compose defaults — не production secrets; замените `SECRET_KEY` и storage/database credentials.
-- Frontend получает `API_BASE_URL` при runtime; `NEXT_PUBLIC_*` встраиваются на build.
-- API, worker и Beat используют `SET LOCAL ROLE docwise_rls`; superuser без этой роли обходит RLS.
+- Базовый Compose-профиль предназначен для разработки: серверная часть работает с `--reload` и привязкой каталога.
+- Порты узла в базовой конфигурации привязаны к loopback; во внутренней сети публичного профиля порты служб закрыты.
+- Образы собираются с зависимостями и моделями, подготовленными локально; во время сборки сеть не используется.
+- Значения Compose по умолчанию не являются секретами для производственной среды; замените `SECRET_KEY` и реквизиты доступа к хранилищу и базе данных.
+- Клиентская часть получает `API_BASE_URL` при запуске; значения `NEXT_PUBLIC_*` встраиваются при сборке.
+- API, фоновый обработчик и Beat используют `SET LOCAL ROLE docwise_rls`; суперпользователь без этой роли обходит RLS.
 
-Переменные: [configuration.md](../development/configuration.md). Публичный profile и Caddy:
+Переменные: [configuration.md](../development/configuration.md). Публичный профиль и Caddy:
 [public-demo.md](public-demo.md).
 
 ## Миграции
@@ -68,8 +70,8 @@ curl -fsS http://localhost:8001/ready | python3 -m json.tool
 make migrate
 ```
 
-Текущий Alembic head находится в `backend/alembic/versions/`. Миграции автоматически не откатываются;
-blue/green strategy не настроена. Перед изменением версии сохраните backup и проверьте его на совместимом коде.
+Текущая версия Alembic находится в `backend/alembic/versions/`. Миграции автоматически не откатываются;
+стратегия blue/green не настроена. Перед сменой версии сохраните резервную копию и проверьте её на совместимой версии кода.
 
 ## Логи и проверки
 
@@ -82,19 +84,21 @@ make check-pilot-alerts
 curl -fsS http://localhost:8001/metrics
 ```
 
-Backend пишет JSON logs с redaction; Sentry включается через `SENTRY_DSN`. `GET /metrics` отдаёт HTTP request
-counts и latency histogram с bounded labels по method, route template и status; содержимое запросов, tenant IDs
-и raw URL paths не включаются. Endpoint доступен на loopback в base Compose; public Caddy не проксирует `/metrics`.
-Prometheus server/scrape config, централизованные dashboards, OpenTelemetry traces и долговременное хранение
-логов не настроены.
+Серверная часть записывает JSON-журналы с маскировкой данных; Sentry включается через `SENTRY_DSN`. `GET /metrics`
+возвращает число HTTP-запросов и гистограмму задержки с ограниченным набором меток по методу, шаблону маршрута
+и статусу; содержимое запросов, идентификаторы организаций и исходные пути URL не включаются. Маршрут доступен
+на loopback в базовом профиле Compose; публичный Caddy не проксирует `/metrics`. Сервер и конфигурация сбора Prometheus,
+общие панели мониторинга, трассировки OpenTelemetry и долговременное хранение журналов не настроены.
 
-`check-pilot-alerts` проверяет `/ready`, worker, failed/stale docs, storage deletion backlog, retention heartbeat
-и latency. Redis `LLEN celery` — эвристика, зависит от routing конфигурации.
+`check-pilot-alerts` проверяет `/ready`, фоновый обработчик, документы с ошибками или устаревшим состоянием,
+очередь удаления объектов, отметку очистки по сроку хранения и задержку. Redis-команда `LLEN celery` — эвристика,
+её результат зависит от конфигурации маршрутизации.
 
-## Ingestion worker
+## Фоновый обработчик документов
 
-Текущая задача — `ingestion.process_document`; retry до трёх раз с backoff только для transient infrastructure errors.
-Parser/format/quota failures terminal. Soft/hard task limits — 20/25 минут, prefetch — 1.
+Текущая задача — `ingestion.process_document`; повторяется до трёх раз с увеличением паузы только после временных
+сбоев инфраструктуры. Ошибки разбора, формата и квоты окончательные. Мягкий и жёсткий лимиты задачи — 20/25 минут,
+предварительная выборка — 1.
 
 После изменения `backend/app/services/ingestion/` или `backend/worker/`:
 
@@ -102,72 +106,74 @@ Parser/format/quota failures terminal. Soft/hard task limits — 20/25 мину�
 make restart-worker
 ```
 
-При сбое проверьте логи worker, `status`/`ingestion_stage`, Redis/S3, локальные models и quota.
-Полная обработка не атомарна: статусы и storage side effects могут пережить retry отдельно от chunks.
+При сбое проверьте журналы фонового обработчика, `status`/`ingestion_stage`, Redis/S3, локальные модели и квоту.
+Весь процесс обработки не атомарен: статусы и изменения в хранилище могут сохраняться отдельно от фрагментов при повторе.
 
-Потерянные задачи после Redis outage восстанавливаются сначала в dry-run:
+Потерянные после сбоя Redis задачи сначала восстанавливаются в режиме предварительного просмотра:
 
 ```bash
 make requeue-stale-ingestion
 ```
 
-Проверьте вывод; только потом применяйте:
+Проверьте вывод и только после этого выполняйте постановку задач:
 
 ```bash
 make requeue-stale-ingestion APPLY=1
 ```
 
-По умолчанию выбираются `pending` и `processing`, не обновлявшиеся ≥60 минут; одна выборка ограничена 500 IDs.
-`--stale-minutes` не может быть меньше 30 минут. `failed` требует явный UUID и `--include-failed`.
-Инструмент не печатает документы и в dry-run не меняет БД.
+По умолчанию выбираются `pending` и `processing`, не обновлявшиеся не менее 60 минут; одна выборка ограничена 500 ID.
+`--stale-minutes` не может быть меньше 30 минут. Для `failed` нужно явно указать UUID и `--include-failed`.
+Инструмент не выводит документы и в режиме предварительного просмотра не меняет БД.
 
-## Backup
+## Резервное копирование
 
 ```bash
 make backup-pilot
 ```
 
-Скрипт останавливает backend, worker и Beat на время согласованного снимка, затем сохраняет PostgreSQL dump,
-MinIO mirror, Alembic revision и SHA-256 manifest в `backups/<timestamp>/`. Ранее работавшие сервисы запускаются
-и при ошибке. Каталог backup исключён из Git.
+Скрипт останавливает серверную часть, фоновый обработчик и Beat на время согласованного снимка, затем сохраняет
+дамп PostgreSQL, копию MinIO, версию Alembic и манифест SHA-256 в `backups/<timestamp>/`. Ранее работавшие службы
+запускаются снова даже при ошибке. Каталог резервных копий исключён из Git.
 
-Redis не включён: теряются queue, active refresh sessions, locks, limits и LLM cache. Off-site replication,
-автоматическое расписание, PITR, encryption policy и согласованные RPO/RTO не заданы.
+Redis не включён: теряются очередь, действующие сессии обновления, блокировки, ограничения и кэш языковой модели.
+Не настроены внешняя репликация, автоматическое расписание, PITR, политика шифрования и согласованные RPO/RTO.
 
-## Restore
+## Восстановление
 
 ```bash
 make restore-pilot BACKUP_DIR=backups/pilot-latest
 ```
 
-До остановки writers скрипт проверяет manifest, checksums и migration revision. Затем восстанавливает PostgreSQL,
-синхронизирует MinIO с удалением лишних объектов, запускает Compose и ждёт `/ready`.
-После restore он показывает dry-run кандидатов ingestion recovery; повторная постановка — отдельная команда.
+До остановки процессов записи скрипт проверяет манифест, контрольные суммы и версию миграции. Затем восстанавливает PostgreSQL,
+синхронизирует MinIO, удаляя лишние объекты, запускает Compose и ждёт `/ready`.
+После восстановления он показывает кандидатов на повторную обработку документов в режиме предварительного просмотра;
+повторная постановка задач выполняется отдельной командой.
 
-Restore разрушителен для целевого проекта. `make restore-drill` требует `RESTORE_DRILL_CONFIRM=YES`, делает
-backup источника и восстанавливает его в отдельный Compose project с отдельными volumes и loopback port `18001`.
-Он проверяет `/ready` и наличие готовых документов, затем удаляет только временные volumes. Команда на время
-backup останавливает writers источника, поэтому её запускают в согласованное окно. При ошибке target project
-остаётся для диагностики. Backup validation не заменяет регулярный полный restore drill; off-site копия,
-RPO/RTO и расписание drills пока необходимо определить и проверять отдельно.
+Восстановление разрушительно для целевого проекта. `make restore-drill` требует `RESTORE_DRILL_CONFIRM=YES`, создаёт
+резервную копию источника и восстанавливает её в отдельный проект Compose с отдельными томами и портом loopback `18001`.
+Команда проверяет `/ready` и наличие готовых документов, затем удаляет только временные тома. Во время создания
+резервной копии она останавливает процессы записи источника, поэтому запускать её следует в согласованное окно.
+При ошибке целевой проект остаётся для диагностики. Проверка резервной копии не заменяет регулярное полное тестовое
+восстановление; внешнюю копию, RPO/RTO и расписание проверок восстановления ещё нужно определить и проверять отдельно.
 
-## Согласование объектов storage
+## Сверка объектов хранилища
 
 ```bash
-make reconcile-minio                 # dry-run
-make reconcile-minio DELETE=1        # удалить только orphan objects
+make reconcile-minio                 # предварительный просмотр
+make reconcile-minio DELETE=1        # удалить только объекты-сироты
 ```
 
-Перед `DELETE=1` сделайте backup. Скрипт учитывает `documents.file_path` и pending outbox; отсутствующий объект не восстанавливает.
+Перед `DELETE=1` сделайте резервную копию. Скрипт учитывает `documents.file_path` и ожидающие записи очереди;
+отсутствующий объект он не восстанавливает.
 
-## Rollback
+## Откат
 
-Автоматического rollback нет. Для релиза, где миграция необратима, требуется согласованный backup/restore plan.
+Автоматического отката нет. Для выпуска с необратимой миграцией нужен согласованный план резервного копирования и восстановления.
 
-1. Остановить writers.
-2. Сохранить PostgreSQL и object storage.
+1. Остановить процессы записи.
+2. Сохранить PostgreSQL и объектное хранилище.
 3. Вернуть совместимую версию образа.
-4. При несовместимой схеме восстановить backup.
-5. Проверить `/ready`, login, upload/ingestion и ACL retrieval.
+4. При несовместимой схеме восстановить резервную копию.
+5. Проверить `/ready`, вход, загрузку и обработку документов, а также поиск с ACL.
 
-Это общий порядок, не проверенный production runbook: конкретные действия зависят от migration и версии backup.
+Это общий порядок, а не проверенная эксплуатационная инструкция для производственной среды: конкретные действия зависят от миграции и версии резервной копии.

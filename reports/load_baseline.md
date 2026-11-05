@@ -1,50 +1,51 @@
-# Load baseline (retrieval)
+# Исторический замер нагрузки (поиск)
 
-> Historical snapshot from 2026-09-22: 28 positive queries for the default employee persona. The current set
-> has 33 positive queries across six personas. Code revision and dataset digest were not recorded; rerun against
-> an indexed corpus before using these latency values as a current capacity baseline.
+> Исторический снимок от 2026-09-22: 28 положительных запросов для роли сотрудника по умолчанию. В текущем наборе
+> 33 положительных запроса для шести ролей. Ревизия кода и хеш набора данных не записаны; повторите замер на
+> проиндексированном корпусе, прежде чем считать эти значения времени отклика текущей оценкой ёмкости.
 
-Generated: `2026-09-22T13:38:50+00:00`
-Code revision: `unrecorded`
-Golden dataset SHA-256: `unrecorded`
-Eval user: `eval-employee@docwise.example.com` (hybrid `retrieve`: dense + FTS + RRF + rerank, no LLM)
+Создано: `2026-09-22T13:38:50+00:00`
+Ревизия кода: `unrecorded`
+SHA-256 эталонного набора данных: `unrecorded`
+Пользователь оценки: `eval-employee@docwise.example.com` (гибридный режим `retrieve`: плотный поиск + FTS + RRF + повторное ранжирование, без LLM)
 
-## Corpus (indexed)
+## Корпус (проиндексирован)
 
-| Metric | Value |
+| Метрика | Значение |
 | --- | ---: |
-| `document_chunks` rows | 135 |
-| `documents` ready | 22 |
-| `documents` failed | 0 |
-| Orgs with chunks | 4 |
+| Строки таблицы `document_chunks` | 135 |
+| `documents` со статусом `ready` | 22 |
+| `documents` со статусом `failed` | 0 |
+| Организации с фрагментами текста | 4 |
 | `HNSW_MAX_SCAN_TUPLES` | 20000 |
 | `HNSW_ITERATIVE_SCAN` | relaxed_order |
 | `RERANK_THRESHOLD` | 0.25 |
 
-## Retrieval load
+## Нагрузка на поиск
 
-- Golden questions: **28** × **2** rounds = **56** `retrieve()` calls
-- Concurrency: **1**
-- Celery queue depth (`LLEN celery`) before run: **0**
+- Эталонные запросы: **28** × **2** цикла = **56** вызовов `retrieve()`
+- Параллельность: **1**
+- Глубина очереди Celery (`LLEN celery`) до запуска: **0**
 
-| Latency (ms) | Value |
+| Время отклика (мс) | Значение |
 | --- | ---: |
-| min | 1475.5 |
-| mean | 1757.1 |
+| Минимум | 1475.5 |
+| Среднее | 1757.1 |
 | p50 | 1732.0 |
 | p95 | 2050.9 |
 | p99 | 2278.4 |
-| max | 2453.2 |
+| Максимум | 2453.2 |
 
-## How to reproduce
+## Как воспроизвести
 
 ```bash
 make up-fast
-make eval-retrieval   # or existing indexed pilot corpus
+make eval-retrieval   # или используйте уже проиндексированный пилотный корпус
 make load-baseline    # LOAD_ROUNDS=3 LOAD_CONCURRENCY=2
 ```
 
-Pilot acceptance: compare p95 to prior run on the **same** corpus size; if dense weakens in `/inspect`,
-raise `HNSW_MAX_SCAN_TUPLES` and re-run. Chat TTFT adds LLM stream time — use `rag_audit_logs` after
-a chat soak (`make check-pilot-alerts`).
+Критерий пилотной проверки: сравнивайте p95 с предыдущим запуском на корпусе **того же** размера; если
+показатели плотного поиска ухудшились в `/inspect`, увеличьте `HNSW_MAX_SCAN_TUPLES` и повторите запуск. Время до первого токена чата (`Chat TTFT`)
+включает время потока LLM — после длительной проверки чата используйте `rag_audit_logs` и
+`make check-pilot-alerts`.
 

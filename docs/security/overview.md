@@ -2,122 +2,121 @@
 
 Документ описывает реализованные механизмы, а не сертификацию или гарантию отсутствия
 уязвимостей. Канонические детали tenancy и сессий: [tenancy](../platform/tenancy.md) и
-[auth](../platform/auth.md).
+[аутентификации](../platform/auth.md).
 
 ## Доверительные границы
 
 ```mermaid
 flowchart LR
-  B[Browser] -->|host-only cookies + CSRF checks| API[FastAPI]
+  B[Браузер] -->|cookie только для текущего узла + проверки CSRF| API[FastAPI]
   API -->|organization_id + ACL SQL| PG[(PostgreSQL)]
-  API -->|authenticated object access| S3[(MinIO)]
-  API -->|sessions, limits, cache| R[(Redis)]
-  API -->|только разрешённые Top-4 chunks| LLM[OpenAI-compatible API]
-  W[Celery worker] --> PG
+  API -->|доступ к объекту после проверки прав| S3[(MinIO)]
+  API -->|сессии, ограничения, кэш| R[(Redis)]
+  API -->|только разрешённые фрагменты Top-4| LLM[API, совместимый с OpenAI]
+  W[Фоновый обработчик Celery] --> PG
   W --> S3
   W --> R
 ```
 
-Основная граница tenant — `organization_id`; `access_roles` — внутренняя граница документов
+Основная граница организации — `organization_id`; `access_roles` — внутренняя граница доступа к документам
 организации. Клиентские поля `organization_id`, `org_id`, `user_id`, `access_roles` и
 `document_ids` не являются источником полномочий.
 
-Чтение документа не получает admin-override: роль `admin` управляет организацией, но читает документ только
-если совпадает с одним из его `access_roles`. Тег `all` открыт всей организации и должен использоваться отдельно;
-на загрузке и ACL update backend отклоняет его сочетание с другими тегами.
+Для чтения документа нет исключения для администратора: роль `admin` управляет организацией, но читает документ только
+если его роль совпадает с одним из значений `access_roles`. Тег `all` открыт всей организации и должен использоваться отдельно;
+при загрузке и изменении ACL серверная часть отклоняет его сочетание с другими тегами.
 
 ## Аутентификация
 
-- API v1 принимает host-only cookies `dw_access` и `dw_refresh`; Bearer auth не реализован.
-- JWT содержит `sub`, текущий `org_id`, `typ`, `exp`; refresh также содержит `jti`.
-- Role не хранится в token и читается из `organization_memberships`.
-- Refresh `jti` хранится и ротируется в Redis.
-- Пароли хэшируются через password helpers; `hashed_password` не возвращается API.
-- Google ID token проверяется с `GOOGLE_CLIENT_ID`.
-- Production startup блокируется при default `SECRET_KEY`.
+- API v1 принимает cookie `dw_access` и `dw_refresh`, действующие только для текущего узла; Bearer-аутентификация не реализована.
+- JWT содержит `sub`, текущий `org_id`, `typ`, `exp`; токен обновления также содержит `jti`.
+- Роль не хранится в токене и читается из `organization_memberships`.
+- `jti` токена обновления хранится и меняется в Redis.
+- Пароли хэшируются вспомогательными средствами; `hashed_password` не возвращается через API.
+- Идентификационный токен Google проверяется с помощью `GOOGLE_CLIENT_ID`.
+- Запуск в производственной среде блокируется, если задано значение `SECRET_KEY` по умолчанию.
 
-Cookies не используют parent `Domain`, поэтому session одного tenant hostname не должна
-автоматически передаваться другому. При hostname, привязанном к организации, host pin должен
-совпадать с `org_id` сессии.
+Cookie не используют родительский атрибут `Domain`, поэтому сессия с одного имени узла организации
+не должна автоматически передаваться другому. Имя узла, привязанное к организации, должно
+соответствовать `org_id` в сессии.
 
 ## Авторизация и изоляция
 
 `allowed_roles = {membership.role} ∪ departments ∪ {"all"}`.
 
-Dense, FTS, list, status и raw document paths применяют:
+Векторный и полнотекстовый поиск, а также маршруты списков, состояний и исходных документов применяют:
 
 ```sql
 WHERE organization_id = :current_org
   AND access_roles && :allowed_roles
 ```
 
-Фильтрация выполняется до RRF, rerank, LLM и формирования citation. Admin не получает
-автоматического обхода внутреннего ACL. `require_kb_admin` разрешает запись `admin` и
-`manager`; billing, invites, SSO, domain и inspect требуют `admin`.
+Фильтрация выполняется до RRF, повторного ранжирования, языковой модели и формирования цитат. Роль admin
+не обходит внутренний ACL. `require_kb_admin` разрешает запись ролям `admin` и
+`manager`; для операций оплаты, приглашений, SSO, домена и диагностики требуется `admin`.
 
-RLS включена миграцией для `documents` и `document_chunks`. Compose подключается к PostgreSQL
-через initialization account, но API, worker и Beat устанавливают отдельную
-`docwise_rls` роль через `DOCWISE_RLS_SESSION_ROLE`; `db-migrate` создаёт роль и grants до
-старта этих процессов. Вне Compose роль должна быть настроена отдельно. RLS остаётся
-дополнительной защитой и не заменяет application filters.
+RLS включена миграцией для `documents` и `document_chunks`. Служба Compose подключается к PostgreSQL
+через учётную запись инициализации, но API, фоновый обработчик и Beat устанавливают отдельную
+роль `docwise_rls` через `DOCWISE_RLS_SESSION_ROLE`; `db-migrate` создаёт роль и выдаёт разрешения до
+старта этих процессов. Вне Compose роль нужно настроить отдельно. RLS остаётся дополнительной защитой
+и не заменяет фильтры приложения.
 
 ## CSRF и CORS
 
-При `COOKIE_SAMESITE=none` mutating `/api/v1` requests требуют разрешённый `Origin`/`Referer`
-или `X-Requested-With: Docwise`. Stripe webhook и SSO ACS исключены, поскольку имеют
-собственную модель проверки. `TenantCORSMiddleware` разрешает configured origins и
-проверенные tenant hostnames.
+При `COOKIE_SAMESITE=none` запросы, меняющие данные в `/api/v1`, требуют разрешённый `Origin`/`Referer`
+или `X-Requested-With: Docwise`. Вебхук Stripe и SSO ACS исключены, поскольку используют собственную
+модель проверки. `TenantCORSMiddleware` разрешает настроенные источники и проверенные имена узлов организаций.
 
-Ошибочная широкая настройка `CORS_ORIGINS`, отключение `COOKIE_SECURE` или использование
-недоверенного proxy меняют эту границу и требуют отдельного review.
+Слишком широкое значение `CORS_ORIGINS`, отключение `COOKIE_SECURE` или использование
+недоверенного прокси меняют эту границу и требуют отдельной проверки.
 
 ## Секреты и внешние сервисы
 
-- `.env` исключён из Git; `.env.example` содержит placeholders.
-- Чувствительные значения: `SECRET_KEY`, DB/S3 credentials, `OPENAI_API_KEY`,
+- `.env` исключён из Git; `.env.example` содержит заполнители.
+- Чувствительные значения: `SECRET_KEY`, реквизиты доступа к БД и S3, `OPENAI_API_KEY`,
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SENTRY_DSN`.
-- LLM получает только прошедшие SQL ACL Top-4 chunks. Реализован OpenAI-compatible transport;
-  отдельного Anthropic transport нет.
-- MinIO bucket проверяется как private, оригиналы выдаются через authenticated API.
-- Stripe webhook должен пройти provider signature validation и имеет idempotency table.
-- `SSO_PROVIDER=dev` — fixture, не production identity provider.
+- Языковая модель получает только фрагменты Top-4, прошедшие проверку ACL в SQL. Реализован транспорт,
+  совместимый с OpenAI; отдельного транспорта Anthropic нет.
+- Бакет MinIO проверяется как закрытый, оригиналы выдаются через API после проверки прав.
+- Подпись вебхука Stripe проверяется с помощью поставщика; предусмотрена таблица идемпотентности.
+- `SSO_PROVIDER=dev` — тестовая заготовка, а не поставщик удостоверений для производственной среды.
 
-## Логи, audit и sensitive data
+## Журналы и конфиденциальные данные
 
-`RedactingJsonFormatter` маскирует sensitive fields и traceback, оставляя тип исключения для диагностики;
-exception values и сообщения breadcrumbs в Sentry очищаются до отправки. Ошибки инфраструктуры в обычных
-лог-сообщениях записывают тип исключения, но не его текст.
-`rag_audit_logs` хранит query пользователя, chunk UUIDs, latency, tokens, rating и optional
-feedback comment, но не полный chunk text. Один Celery Beat scheduler ежедневно удаляет audit
-строки старше `AUDIT_LOG_RETENTION_DAYS` (default 90); comment удаляется вместе со строкой.
+`RedactingJsonFormatter` маскирует чувствительные поля и трассировку стека, оставляя тип исключения для диагностики;
+значения исключений и сообщения breadcrumbs в Sentry очищаются перед отправкой. Обычные сообщения журнала об ошибках
+инфраструктуры содержат тип исключения, но не его текст.
+`rag_audit_logs` хранит запрос пользователя, UUID текстовых фрагментов, задержку, число токенов, оценку и необязательный
+комментарий к отзыву, но не полный текст фрагментов. Один планировщик Celery Beat ежедневно удаляет записи журнала
+старше `AUDIT_LOG_RETENTION_DAYS` (значение по умолчанию — 90); комментарий удаляется вместе с записью.
 
-В логах и документации запрещено публиковать:
+В журналах и документации запрещено публиковать:
 
-- access/refresh tokens и cookie values;
-- пароли, API keys, private keys и webhook secrets;
-- содержимое customer documents и database dumps;
-- restricted snippets или filenames в ошибках другого tenant.
+- токены доступа и обновления, а также значения cookie;
+- пароли, ключи API, закрытые ключи и секреты вебхуков;
+- содержимое документов клиентов и дампы базы данных;
+- закрытые фрагменты или имена файлов в сообщениях об ошибках для другой организации.
 
-`/metrics` использует только method, FastAPI route template и HTTP status labels. Endpoint не добавляет user,
-organization, document IDs, query text или raw path в labels; публичный Caddy не проксирует этот маршрут.
+`/metrics` использует только метод, шаблон маршрута FastAPI и метки HTTP-статуса. Маршрут не добавляет в метки
+идентификаторы пользователя, организации или документа, текст запроса либо исходный путь; публичный Caddy не проксирует его.
 
-## Rate limiting
+## Ограничение частоты запросов
 
-Redis-backed limits применяются к auth по IP, upload и chat по user ID. При ошибке Redis
-запрос отклоняется с HTTP 503 (fail-closed). `X-Forwarded-For` игнорируется по умолчанию;
-его разрешено использовать только при явной настройке доверенного proxy. Public demo включает
-эту настройку только при закрытом backend port и Caddy как единственном ingress. Rate limiting
-не заменяет WAF, network controls или provider quotas.
+Ограничения частоты запросов на базе Redis применяются к аутентификации по IP, загрузке файлов и чату
+по ID пользователя. При ошибке Redis запрос отклоняется с HTTP 503. `X-Forwarded-For` игнорируется по умолчанию;
+использовать его разрешено только при явной настройке доверенного прокси. Публичный демонстрационный профиль
+включает эту настройку, только если порт серверной части закрыт и Caddy является единственной внешней точкой входа.
+Ограничение частоты запросов не заменяет WAF, сетевые средства контроля или квоты поставщика.
 
 ## Подтверждённые ограничения
 
-| Severity | Ограничение | Последствие |
+| Уровень | Ограничение | Последствие |
 | --- | --- | --- |
-| High | Compose migration service работает с DB owner/superuser для DDL и настройки grants | Этот service не обслуживает HTTP; runtime API/worker/Beat используют ограниченную role |
-| High | Внешние deployment вне base/public-demo Compose | Для них нужно отдельно закрыть DB/Redis/S3 ports, настроить TLS/ingress и session role |
-| Medium | Production SSO adapter отсутствует | `dev` fixture нельзя использовать как enterprise SSO |
-| Medium | Один Redis DB для broker/session/cache/locks | Отказ Redis затрагивает несколько подсистем и прерывает session continuity после restore; rate-limited requests отклоняются с 503 |
-| Medium | Retention, storage outbox и backup recovery требуют runtime проверки | Без worker/Beat cleanup и requeue могут задержаться |
-| Low | OpenAPI скрыт, но routes остаются доступны | Это уменьшает discoverability, но не является access control |
+| Высокий | Служба миграции Compose использует владельца БД или суперпользователя для DDL и выдачи разрешений | Эта служба не обрабатывает HTTP; API, фоновый обработчик и Beat среды выполнения используют ограниченную роль |
+| Высокий | Внешние развёртывания вне базового и публичного профилей Compose | Для них отдельно нужно закрыть порты БД/Redis/S3, настроить TLS, точку входа и роль сессии |
+| Средний | Адаптер SSO для производственной среды отсутствует | Тестовую заготовку `dev` нельзя использовать как корпоративный SSO |
+| Средний | Одна база Redis используется для брокера, сессий, кэша и блокировок | Сбой Redis затрагивает несколько подсистем и прерывает сессии после восстановления; запросы с ограничением частоты отклоняются с 503 |
+| Средний | Срок хранения, очередь удаления объектов и восстановление резервной копии требуют проверки в среде выполнения | Без фонового обработчика и Beat очистка и повторная постановка задач могут задержаться |
+| Низкий | OpenAPI скрыт, но маршруты остаются доступны | Это уменьшает их заметность, но не ограничивает доступ |
 
-Полная приоритизация и remediation: [technical-debt.md](../maintenance/technical-debt.md).
+Полная приоритизация и план устранения: [technical-debt.md](../maintenance/technical-debt.md).

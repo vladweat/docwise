@@ -1,21 +1,21 @@
-## Summary
+## Краткое описание
 
-<!-- What changed and why -->
+<!-- Что изменилось и почему? -->
 
-## Test plan
+## Проверки
 
-- [ ] `make test-smoke` (or `make test` for broader changes)
+- [ ] `make test-smoke` (или `make test` для более крупных изменений)
 
-## RAG / retrieval
+## Поиск с генерацией ответа (RAG)
 
-See [docs/product/evaluation.md](../docs/product/evaluation.md), section “Release discipline”.
+См. раздел «Порядок выпуска» в [документе об оценке](../docs/product/evaluation.md).
 
-- [ ] I did **not** change `backend/app/services/retrieval/`, `backend/app/services/chat/` prompts, chunking/ingestion embed path, or fusion/rerank/FTS thresholds
-- [ ] I changed retrieval only → ran `make eval-retrieval` (`OPENAI_API_KEY` in `.env`)
-- [ ] I changed fusion, rerank, FTS, chunking, embeddings, or rerank threshold → ran `make eval` and updated `reports/rag_benchmark.md`
-- [ ] I changed chat system prompt, refusal text, or answer shaping → ran `make eval` (check Answer Relevance in per-question table)
-- [ ] If metrics moved materially → updated the date/summary in `docs/product/nfr.md` § RAG quality
+- [ ] Я **не** менял `backend/app/services/retrieval/`, запросы к языковой модели в `backend/app/services/chat/`, разбиение текста на фрагменты, обработку документов, создание векторных представлений или пороги объединения/повторного ранжирования/полнотекстового поиска.
+- [ ] Я менял только поиск → запустил `make eval-retrieval` (`OPENAI_API_KEY` задан в `.env`).
+- [ ] Я менял объединение результатов, повторное ранжирование, полнотекстовый поиск, разбиение на фрагменты, векторные представления или порог повторного ранжирования → запустил `make eval` и обновил `reports/rag_benchmark.md`.
+- [ ] Я менял системный запрос чата, текст отказа или формирование ответа → запустил `make eval` и проверил релевантность ответа (`Answer Relevance`) в таблице по отдельным примерам.
+- [ ] Если метрики заметно изменились → обновил дату и краткое описание в разделе RAG quality файла `docs/product/nfr.md`.
 
-## Tenancy / ACL
+## Организации и ACL
 
-- [ ] No retrieval or document access without SQL `organization_id` + `access_roles` (no prompt-only filtering)
+- [ ] Поиск и чтение документов всегда ограничены `organization_id` и `access_roles` в SQL; фильтрации только в запросе к языковой модели недостаточно.

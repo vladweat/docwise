@@ -1,81 +1,82 @@
-# Организации и tenant isolation
+# Изоляция организаций
 
-Docwise — shared B2B SaaS: несколько организаций используют один deployment и общие сервисы.
-Private cloud/on-prem может использовать тот же код для одной организации.
+Docwise — многопользовательский B2B-сервис: несколько организаций используют один экземпляр приложения и общие службы.
+Частное облако или локальная установка могут использовать тот же код для одной организации.
 
 ## Два слоя доступа
 
 ```mermaid
 flowchart LR
-  Cookie[Аутентифицированная сессия] --> Org[Текущая organization]
+  Cookie[Аутентифицированная сессия] --> Org[Текущая организация]
   Org --> Tenant[organization_id в SQL]
   Tenant --> Inner[access_roles ∩ allowed_roles]
-  Inner --> Context[Разрешённые chunks]
+  Inner --> Context[Разрешённые фрагменты]
   Context --> LLM[LLM]
 ```
 
-1. **Внешняя граница:** `organization_id` скрывает данные других компаний.
+1. **Внешняя граница:** `organization_id` скрывает данные других организаций.
 2. **Внутренняя граница:** `access_roles` разделяет документы внутри организации.
 
 `admin`, `hr` и `all` — роли/теги, не идентификаторы клиентов. `all` значит все участники **этой** организации.
-Обе проверки выполняются в SQL до RRF, rerank и LLM.
+Обе проверки выполняются в SQL до объединения результатов, повторного ранжирования и передачи контекста языковой модели.
 
 ```sql
 WHERE organization_id = :current_org
   AND access_roles && :allowed_roles
 ```
 
-`current_org` берётся из сессии/доверенной записи БД; клиентский request body не выбирает tenant.
+`current_org` берётся из сессии или доверенной записи БД; тело запроса клиента не выбирает организацию.
 
 ## Модель пользователя
 
 | Сущность | Назначение |
 | --- | --- |
-| `users` | Глобальная identity; email уникален |
-| `organizations` | Компания, slug, plan и состояние |
-| `organization_memberships` | Связь user↔org; роль и `departments[]` для этой организации |
+| `users` | Глобальная учётная запись; адрес электронной почты уникален |
+| `organizations` | Организация, `slug`, тарифный план и состояние |
+| `organization_memberships` | Связь пользователя с организацией; роль и `departments[]` в этой организации |
 
-Один user может быть admin в одной org и employee в другой. `require_admin` означает admin текущей организации,
-не platform operator. Роли и cookie session: [auth.md](auth.md); таблицы: [data-model.md](data-model.md).
+Один пользователь может быть администратором одной организации и сотрудником другой. `require_admin` означает
+администратора текущей организации, а не оператора платформы. Роли и сессии cookie описаны в [auth.md](auth.md),
+таблицы — в [data-model.md](data-model.md).
 
-## Где применяется tenant и ACL
+## Где применяются организация и ACL
 
 | Поверхность | Ограничение |
 | --- | --- |
-| Document list/status/raw | `organization_id` + document `access_roles` |
-| Dense и FTS search, chat, inspect | Оба предиката до fusion и генерации |
-| Chat sessions | Текущие `organization_id` и `user_id` |
-| Audit и billing | Текущая organization |
-| LLM cache | `organization_id`, index generation, canonical `allowed_roles` |
-| Duplicate file check | Unique `(organization_id, file_hash)` |
-| MinIO/S3 | Organization prefix; bucket не публичный |
-| SSO | Организация определяется connector slug |
-| Verified hostname | Дополнительный pin; обязан совпадать с org сессии |
+| Список документов, состояние и оригинал | `organization_id` и `access_roles` документа |
+| Векторный и полнотекстовый поиск, чат, диагностика | Оба условия до объединения результатов и генерации ответа |
+| Сессии чата | Текущие `organization_id` и `user_id` |
+| Аудит и оплата | Текущая организация |
+| Кэш ответов модели | `organization_id`, поколение индекса, канонический `allowed_roles` |
+| Проверка дубликатов файлов | Уникальная пара `(organization_id, file_hash)` |
+| MinIO/S3 | Префикс организации; bucket закрыт |
+| SSO | Организация определяется по `slug` подключения SSO |
+| Проверенное имя узла | Дополнительное условие; должно совпадать с организацией сессии |
 
-Чужая запись или файл не подтверждаются через `404`, conflict или ошибку с filename.
+API не раскрывает сведения о чужой записи или файле через `404`, конфликт или ошибку с именем файла.
 
-## Регистрация, приглашения и hostname
+## Регистрация, приглашения и имя узла
 
-- Регистрация без invite создаёт user, organization и membership `admin`.
-- Invite добавляет пользователя к существующей org; повторная регистрация новой организации не происходит.
-- Custom hostname может закрепить запрос за organization только после проверки.
-- Hostname дополняет SQL-фильтр; он никогда не заменяет его.
-- На host одной организации запрещён switch в другую organization.
+- Регистрация без приглашения создаёт пользователя, организацию и членство с ролью `admin`.
+- Приглашение добавляет пользователя в существующую организацию; новая организация повторно не создаётся.
+- Собственное имя узла может закрепить запрос за организацией только после проверки.
+- Имя узла дополняет SQL-фильтр, но не заменяет его.
+- На узле одной организации запрещено переключаться на другую организацию.
 
 ## PostgreSQL RLS
 
 RLS включена только для corpus-таблиц `documents` и `document_chunks`. Политика использует GUC
-`app.organization_id`; API и worker задают контекст после определения организации.
-У `chat_messages` нет `organization_id`, поэтому сессии и audit защищаются явными SQL-фильтрами сервиса.
+`app.organization_id`; API и фоновый обработчик задают контекст после определения организации.
+У `chat_messages` нет `organization_id`, поэтому сессии и журнал аудита защищаются явными SQL-фильтрами сервиса.
 
-**Runtime prerequisite:** PostgreSQL superuser обходит RLS, даже при `FORCE ROW LEVEL SECURITY`.
-Base и public-demo Compose передают `DOCWISE_RLS_SESSION_ROLE=docwise_rls`; выделенный `db-migrate`
-создаёт/проверяет роль и grants до запуска API, worker и Beat. Runtime transaction использует
-`SET LOCAL ROLE`. При deployment вне этих Compose профилей роль нужно настроить отдельно.
+**Условие для среды выполнения:** суперпользователь PostgreSQL обходит RLS, даже при `FORCE ROW LEVEL SECURITY`.
+Базовый и публичный профили Compose передают `DOCWISE_RLS_SESSION_ROLE=docwise_rls`; отдельная задача `db-migrate`
+создаёт или проверяет роль и разрешения до запуска API, фонового обработчика и Beat. Транзакция среды выполнения
+использует `SET LOCAL ROLE`. При развёртывании вне этих профилей Compose роль нужно настроить отдельно.
 
-RLS остаётся дополнительной защитой: она не содержит внутренний `access_roles` ACL и не заменяет application filters.
-Подробнее: [security overview](../security/overview.md) и [Compose deployment](../operations/operations.md).
+RLS остаётся дополнительной защитой: она не учитывает внутренний ACL `access_roles` и не заменяет фильтры приложения.
+Подробнее: [обзор безопасности](../security/overview.md) и [развёртывание через Compose](../operations/operations.md).
 
-## Не входит в scope
+## Не входит в текущий объём работ
 
-Platform operator console с доступом ко всем клиентским корпусам и SCIM не реализованы.
+Консоль оператора платформы с доступом ко всем документам клиентов и SCIM не реализованы.

@@ -1,15 +1,17 @@
-# Private documentation
+# Закрытая документация
 
-The **`docs/_private/`** directory is listed in `.gitignore` and is not part of the public repository.
+Каталог **`docs/_private/`** исключён из Git через `.gitignore` и не входит в репозиторий.
 
-It holds working materials outside the product spec, for example:
+В нём хранятся рабочие материалы, не относящиеся к спецификации продукта, например:
 
-- milestone roadmap (`product/milestones.md`)
-- tech debt, improvements checklist, repo conventions, ChainWise port map (`engineering/`)
-- ops runbooks (`operations/`)
-- portfolio / interview notes and sales one-pager (`portfolio/`)
-- Cursor restore kit (`AGENTS.md`, `cursor/rules/`) and personal cheatsheet (`DEV-CHEATSHEET.md`)
+- план этапов (`product/milestones.md`);
+- технический долг, список улучшений, соглашения репозитория и карта переноса ChainWise (`engineering/`);
+- эксплуатационные инструкции (`operations/`);
+- заметки для портфолио и собеседований, краткое коммерческое описание (`portfolio/`);
+- набор восстановления Cursor (`AGENTS.md`, `cursor/rules/`) и личная памятка (`DEV-CHEATSHEET.md`).
 
-**Public documentation** is everything else under `docs/` (see [README.md](README.md)): SRS, platform, pipeline, ADRs, API, screenshots.
+**Открытая документация** — остальные материалы в `docs/` (см. [README.md](README.md)): SRS, платформа,
+обработка документов, ADR, API и скриншоты.
 
-After cloning, create `docs/_private/` locally or restore it from your own backup. Index when restored: `docs/_private/README.md`.
+После клонирования создайте `docs/_private/` локально или восстановите её из собственной резервной копии.
+После восстановления указатель находится в `docs/_private/README.md`.

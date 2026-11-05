@@ -1,38 +1,43 @@
-# Pilot operations (Compose)
+# Эксплуатация пилотной среды в Compose
 
-Scripts for **self-host / pilot** backup and restore. Canonical runbook (prod checklist, secret rotation, TLS): `docs/_private/operations/pilot-runbook.md` (gitignored; copy from your team backup). **Embedding model change:** `docs/_private/operations/embedding-model-migration.md`.
+Сценарии резервного копирования и восстановления для самостоятельного размещения и пилотной эксплуатации.
+Основная эксплуатационная инструкция (проверки перед выпуском, смена секретов, TLS):
+`docs/_private/operations/pilot-runbook.md` (исключён из Git; восстановите из резервной копии команды).
+Инструкция по смене модели векторных представлений: `docs/_private/operations/embedding-model-migration.md`.
 
-| Command | Action |
+| Команда | Действие |
 | --- | --- |
-| `make backup-pilot` | `pg_dump` + MinIO mirror → `backups/<timestamp>/` |
-| `make restore-pilot BACKUP_DIR=backups/pilot-latest` | Restore DB + bucket (writers stopped) |
-| `RESTORE_DRILL_CONFIRM=YES make restore-drill` | Backup source → isolated restore → readiness/data check → remove drill volumes |
-| `make requeue-stale-ingestion` | Dry-run: list pending and stale processing document IDs after Redis loss |
-| `make requeue-stale-ingestion APPLY=1` | Enqueue the listed candidates; use `ARGS='--stale-minutes 90'` to tune the stale window |
-| `make requeue-stale-ingestion ARGS='--include-failed --document-id <uuid>' APPLY=1` | Requeue one inspected failed document after its lock TTL has elapsed |
-| `make reconcile-minio` | Dry-run: MinIO keys vs live document paths + pending deletion outbox |
-| `make reconcile-minio DELETE=1` | Remove orphan objects only (`ops/reconcile-minio.sh --delete`) |
-| `make check-pilot-alerts` | `/ready`, worker health, queue/stale counts, deletion backlog, retention log, p95 audit latency |
-| `make load-baseline` | Hybrid `retrieve` latency sweep → `reports/load_baseline.md` (offline, no LLM) |
+| `make backup-pilot` | `pg_dump` и копия MinIO → `backups/<timestamp>/` |
+| `make restore-pilot BACKUP_DIR=backups/pilot-latest` | Восстановить базу и bucket после остановки записывающих процессов |
+| `RESTORE_DRILL_CONFIRM=YES make restore-drill` | Сохранить источник → изолированно восстановить копию → проверить готовность и данные → удалить тома проверки |
+| `make requeue-stale-ingestion` | Предварительный просмотр: вывести ID ожидающих и давно обрабатываемых документов после сбоя Redis |
+| `make requeue-stale-ingestion APPLY=1` | Повторно поставить перечисленные документы в очередь; период устаревания можно настроить через `ARGS='--stale-minutes 90'` |
+| `make requeue-stale-ingestion ARGS='--include-failed --document-id <uuid>' APPLY=1` | Повторно поставить в очередь один проверенный документ с ошибкой после истечения срока блокировки |
+| `make reconcile-minio` | Предварительный просмотр: сравнить ключи MinIO с путями активных документов и очередью отложенного удаления |
+| `make reconcile-minio DELETE=1` | Удалить только оставшиеся без документа объекты (`ops/reconcile-minio.sh --delete`) |
+| `make check-pilot-alerts` | Проверить `/ready`, фоновый обработчик, очередь и давно не обновлявшиеся документы, очередь удаления, журнал очистки и задержку аудита p95 |
+| `make load-baseline` | Измерить задержку гибридного поиска → `reports/load_baseline.md` (без сети и языковой модели) |
 
-`backups/` is gitignored. Do not commit dumps or object bytes. Backup pauses backend, worker
-and Beat during the DB/object snapshot; schedule a maintenance window. Previously running
-services are restarted on success or failure.
+Каталог `backups/` исключён из Git. Не добавляйте в репозиторий дампы баз и байты файлов. Во время снимка базы и хранилища
+резервное копирование приостанавливает серверную часть, фоновый обработчик и планировщик. Запускайте его в согласованное окно;
+ранее запущенные службы возобновляются как при успехе, так и при ошибке.
 
-Backup включает PostgreSQL и MinIO, но **не Redis**. После restore отсутствуют refresh
-sessions, Celery queue/in-flight tasks, locks, rate-limit counters и LLM cache. Manifest
-содержит Alembic revision; checksums и migration ancestry проверяются до destructive действий.
-MinIO restore удаляет target keys, отсутствующие в backup. После старта сервисов restore
-показывает кандидатов ingestion в dry-run.
-Проверьте IDs и при необходимости выполните `make requeue-stale-ingestion APPLY=1`. Полные
-ограничения и порядок восстановления: [docs/operations/operations.md](../docs/operations/operations.md).
+Резервная копия включает PostgreSQL и MinIO, но **не Redis**. После восстановления недоступны сессии обновления,
+очередь Celery и незавершённые задачи, блокировки, счётчики ограничений частоты запросов и кэш ответов языковой модели.
+Манифест содержит ревизию Alembic; контрольные суммы и согласованность миграций проверяются до разрушительных действий.
+Восстановление MinIO удаляет целевые ключи, которых нет в резервной копии. После запуска служб команда выводит документы,
+которые можно повторно обработать, не изменяя базу. Проверьте их ID и при необходимости выполните
+`make requeue-stale-ingestion APPLY=1`. Полный порядок восстановления: [эксплуатационные инструкции](../docs/operations/operations.md).
 
-`make restore-drill` по умолчанию берёт источник `docwise-public-demo`, на короткое время останавливает его
-writers для согласованного backup, затем восстанавливает копию в отдельный Compose project. Запускайте его
-только в согласованное окно обслуживания. Команда требует явного `RESTORE_DRILL_CONFIRM=YES`, использует
-отдельные volumes и loopback port `18001`, проверяет `/ready` и наличие ready documents, затем удаляет только
-временный project. Backup остаётся в `backups/restore-drills/`. При ошибке изолированный project сохраняется
-для диагностики. Для другого источника задайте `RESTORE_DRILL_SOURCE_PROJECT`; скрипт рассчитан на public-demo
-Compose профиль с Garage.
+`make restore-drill` по умолчанию использует исходный проект `docwise-public-demo`: ненадолго останавливает его
+процессы записи, чтобы создать согласованную резервную копию, а затем восстанавливает её в отдельный проект Compose.
+Запускайте команду только в согласованное окно обслуживания. Требуется явное подтверждение
+`RESTORE_DRILL_CONFIRM=YES`; используются отдельные тома и локальный порт `18001`. Команда проверяет `/ready` и наличие
+готовых документов, затем удаляет только временный проект. Резервная копия сохраняется в `backups/restore-drills/`.
+При ошибке изолированный проект остаётся для диагностики. Чтобы выбрать другой источник, задайте
+`RESTORE_DRILL_SOURCE_PROJECT`; сценарий рассчитан на профиль Compose с Garage.
 
-Compose pins **server** `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z`. Backup/restore use **client** `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z` (`MINIO_MC_IMAGE` override) — tags come from [minio/mc releases](https://github.com/minio/mc/releases), not the server repo. Prefer Quay over Docker Hub behind corporate proxy.
+Compose закрепляет образ **сервера** `quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z`. Для резервного копирования
+и восстановления используется образ **клиента** `quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z` (его можно переопределить
+через `MINIO_MC_IMAGE`). Эти теги опубликованы среди [выпусков minio/mc](https://github.com/minio/mc/releases),
+а не в репозитории сервера. За корпоративным прокси используйте Quay вместо Docker Hub.

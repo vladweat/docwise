@@ -1,30 +1,30 @@
 # Архитектура Docwise
 
-Docwise — shared B2B SaaS для поиска и вопросов по документам. Несколько организаций используют один стек;
-данные каждой организации и ACL документов ограничивают все пути чтения. Продуктовые требования — в [SRS](srs.md),
-архитектурные решения — в [ADR](../engineering/decisions.md), эксплуатационные ограничения — в [operations](../operations/operations.md).
+Docwise — B2B-сервис для поиска по документам и ответов на вопросы о них. Несколько организаций используют
+общую инфраструктуру; принадлежность к организации и ACL документов ограничивают все пути чтения. Требования
+к продукту собраны в [SRS](srs.md), архитектурные решения — в [ADR](../engineering/decisions.md), ограничения эксплуатации — в [инструкциях оператора](../operations/operations.md).
 
 ## Компоненты
 
 ```mermaid
 flowchart TB
   subgraph client [Браузер]
-    Chat[Чат и PDF viewer]
-    Admin[Knowledge Base и Inspect]
+    Chat[Чат и просмотр PDF]
+    Admin[База знаний и диагностика]
   end
   subgraph web [Приложение]
     Next[Next.js]
     API[FastAPI]
-    Worker[Celery worker]
+    Worker[Фоновый обработчик Celery]
   end
   Queue[(Redis)]
   DB[(PostgreSQL<br/>pgvector + FTS)]
-  Files[(S3-compatible storage)]
-  Model[OpenAI-compatible API]
+  Files[(Хранилище, совместимое с S3)]
+  Model[API, совместимый с OpenAI]
 
   Chat --> Next --> API
   Admin --> Next
-  API -->|tenant + role filters| DB
+  API -->|фильтры организации и ролей| DB
   API -->|разрешённый Top-4| Model
   API -->|чтение оригинала| Files
   API --> Queue --> Worker
@@ -34,61 +34,62 @@ flowchart TB
 
 | Компонент | За что отвечает |
 | --- | --- |
-| Next.js | Чат, список сессий, PDF/DOCX viewer, администрирование базы знаний |
-| FastAPI | Auth, tenant context, загрузка, поиск, SSE chat, inspect и выдача файлов |
-| Celery | Извлечение текста, chunking, embeddings и индексация |
-| PostgreSQL | Организации, пользователи, документы, сессии, audit, vectors и FTS |
-| Redis | Celery broker/result backend, refresh sessions, limits, locks и LLM cache |
-| S3 storage | Оригиналы файлов; локально MinIO, в публичном demo Garage |
-| LLM | OpenAI-compatible HTTP API; отдельного Anthropic adapter в репозитории нет |
+| Next.js | Чат, список сессий, просмотр PDF/DOCX, управление базой знаний |
+| FastAPI | Аутентификация, контекст организации, загрузка, поиск, чат через SSE, диагностика и выдача файлов |
+| Celery | Извлечение текста, разбиение на фрагменты, создание векторных представлений и индексация |
+| PostgreSQL | Организации, пользователи, документы, сессии, аудит, векторы и полнотекстовый поиск |
+| Redis | Очередь Celery, результаты фоновых задач, сессии обновления, ограничения, блокировки и кэш ответов модели |
+| Хранилище S3 | Оригиналы файлов; локально MinIO, в публичном профиле Garage |
+| LLM | HTTP API, совместимый с OpenAI; отдельного подключения к Anthropic в репозитории нет |
 
 ## Загрузка и индексация
 
 ```mermaid
 flowchart LR
-  Upload[Upload PDF/DOCX] --> API[FastAPI: проверка org, ACL, quota]
-  API --> DB[(Postgres: pending)]
-  API --> S3[(S3: original)]
+  Upload[Загрузка PDF/DOCX] --> API[FastAPI: проверка организации, ACL и квоты]
+  API --> DB[(PostgreSQL: pending)]
+  API --> S3[(S3: оригинал)]
   API --> Q[(Redis / Celery)]
-  Q --> Worker[Extract → page/section chunks → embed]
-  Worker --> DB2[(Chunks: vector + FTS + ACL)]
+  Q --> Worker[Извлечение → фрагменты страниц и разделов → векторы]
+  Worker --> DB2[(Фрагменты: векторы + FTS + ACL)]
   Worker --> Ready[ready или failed]
 ```
 
-API сохраняет оригинал и ставит задачу в очередь; тяжёлый parsing не выполняется в HTTP request.
-Промежуточные стадии видны через `GET /documents/{id}/status`. Подробности, включая retry и recovery:
-[ingestion](../pipeline/ingestion.md).
+API сохраняет оригинал и ставит задачу в очередь; разбор документа не выполняется внутри HTTP-запроса.
+Промежуточные этапы видны через `GET /documents/{id}/status`. Подробности, включая повторные попытки
+и восстановление очереди: [обработка документов](../pipeline/ingestion.md).
 
 ## Вопрос и ответ
 
 ```mermaid
 flowchart LR
-  Question[Вопрос + cookie session] --> Resolve[Определить org и роли]
-  Resolve --> SQL[Dense и FTS с org + ACL]
-  SQL --> Fuse[RRF → rerank → Top-4]
+  Question[Вопрос + сессия cookie] --> Resolve[Определить организацию и роли]
+  Resolve --> SQL[Векторный и полнотекстовый поиск с фильтрами организации и ACL]
+  SQL --> Fuse[RRF → повторное ранжирование → Top-4]
   Fuse --> LLM[LLM только с разрешённым контекстом]
-  LLM --> Stream[SSE tokens и метаданные]
+  LLM --> Stream[События SSE и метаданные]
   Stream --> Viewer[Цитата открывает страницу/раздел]
 ```
 
-Для нового uncached чата backend создаёт сессию после успешного retrieval, но **до** генерации:
-ранний SSE `meta` содержит `session_id`, а `message_id` ещё `null`. Затем идут citations, token events
-и финальный `meta` с ID сообщения и usage. Ошибка до успешного retrieval не создаёт пустую сессию.
-Полный порядок и ACL — в [описании retrieval](../pipeline/retrieval.md).
+Для нового чата, ответа на который ещё нет в кэше, серверная часть создаёт сессию после успешного поиска, но **до** генерации.
+Раннее событие SSE `meta` содержит `session_id`, а `message_id` ещё равен `null`. Затем передаются цитаты, части ответа
+и финальное событие `meta` с ID сообщения и расходом токенов. Ошибка до успешного поиска не создаёт пустую сессию.
+Полный порядок событий и правила ACL описаны в [документе о поиске](../pipeline/retrieval.md).
 
 ## Точки контроля доступа
 
 1. `organization_id` определяется текущей аутентифицированной сессией.
-2. Dense и FTS фильтруются по организации и `access_roles` в SQL до fusion.
+2. Векторный и полнотекстовый поиск фильтруются по организации и `access_roles` в SQL до объединения результатов.
 3. Тот же ACL применяется к спискам, статусу и выдаче исходного файла.
-4. LLM и audit не получают chunks, недоступные пользователю.
+4. Языковая модель и журнал аудита не получают недоступные пользователю фрагменты.
 
-RLS включена для corpus-таблиц, но действует только когда runtime использует отдельную non-superuser роль
-`docwise_rls`. Она дополняет прикладные фильтры, а не заменяет их: [tenancy](../platform/tenancy.md),
-[security](../security/overview.md).
+RLS включена для таблиц документов и фрагментов, но действует только когда среда выполнения использует отдельную
+роль `docwise_rls`, не являющуюся суперпользователем. Она дополняет фильтры приложения, а не заменяет их:
+[изоляция организаций](../platform/tenancy.md), [безопасность](../security/overview.md).
 
 ## Границы продукта
 
-В текущем коде реализованы PDF и DOCX, роли/отделы внутри организации, планы/quotas и dev billing.
-В публичном демо SSO отключён, Garage — одноузловой; доступны healthchecks, JSON logs и приватный backend `/metrics`, без централизованного scrape/dashboard.
-Kubernetes, HA и реальный SAML/OIDC provider не входят в текущую runtime-конфигурацию.
+В коде реализованы PDF и DOCX, роли и отделы внутри организации, тарифные планы и оплата в режиме разработки.
+В публичном профиле SSO отключён, Garage работает на одном узле; есть проверки состояния, журналы JSON и закрытый
+серверный маршрут `/metrics`, но нет централизованного сбора метрик и панели мониторинга. Kubernetes, высокая доступность
+и подключение настоящего провайдера SAML/OIDC не входят в текущую конфигурацию среды выполнения.

@@ -1,47 +1,47 @@
 # HTTP API
 
-**Base prefix:** `/api/v1` · **формат:** JSON · **ID:** UUID strings.
+**Базовый префикс:** `/api/v1` · **формат:** JSON · **ID:** строки UUID.
 
-OpenAPI доступен на `/docs` только вне production. Этот каталог — краткий ручной контракт;
+OpenAPI доступен на `/docs` только вне рабочей среды. Эта страница — краткий контракт, записанный вручную;
 если он расходится со схемами FastAPI, исправлять нужно оба источника.
 
 ## Общие правила
 
-- Auth в API v1 — host-only cookies `dw_access` / `dw_refresh`; Bearer не поддерживается.
-- `organization_id` определяется текущей сессией. Поля tenant и ACL из request body не задают полномочия.
+- В API v1 для входа используются cookie `dw_access` и `dw_refresh`, действующие только для текущего узла; схема Bearer не поддерживается.
+- `organization_id` определяется текущей сессией. Поля организации и ACL из тела запроса не задают полномочия.
 - HTTP-ошибка имеет форму `{ "error": { "code", "message", "details?" } }`.
-- После начала SSE ошибки чата передаются как `type: error`; stack trace и внутренние пути не возвращаются.
-- Для `COOKIE_SAMESITE=none` mutating requests должны пройти Origin/CSRF проверку.
+- После начала SSE ошибки чата передаются как `type: error`; трассировка стека и внутренние пути не возвращаются.
+- При `COOKIE_SAMESITE=none` запросы, меняющие данные, должны пройти проверку Origin/CSRF.
 
 ```mermaid
 flowchart LR
-  Client[Cookie session] --> API[FastAPI]
-  API --> Scope[Resolve current organization]
+  Client[Сессия в cookie] --> API[FastAPI]
+  API --> Scope[Определить текущую организацию]
   Scope --> Route[Проверка membership, role и ACL]
-  Route --> Result[JSON или SSE]
+  Route --> Result[Ответ JSON или SSE]
 ```
 
 ## Маршруты
 
 | Группа | Контракт |
 | --- | --- |
-| Health | [`GET /`, `/health`, `/ready`](api/overview.md) |
-| Auth | [`/auth/*`](../platform/auth.md) |
-| Documents | [Upload, list, status, ACL, raw, delete](api/documents.md) |
-| Chat | [SSE, sessions, feedback](api/chat.md) |
-| Inspect | [Search pipeline stages](api/inspect.md) |
-| Organizations | [Members, invites, switch](api/organizations.md) |
-| Billing, SSO, domain | [Plan endpoints and entitlements](api/organizations.md) |
+| Состояние сервиса | [`GET /`, `/health`, `/ready`](api/overview.md) |
+| Вход и сессии | [`/auth/*`](../platform/auth.md) |
+| Документы | [Загрузка, список, состояние, ACL, оригинал, удаление](api/documents.md) |
+| Чат | [SSE, сессии, обратная связь](api/chat.md) |
+| Диагностика | [Этапы поиска](api/inspect.md) |
+| Организации | [Участники, приглашения, смена организации](api/organizations.md) |
+| Оплата, SSO и домен | [Маршруты планов и доступных возможностей](api/organizations.md) |
 
 ## Канонические документы
 
 | Тема | Подробности |
 | --- | --- |
-| Ошибки и health | [api/overview.md](api/overview.md) |
+| Ошибки и готовность сервиса | [api/overview.md](api/overview.md) |
 | Документы | [api/documents.md](api/documents.md) |
 | Чат и SSE | [api/chat.md](api/chat.md) |
-| Inspect | [api/inspect.md](api/inspect.md) |
-| Organizations, billing, SSO, domain | [api/organizations.md](api/organizations.md) |
+| Диагностика поиска | [api/inspect.md](api/inspect.md) |
+| Организации, оплата, SSO и домен | [api/organizations.md](api/organizations.md) |
 
-Auth/ACL описаны в [platform/auth.md](../platform/auth.md), tenant boundaries — в
-[platform/tenancy.md](../platform/tenancy.md). Ручной API contract обновляется вместе с route/schema.
+Вход и ACL описаны в [platform/auth.md](../platform/auth.md), изоляция организаций — в
+[platform/tenancy.md](../platform/tenancy.md). Этот краткий контракт обновляйте вместе с маршрутом и схемой.

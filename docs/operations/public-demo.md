@@ -2,60 +2,61 @@
 
 **Статус на 2026-11-05: публичное демо Docwise приостановлено и недоступно.** Контейнеры
 `docwise-public-demo-*` остановлены, HTTPS для `docwise.wvzl.site` сейчас завершается ошибкой TLS.
-Инструкции ниже описывают подготовку и запуск, но не подтверждают активный deployment. Не изменяйте
+Инструкции ниже описывают подготовку и запуск, но не подтверждают активное развёртывание. Не изменяйте
 отдельный project `labtrack-demo-*`.
 
-Конфигурация Docwise public profile использует Caddy/TLS и отдельный Compose project; базовый
-`docker-compose.yml` остаётся local/dev профилем.
+Публичная конфигурация Docwise использует Caddy/TLS и отдельный проект Compose; базовый
+`docker-compose.yml` остаётся профилем для локальной разработки.
 
 ```mermaid
 flowchart LR
-  Internet[HTTPS :443] --> Caddy[Caddy + automatic TLS]
+  Internet[Интернет · HTTPS :443] --> Caddy[Caddy + автоматический TLS]
   Caddy -->|/api, /health, /ready| API[FastAPI]
-  Caddy -->|остальные paths| UI[Next.js]
+  Caddy -->|остальные пути| UI[Next.js]
   API --> DB[(PostgreSQL)]
   API --> Redis[(Redis)]
-  API --> Garage[(Garage · single node)]
-  API --> Queue[Celery]
-  Queue --> Worker[Worker]
+  API --> Garage[(Garage · один узел)]
+  API --> Queue[Очередь Celery]
+  Queue --> Worker[Фоновый обработчик]
   Worker --> Garage
 ```
 
 ## Границы и требования
 
-- DNS A-запись домена должна указывать на VPS; входящий TCP `80`/`443` должен быть открыт.
-- На этой VPS `make` отсутствует; scripts подготовки запускайте отдельно.
-- Backend UI/answer работают без LLM key, но генерация требует `OPENAI_API_KEY` и `OPENAI_MODEL`, совместимую с `chat/completions`.
-- Демо рассчитано только на synthetic data. Если профиль запущен, посетители используют общие demo accounts;
-  admin может изменять corpus.
+- A-запись домена в DNS должна указывать на VPS; входящие TCP-порты `80` и `443` должны быть открыты.
+- На этой VPS нет `make`; скрипты подготовки нужно запускать отдельно.
+- Интерфейс и ответы серверной части работают без ключа языковой модели, но для генерации нужны `OPENAI_API_KEY`
+  и `OPENAI_MODEL`, совместимая с `chat/completions`.
+- Демонстрация рассчитана только на синтетические данные. Если профиль запущен, посетители используют общие
+  тестовые учётные записи; администратор может изменять корпус.
 - SSO отключён (`SSO_PROVIDER=disabled`); billing — `dev`.
-- Garage одноузловой без репликации; профиль предназначен для показа, не для HA production.
+- Garage работает на одном узле без репликации; профиль предназначен для демонстрации, а не для производственной эксплуатации с высокой доступностью.
 
-Не размещайте тут реальные документы или данные клиентов. Для другого production deployment нужны отдельные
-network, secrets, backup, monitoring и recovery decisions.
+Не размещайте здесь настоящие документы или данные клиентов. Для другого развёртывания в производственной среде отдельно
+нужно определить сетевые правила, секреты, резервное копирование, мониторинг и порядок восстановления.
 
 ## Подготовка
 
 Создайте `.env` из `.env.example`. Задайте уникальные `SECRET_KEY`, `POSTGRES_PASSWORD` и S3 credentials;
 не выводите и не коммитьте секреты. Задайте LLM key/model, если нужен чат.
 
-Для подготовки build inputs на текущей VPS:
+Для подготовки входных данных сборки на текущей VPS:
 
 ```bash
 bash backend/scripts/prepare-venv.sh
 bash frontend/scripts/prepare-deps.sh
 ```
 
-Backend подготовка требует Python 3.12 venv, скачивает dependencies и модели в `backend/.models`.
-Frontend script создаёт `frontend/node_modules`. Для другой ОС/хоста используйте инструкции
+Подготовка серверной части требует виртуального окружения Python 3.12 и загружает зависимости и модели в `backend/.models`.
+Скрипт клиентской части создаёт `frontend/node_modules`. Для другой ОС или узла используйте инструкции
 [локальной разработки](../development/getting-started.md).
 
-Если на VPS уже работает другой ingress на ports `80/443`, сначала согласуйте общий proxy или другие ports;
-Caddy из этого профиля занимает оба порта.
+Если на VPS уже работает другая точка входа на портах `80/443`, сначала согласуйте общий прокси или другие порты;
+Caddy этого профиля занимает оба порта.
 
 ## Запуск
 
-Из корня checkout:
+Из корневого каталога клона:
 
 ```bash
 python3 ops/public-demo/prepare-garage-config.py
@@ -64,37 +65,39 @@ docker compose -p docwise-public-demo \
   up -d --build
 ```
 
-Compose создаёт private Garage config mode `0600`, если он ещё не существует. Он содержит random admin/RPC secrets
-и остаётся вне Git. Overlay закрывает host ports PostgreSQL, Redis, storage, API и frontend; наружу выставлен Caddy.
+Compose создаёт закрытый файл конфигурации Garage с правами `0600`, если его ещё нет. В нём хранятся случайные
+секреты администратора и RPC; файл не добавляется в Git. Дополнительная конфигурация закрывает порты узла PostgreSQL,
+Redis, хранилища, API и клиентской части; наружу открыт только Caddy.
 
-| Path | Назначение |
+| Путь | Назначение |
 | --- | --- |
 | `/api/*`, `/health`, `/ready` | FastAPI |
-| `/` и frontend paths | Next.js |
+| `/` и пути клиентской части | Next.js |
 | `POST /api/v1/auth/register` | Caddy возвращает `404` |
 
-Caddy очищает клиентские `X-Forwarded-*` headers; поэтому `RATE_LIMIT_TRUST_X_FORWARDED_FOR=true` безопасен
-только при закрытом API port и единственном ingress через Caddy. Rate limiting fail-closed: Redis error даёт `503`.
+Caddy очищает клиентские заголовки `X-Forwarded-*`; поэтому `RATE_LIMIT_TRUST_X_FORWARDED_FOR=true` безопасно
+использовать, только если порт API закрыт и Caddy является единственной внешней точкой входа. При сбое Redis
+ограничение частоты запросов отклоняет обращение с `503`.
 
-Garage поддерживает используемый S3 API, но не bucket-policy checks; overlay отключает эту readiness проверку.
-Доступ к objects ограничен отдельными credentials и API авторизацией.
+Garage поддерживает используемый API S3, но не проверку политик бакета; дополнительная конфигурация отключает эту
+проверку готовности. Доступ к объектам ограничен отдельными реквизитами доступа и проверкой прав в API.
 
-## Migration role и фоновые задачи
+## Роль для миграций и фоновые задачи
 
-Единственный `db-migrate` создаёт/проверяет `docwise_rls` и grants, затем применяет Alembic migrations.
-API, worker и Beat ждут успешного завершения этого service и используют `SET LOCAL ROLE`.
-Demo seeder запускает RLS bypass только для своей fixture-сессии.
+Единственная задача `db-migrate` создаёт или проверяет `docwise_rls` и выдаёт разрешения, затем применяет миграции Alembic.
+API, фоновый обработчик и Beat ждут успешного завершения этой задачи и используют `SET LOCAL ROLE`.
+Загрузчик тестовых данных обходит RLS только для собственной сессии с тестовыми данными.
 
-В профиле одна Celery Beat replica — она запускает audit retention и maintenance tasks.
-`celery-worker` настроен с concurrency 1.
+В профиле работает одна копия Celery Beat — она запускает очистку журнала аудита по сроку хранения и задачи обслуживания.
+`celery-worker` настроен на один параллельный процесс.
 
-Для backup/recovery scripts задавайте `COMPOSE_FILE` с обоими Compose файлами и
-`COMPOSE_PROJECT_NAME=docwise-public-demo`. S3 helper требует `MC_ENDPOINT=http://minio:3900` и credentials
-из `.env`; для alert check задайте `API_URL=https://<DOCWISE_DOMAIN>`.
+Для скриптов резервного копирования и восстановления задайте `COMPOSE_FILE` с обоими файлами Compose и
+`COMPOSE_PROJECT_NAME=docwise-public-demo`. Вспомогательному средству S3 требуются `MC_ENDPOINT=http://minio:3900`
+и реквизиты из `.env`; для проверки оповещений задайте `API_URL=https://<DOCWISE_DOMAIN>`.
 
-## Проверка и demo corpus
+## Проверка и демонстрационный набор документов
 
-После самостоятельного запуска Docwise public profile и настройки DNS/TLS проверьте readiness:
+После самостоятельного запуска публичного профиля Docwise и настройки DNS/TLS проверьте готовность:
 
 ```bash
 curl -fsS https://docwise.wvzl.site/ready
@@ -103,7 +106,7 @@ docker compose -p docwise-public-demo \
   exec backend python /eval/seed_demo.py
 ```
 
-To return the public synthetic Demo org to its interview starting state, run:
+Чтобы вернуть публичную тестовую организацию в исходное состояние для демонстрации, выполните:
 
 ```bash
 docker compose -p docwise-public-demo \
@@ -111,18 +114,19 @@ docker compose -p docwise-public-demo \
   exec backend python /eval/seed_demo.py --reset --confirm-reset
 ```
 
-This removes chat sessions and RAG audit rows only for organization slug `demo`, deletes user-uploaded documents
-from that organization through the storage-deletion outbox, and then reseeds the 12 fixed synthetic PDFs and
-three demo accounts. Other organizations' documents, sessions and audit rows are untouched, and the fixed
-fixture document rows remain in place. As in normal seeding, the three reserved demo accounts keep memberships
-only in `Demo` so password login resolves to the demo tenant. Pending storage cleanup is completed asynchronously
-by Celery. This command is destructive to demo history and uploads; the two explicit flags are required.
+Команда удаляет сессии чата и записи аудита RAG только для организации со slug `demo`, удаляет загруженные пользователями
+документы этой организации через очередь удаления из хранилища, а затем повторно загружает 12 заданных синтетических PDF
+и три тестовые учётные записи. Документы, сессии и записи аудита других организаций не затрагиваются; строки документов
+с фиксированными тестовыми данными остаются на месте. Как и при обычной загрузке тестовых данных, три зарезервированные
+учётные записи имеют членство только в `Demo`, чтобы вход по паролю выбирал нужную организацию. Ожидающую очистку
+хранилища Celery выполняет асинхронно. Команда удаляет историю демонстрации и пользовательские загрузки; требуются оба
+явных флага.
 
-При запущенном профиле demo accounts и пароли видны посетителям в UI/README. Регистрация закрыта; admin demo
-account может загружать и удалять документы.
-При необходимости пересейте corpus после демонстрации.
+При запущенном профиле тестовые учётные записи и пароли видны посетителям в интерфейсе и README. Регистрация закрыта;
+тестовая учётная запись администратора может загружать и удалять документы.
+При необходимости повторно загрузите тестовый корпус после демонстрации.
 
-Для dry-run recovery потерянной Celery queue:
+Чтобы просмотреть задачи потерянной очереди Celery перед восстановлением:
 
 ```bash
 docker compose -p docwise-public-demo \
@@ -130,11 +134,11 @@ docker compose -p docwise-public-demo \
   exec backend python -m scripts.requeue_stale_ingestion
 ```
 
-После проверки списка добавьте `--apply` к этой команде, чтобы поставить задачи в очередь.
+После проверки списка добавьте `--apply` к команде, чтобы повторно поставить задачи в очередь.
 
 ## Обновление и управление
 
-После изменения модели или LLM credentials пересоздайте нужные процессы:
+После изменения модели или реквизитов доступа к языковой модели пересоздайте нужные процессы:
 
 ```bash
 docker compose -p docwise-public-demo \
@@ -142,7 +146,7 @@ docker compose -p docwise-public-demo \
   up -d --build --force-recreate backend celery-worker celery-beat
 ```
 
-Общие команды всегда используют один project name и оба compose files:
+Общие команды всегда используют одно имя проекта и оба файла Compose:
 
 ```bash
 docker compose -p docwise-public-demo -f docker-compose.yml -f docker-compose.public-demo.yml ps
@@ -150,4 +154,4 @@ docker compose -p docwise-public-demo -f docker-compose.yml -f docker-compose.pu
 docker compose -p docwise-public-demo -f docker-compose.yml -f docker-compose.public-demo.yml down
 ```
 
-`down` сохраняет volumes. `down -v` удалит PostgreSQL, Garage и Caddy state.
+`down` сохраняет тома. `down -v` удалит данные PostgreSQL, Garage и Caddy.

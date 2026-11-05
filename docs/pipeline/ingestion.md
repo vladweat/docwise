@@ -1,22 +1,22 @@
 # Обработка документов (ingestion)
 
 Загрузка ставит задачу `ingestion.process_document(document_id)` в Celery. API не извлекает текст и не
-строит embeddings внутри HTTP-запроса.
+строит векторные представления внутри HTTP-запроса.
 
 ## Поток и состояния
 
 ```mermaid
 flowchart LR
-  Upload[Upload] --> Pending[pending]
+  Upload[Загрузка] --> Pending[pending]
   Pending --> Q[Redis / Celery]
   Q --> Parse[parse]
-  Parse --> Chunk[chunk]
-  Chunk --> Embed[embed + FTS]
+  Parse --> Chunk[Разбить на фрагменты]
+  Chunk --> Embed[Построить векторы и FTS]
   Embed --> Ready[ready]
-  Parse -. terminal error .-> Failed[failed + safe last_error]
-  Chunk -. terminal error .-> Failed
-  Embed -. terminal error .-> Failed
-  Embed -. transient error .-> Retry[pending + bounded retry]
+  Parse -. окончательная ошибка .-> Failed[failed + безопасный last_error]
+  Chunk -. окончательная ошибка .-> Failed
+  Embed -. окончательная ошибка .-> Failed
+  Embed -. временная ошибка .-> Retry[pending + ограниченный повтор]
   Retry --> Q
 ```
 
@@ -30,71 +30,73 @@ flowchart LR
 | PDF | По физическим страницам, номера с 1; таблицы извлекаются в Markdown | Страница PDF |
 | DOCX | По логическим секциям; `page_number = 0` | Заголовок/секция, без выдуманного номера страницы |
 
-Worker находит `organization_id` в записи документа. Значение из Celery args не задаёт tenant.
-Геометрия текста сохраняется, когда доступна, для подсветки в PDF viewer.
+Фоновый обработчик получает `organization_id` из записи документа. Значение из аргументов Celery не задаёт организацию.
+Геометрия текста сохраняется, если доступна, чтобы выделять фрагменты в просмотрщике PDF.
 
-## Chunking
+## Разбиение текста на фрагменты
 
-- Chunk не пересекает физическую страницу PDF или логическую секцию DOCX.
+- Текстовый фрагмент не пересекает физическую страницу PDF или логическую секцию DOCX.
 - Предпочтительное место разрыва — заголовок раздела.
-- Целевой размер — 400–600 tokens; overlap до 50 tokens только внутри той же страницы/секции.
-- Большая таблица разбивается по строкам с повтором Markdown header.
+- Целевой размер — 400–600 токенов; перекрытие — до 50 токенов, только внутри той же страницы или секции.
+- Большая таблица разбивается по строкам, заголовок Markdown повторяется.
 
-Перед embedding строится служебный header:
+Перед построением векторного представления формируется служебный заголовок:
 
 ```text
 [Document: HR_Policy.pdf | Section: Expenses | Page: 12]
 {content}
 ```
 
-Header влияет на embedding, но не хранится в `document_chunks.content` и не передаётся reranker/LLM.
-Для ответа и citation используется исходный текст chunk.
+Служебный заголовок влияет на векторное представление, но не хранится в `document_chunks.content`
+и не передаётся повторному ранжированию или языковой модели. Для ответа и цитирования используется
+исходный текст фрагмента.
 
-## Embedding и запись
+## Построение векторного представления и запись
 
 ```mermaid
 flowchart LR
-  Fragment[Чистый fragment] --> Header[Добавить метаданные для embedding]
-  Header --> Vector[FastEmbed: 384 dimensions]
+  Fragment[Исходный текстовый фрагмент] --> Header[Добавить метаданные для вектора]
+  Header --> Vector[FastEmbed: 384 измерения]
   Fragment --> FTS[Postgres tsvector]
   Vector --> ChunkRow[(document_chunks)]
   FTS --> ChunkRow
   ACL[organization_id + access_roles] --> ChunkRow
 ```
 
-Текущая модель — `BAAI/bge-small-en-v1.5`; индекс использует cosine similarity и Postgres FTS/GIN.
-В `document_chunks` сохраняются document/org IDs, page/section, table flag, ACL, content, token count,
-vector и FTS данные. Sparse search — PostgreSQL FTS, не BM25 endpoint.
+Текущая модель — `BAAI/bge-small-en-v1.5`; индекс использует косинусное сходство и Postgres FTS/GIN.
+В `document_chunks` сохраняются идентификаторы документа и организации, страница или раздел, признак таблицы,
+ACL, текст, число токенов, вектор и данные FTS. Поиск по редким словам выполняется через PostgreSQL FTS;
+отдельного маршрута BM25 нет.
 
 ## Повторный запуск и ошибки
 
-- Redis lock `indexing_lock:{document_id}` хранит owner token; старый worker не может удалить lock нового запуска.
-- Retry ограничен transient storage, database, Redis и embedding ошибками; до трёх повторов с backoff.
-- Ошибки формата, parser и quota — terminal и оставляют статус `failed`.
-- Перед transient retry worker чистит partial chunks, возвращает документ в `pending` и записывает безопасную общую ошибку.
-- Замена chunks выполняется одной DB-транзакцией. Статусы и S3 side effects фиксируются отдельно, поэтому весь pipeline не атомарен.
+- Redis хранит маркер владельца блокировки `indexing_lock:{document_id}`; прежний фоновый обработчик не может снять блокировку нового запуска.
+- Повтор ограничен временными ошибками хранилища, базы данных, Redis и построения векторов; не более трёх попыток с увеличением паузы.
+- Ошибки формата, разбора и квоты являются окончательными и оставляют статус `failed`.
+- Перед повтором после временной ошибки фоновый обработчик удаляет частичные фрагменты, возвращает документ в `pending` и записывает безопасное общее описание ошибки.
+- Замена фрагментов выполняется одной транзакцией БД. Статусы и побочные изменения в S3 фиксируются отдельно, поэтому весь процесс обработки не атомарен.
 
-Удаление документа использует `storage_deletions` outbox; cleanup S3 можно повторить после сбоя.
+При удалении документа используется очередь `storage_deletions`; очистку S3 можно повторить после сбоя.
 
 ## Восстановление очереди после потери Redis
 
-Redis queue не входит в pilot backup. Сначала просмотрите кандидатов в dry-run:
+Очередь Redis не входит в резервную копию пилотной среды. Сначала просмотрите документы-кандидаты в режиме предварительного просмотра:
 
 ```bash
 make requeue-stale-ingestion
 ```
 
-После проверки IDs выполните повторную постановку:
+После проверки идентификаторов поставьте задачи в очередь повторно:
 
 ```bash
 make requeue-stale-ingestion APPLY=1
 ```
 
-По умолчанию выбираются старые `pending` и `processing` документы; для `failed` требуется явный ID.
-Инструмент выводит статусы и document IDs, ограничивает одну выборку и не печатает содержимое файлов.
-Операционные шаги: [operations.md](../operations/operations.md#ingestion-worker).
+По умолчанию выбираются давно не обновлявшиеся документы `pending` и `processing`; для `failed` требуется явно указать ID.
+Инструмент выводит статусы и идентификаторы документов, ограничивает размер одной выборки и не показывает содержимое файлов.
+Операционные шаги: [эксплуатация фонового обработчика](../operations/operations.md#фоновый-обработчик-документов).
 
-## Проверка качества parser
+## Проверка качества разбора документов
 
-Тестовый fixture проверяет границы страниц, Markdown-таблицы, передачу `organization_id`/`access_roles`
-и отсутствие дубликатов chunks после повторного `ingestion.process_document`.
+Тестовые данные проверяют границы страниц, таблицы Markdown, передачу `organization_id`/`access_roles`
+и отсутствие дубликатов текстовых фрагментов после повторной задачи `ingestion.process_document`.

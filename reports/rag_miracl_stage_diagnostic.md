@@ -1,9 +1,9 @@
-# RAG benchmark
+# Замер качества RAG
 
-Generated: `2026-10-31T04:20:10+00:00`
-Code revision: `working-tree`
-Golden dataset SHA-256: `1ae3a808fba2d2d33968dd4bc4d5a175059c427138f67152411496d08e71f3de`
-Run configuration (safe fields only):
+Создано: `2026-10-31T04:20:10+00:00`
+Ревизия кода: `working-tree`
+SHA-256 эталонного набора данных: `1ae3a808fba2d2d33968dd4bc4d5a175059c427138f67152411496d08e71f3de`
+Параметры запуска (только безопасные поля):
 - `answer_relevance_encoders`: `Latin=BAAI/bge-small-en-v1.5; Cyrillic=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
 - `dense_top_k`: `25`
 - `embedding_max_input_tokens`: `128`
@@ -19,45 +19,45 @@ Run configuration (safe fields only):
 - `rrf_top_k`: `15`
 - `sparse_top_k`: `25`
 - `system_prompt_sha256`: `481a5c41865174724c7abb196eb8669bf3c2e3e0a9e87ada043bb956c65a91bd`
-Eval personas: `employee`, `hr`, `finance`, `legal`, `security`, `engineering`
-Cases: 40 (40 positive, 0 ACL-negative)
-Case errors: 0
-Pipeline: hybrid `retrieve` → Top-4 → `build_messages` + `stream_openai` (retrieval-only (Ragas judges skipped))
+Роли оценки: `employee`, `hr`, `finance`, `legal`, `security`, `engineering`
+Случаи: 40 (40 `positive`, 0 `ACL-negative`)
+Ошибки случаев: 0
+Конвейер: гибридный `retrieve` → Top-4 → `build_messages` + `stream_openai` (режим `retrieval-only`, оценки Ragas пропущены)
 
-Metrics follow Ragas definitions (Faithfulness, Context Precision, Answer Relevance) using the same OpenAI-compatible client as chat. Answer Relevance uses a fixed encoder per script: the historical BGE encoder for Latin questions and multilingual MiniLM for Cyrillic questions; the regression gate uses only the English slice. LangChain is not used.
+Метрики «верность контексту» (`Faithfulness`), «точность контекста» (`Context Precision`) и «релевантность ответа» (`Answer Relevance`) рассчитываются по определениям Ragas через тот же клиент, совместимый с OpenAI, что и чат. Для расчёта релевантности ответа (`Answer Relevance`) используется фиксированный кодировщик для каждой письменности: исторический BGE для вопросов латиницей и мультиязычная модель MiniLM для кириллицы; критерий регрессии применим только к английскому срезу. `LangChain` не используется.
 
-## Ragas (positive cases)
+## Ragas (положительные случаи)
 
-| Metric | Score | n |
+| Метрика | Оценка | n |
 | --- | ---: | ---: |
-| Faithfulness | n/a | 0 |
-| Context Precision | n/a | 0 |
-| Answer Relevance | n/a | 0 |
-| Citation support | n/a | 0 |
+| Верность контексту (`Faithfulness`) | n/a | 0 |
+| Точность контекста (`Context Precision`) | n/a | 0 |
+| Релевантность ответа (`Answer Relevance`) | n/a | 0 |
+| Поддержка цитатами (`Citation support`) | n/a | 0 |
 
-## Response coverage
+## Покрытие ответов
 
-| Metric | Value |
+| Метрика | Значение |
 | --- | ---: |
-| Answers | n/a (retrieval-only) |
-| Refusals | n/a (retrieval-only) |
-| Cases with context | n/a (retrieval-only) |
+| Ответы | n/a (retrieval-only) |
+| Отказы | n/a (retrieval-only) |
+| Случаи с контекстом | n/a (retrieval-only) |
 
-## Retrieval
+## Поиск
 
-| Metric | Score | n |
+| Метрика | Оценка | n |
 | --- | ---: | ---: |
-| Target document hit rate | 0.900 | 40 |
-| Target page hit rate | n/a | 0 |
-| Target section hit rate | 0.800 | 40 |
+| Доля попаданий в целевой документ (`Target document hit rate`) | 0.900 | 40 |
+| Доля попаданий на целевую страницу (`Target page hit rate`) | n/a | 0 |
+| Доля попаданий в целевой раздел (`Target section hit rate`) | 0.800 | 40 |
 
-## Retrieval stage diagnostics
+## Диагностика этапов поиска
 
-Stage lists are evaluated only for target presence/rank; snippets, answers, and passage text are not emitted.
+Списки на этапах оцениваются только по наличию и рангу целевого фрагмента; выдержки, ответы и текст фрагментов не выводятся.
 
 ### MIRACL v1.0 dev
 
-| Stage | Cases | Section cases | Target doc hit | Exact section Recall@1 | Recall@4 | Recall@10 | MRR |
+| Этап | Случаи | Случаи с разделом | Попадание в целевой документ | Полнота поиска точного раздела на ранге 1 (`Recall@1`) | Полнота поиска (`Recall@4`) | Полнота поиска (`Recall@10`) | Средний обратный ранг (`MRR`) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | dense | 40 | 40 | 1.000 | 0.400 | 0.800 | 0.950 | 0.592 |
 | sparse | 40 | 40 | 0.925 | 0.325 | 0.750 | 0.825 | 0.493 |
@@ -66,9 +66,9 @@ Stage lists are evaluated only for target presence/rank; snippets, answers, and 
 | rerank_thresholded | 40 | 40 | 0.900 | 0.700 | 0.800 | 0.800 | 0.750 |
 | reranked | 40 | 40 | 0.900 | 0.700 | 0.800 | 0.800 | 0.750 |
 
-Threshold simulation from the same reranker scores (no extra inference):
+Симуляция порогов по тем же оценкам повторного ранжирования (без дополнительного инференса):
 
-| Threshold | Target doc hit | Section Recall@1 | Section Recall@4 | Section MRR | Mean returned | Empty rate |
+| Порог | Попадание в целевой документ | Полнота поиска раздела на ранге 1 (`Recall@1`) | Полнота поиска раздела на рангах до 4 (`Recall@4`) | Средний обратный ранг раздела (`MRR`) | Среднее число результатов | Доля пустой выдачи |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0.10 | 0.925 | 0.700 | 0.850 | 0.775 | 2.425 | 0.050 |
 | 0.15 | 0.900 | 0.700 | 0.800 | 0.750 | 2.175 | 0.050 |
@@ -76,63 +76,63 @@ Threshold simulation from the same reranker scores (no extra inference):
 | 0.25 | 0.900 | 0.700 | 0.800 | 0.750 | 1.950 | 0.050 |
 | 0.30 | 0.900 | 0.700 | 0.800 | 0.750 | 1.925 | 0.075 |
 
-## Quality gates
+## Критерии качества
 
-Initial regression floors are based on the full run dated 2026-10-30; they are not statistical confidence bounds.
+Начальные пороги регрессии заданы по полному запуску от 2026-10-30; это не статистические доверительные границы.
 
-| Gate | Observed | Threshold | Status |
+| Критерий качества | Результат | Порог | Статус |
 | --- | ---: | ---: | --- |
-| ACL leaks | 0 | = 0 | PASS |
-| Case errors | 0 | = 0 | PASS |
-| Target document hit rate | 0.900 | >= 0.980 | FAIL |
-| Target page hit rate | n/a | >= 0.980 | FAIL |
-| Faithfulness | n/a | n/a | N/A |
-| Context Precision | n/a | n/a | N/A |
-| Answer Relevance (English) | n/a | n/a | N/A |
+| Утечки ACL | 0 | = 0 | PASS |
+| Ошибки случаев | 0 | = 0 | PASS |
+| Доля попаданий в целевой документ (`Target document hit rate`) | 0.900 | >= 0.980 | FAIL |
+| Доля попаданий на целевую страницу (`Target page hit rate`) | n/a | >= 0.980 | FAIL |
+| Верность контексту (`Faithfulness`) | n/a | n/a | N/A |
+| Точность контекста (`Context Precision`) | n/a | n/a | N/A |
+| Релевантность ответа на английском языке (`Answer Relevance (English)`) | n/a | n/a | N/A |
 
-Generation quality was not evaluated in this retrieval-only run.
+Качество генерации в этом запуске только для поиска не оценивалось.
 
-## Quality slices (positive cases)
+## Срезы качества (положительные случаи)
 
-### By language
+### По языку
 
-| Group | Cases | Doc hit | Page hit | Section hit | Faithfulness | Context precision | Answer relevance | Citation support | Errors |
+| Группа | Случаи | Попадание в документ | Попадание на страницу | Попадание в раздел | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Поддержка цитатами (`Citation support`) | Ошибки |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | en | 20 | 0.950 | n/a | 0.850 | n/a | n/a | n/a | n/a | 0 |
 | mixed | 2 | 1.000 | n/a | 1.000 | n/a | n/a | n/a | n/a | 0 |
 | ru | 18 | 0.833 | n/a | 0.722 | n/a | n/a | n/a | n/a | 0 |
 
-### By persona
+### По роли
 
-| Group | Cases | Doc hit | Page hit | Section hit | Faithfulness | Context precision | Answer relevance | Citation support | Errors |
+| Группа | Случаи | Попадание в документ | Попадание на страницу | Попадание в раздел | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Поддержка цитатами (`Citation support`) | Ошибки |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | eval-employee@docwise.example.com | 40 | 0.900 | n/a | 0.800 | n/a | n/a | n/a | n/a | 0 |
 
-### By kind
+### По типу случая
 
-| Group | Cases | Doc hit | Page hit | Section hit | Faithfulness | Context precision | Answer relevance | Citation support | Errors |
+| Группа | Случаи | Попадание в документ | Попадание на страницу | Попадание в раздел | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Поддержка цитатами (`Citation support`) | Ошибки |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | positive | 40 | 0.900 | n/a | 0.800 | n/a | n/a | n/a | n/a | 0 |
 
-### By source_dataset
+### По `source_dataset`
 
-| Group | Cases | Doc hit | Page hit | Section hit | Faithfulness | Context precision | Answer relevance | Citation support | Errors |
+| Группа | Случаи | Попадание в документ | Попадание на страницу | Попадание в раздел | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Поддержка цитатами (`Citation support`) | Ошибки |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | MIRACL v1.0 dev | 40 | 0.900 | n/a | 0.800 | n/a | n/a | n/a | n/a | 0 |
 
-## ACL negatives
+## Отрицательные случаи ACL
 
-| Metric | Value |
+| Метрика | Значение |
 | --- | --- |
-| Cases | 0 |
-| Cases with a `must_not_doc_ids` leak | **0** |
-| Result | PASS |
+| Случаи | 0 |
+| Случаи с утечкой `must_not_doc_ids` | **0** |
+| Результат | PASS |
 
-Each case lists documents outside that persona's access in `must_not_doc_ids`. A leak is any Top-4 chunk from those documents. Restricted chunk text is not written here.
+Для каждого случая в `must_not_doc_ids` перечислены документы, недоступные этой роли. Утечкой считается любой фрагмент Top-4 из этих документов. Текст ограниченных фрагментов здесь не сохраняется.
 
-## Per-question
+## По вопросам
 
-| id | persona | kind | target doc | page hit | section hit | ACL leak | faith | ctx p | ans rel | citation support | question |
+| `id` | `persona` | `kind` | Целевой документ | Попадание на страницу | Попадание в раздел | Утечка ACL | Верность контексту (`Faithfulness`) | Точность контекста (`Context Precision`) | Релевантность ответа (`Answer Relevance`) | Поддержка цитатами (`Citation support`) | Вопрос |
 | --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
 | miracl-en-224 | eval-employee@docwise.example.com | positive | fba2106d | n/a | hit | 0 | n/a | n/a | n/a | n/a | When was Tylenol introduced? |
 | miracl-en-1489 | eval-employee@docwise.example.com | positive | ac6f6dea | n/a | hit | 0 | n/a | n/a | n/a | n/a | How long is the optic nerve? |
