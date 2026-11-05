@@ -1,7 +1,12 @@
 # Публичное демо
 
-Публичный профиль Docwise доступен по [docwise.wvzl.site](https://docwise.wvzl.site).
-Он использует Caddy/TLS и отдельный Compose project; базовый `docker-compose.yml` остаётся local/dev профилем.
+**Статус на 2026-11-05: публичное демо Docwise приостановлено и недоступно.** Контейнеры
+`docwise-public-demo-*` остановлены, HTTPS для `docwise.wvzl.site` сейчас завершается ошибкой TLS.
+Инструкции ниже описывают подготовку и запуск, но не подтверждают активный deployment. Не изменяйте
+отдельный project `labtrack-demo-*`.
+
+Конфигурация Docwise public profile использует Caddy/TLS и отдельный Compose project; базовый
+`docker-compose.yml` остаётся local/dev профилем.
 
 ```mermaid
 flowchart LR
@@ -21,7 +26,8 @@ flowchart LR
 - DNS A-запись домена должна указывать на VPS; входящий TCP `80`/`443` должен быть открыт.
 - На этой VPS `make` отсутствует; scripts подготовки запускайте отдельно.
 - Backend UI/answer работают без LLM key, но генерация требует `OPENAI_API_KEY` и `OPENAI_MODEL`, совместимую с `chat/completions`.
-- Демо только для synthetic data. Посетители используют общие demo accounts; admin может изменять corpus.
+- Демо рассчитано только на synthetic data. Если профиль запущен, посетители используют общие demo accounts;
+  admin может изменять corpus.
 - SSO отключён (`SSO_PROVIDER=disabled`); billing — `dev`.
 - Garage одноузловой без репликации; профиль предназначен для показа, не для HA production.
 
@@ -88,6 +94,8 @@ Demo seeder запускает RLS bypass только для своей fixture
 
 ## Проверка и demo corpus
 
+После самостоятельного запуска Docwise public profile и настройки DNS/TLS проверьте readiness:
+
 ```bash
 curl -fsS https://docwise.wvzl.site/ready
 docker compose -p docwise-public-demo \
@@ -110,7 +118,8 @@ fixture document rows remain in place. As in normal seeding, the three reserved 
 only in `Demo` so password login resolves to the demo tenant. Pending storage cleanup is completed asynchronously
 by Celery. This command is destructive to demo history and uploads; the two explicit flags are required.
 
-Demo accounts и пароли видны посетителям в UI/README. Регистрация закрыта; admin demo account может загружать и удалять документы.
+При запущенном профиле demo accounts и пароли видны посетителям в UI/README. Регистрация закрыта; admin demo
+account может загружать и удалять документы.
 При необходимости пересейте corpus после демонстрации.
 
 Для dry-run recovery потерянной Celery queue:

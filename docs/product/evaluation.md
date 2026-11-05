@@ -3,7 +3,34 @@
 Evaluation использует golden set и проходит через тот же retrieval/generation path, что и приложение.
 Отчёт — снимок конкретного запуска, не обещание качества на новых документах или вопросах.
 
-## Сохранённый baseline
+## Последний полный end-to-end прогон — 2026-11-01
+
+Top-4 и парный Top-2 выполнены на одном наборе из 132 кейсов: 85 positive, 6 `no_answer` и 41
+`acl_negative`. Dataset SHA-256: `04e8b54242c9951607330e39030a6a461f1398c9eab50d4c33e066aacf225f84`.
+Профиль — `multilingual-compact`, reranker — `BAAI/bge-reranker-v2-m3-int8`, threshold — `0.01`;
+в сравниваемой конфигурации менялся только `rerank_top_k`.
+
+| Метрика | Top-4 | Top-2 |
+| --- | ---: | ---: |
+| Target document / exact target section | `85/85` / `51/52` | `84/85` / `48/52` |
+| Context Precision | `0.952` | `0.959` |
+| Faithfulness / Citation support | `0.974` / `0.931` | `0.952` / `0.932` |
+| English Answer Relevance (`en`, n=53) | `0.799` | `0.743` |
+| Russian Answer Relevance (`ru`, n=28) | `0.635` | `0.591` |
+| Mixed-script Answer Relevance (n=4) | `0.369` | `0.553` |
+| No-answer refusals / ACL leaks / case errors | `6/6` / `0` / `0` | `6/6` / `0` / `0` |
+
+Оба прогона не проходят Context Precision gate `0.975` и English Answer Relevance gate `0.827`. В Top-4
+English bucket входят три точных отказа на positive-кейсах, каждый с Answer Relevance `0.0`. Top-2 уменьшил
+число переданных контекстов, но потерял document/section hits и снизил Faithfulness и English Answer
+Relevance; он отклонён как default. Production Top-4 и threshold `0.01` не менялись.
+
+В JSON обоих запусков `code_revision=unrecorded`. Dataset hash и безопасные параметры сохранены, но
+byte-for-byte воспроизводимость этим не подтверждается; generation и LLM judge scores — результаты одного
+прогона. [Сравнение и артефакты](../../reports/rag_quality_corrected_classifier_comparison.md),
+[каталог экспериментов](../../reports/README.md).
+
+## Исторический baseline: 2026-10-30
 
 Полный прогон от **2026-10-30**: retrieval, generation и LLM judges для 69 кейсов (33 positive,
 36 ACL-negative), 9 synthetic PDFs и шести evaluator personas. Target document/page hit rate — `1.000`;
@@ -66,9 +93,74 @@ threshold/Top-4. Порог `0.10` поднял combined positive hit с `66/85`
 Отдельный полный generation-срез из 30 кейсов (12 positive, 6 no-answer, 12 ACL-negative) получил
 `6/6` корректных отказов и `0/12` ACL leaks; target hit `0.750`, Context Precision `0.944`.
 Answer Relevance не рассчитан, так как multilingual MiniLM ONNX encoder отсутствовал в eval image.
-Полный 132-case generation run остановлен у предела памяти VPS. Эти результаты не являются
-полным end-to-end baseline и не обосновывают смену production profile или threshold. Подробности
-и ограничения: [Task 3 diagnostic](../../reports/rag_quality_task3_diagnostic.md).
+Позже полный 132-case end-to-end run завершился с обеими encoder-моделями и `0` case errors:
+target document hit `0.776`, Faithfulness `0.984`, Context Precision `0.961`, English Answer
+Relevance `0.722`, all-language Answer Relevance `0.591`, citation support `0.980`, `6/6`
+no-answer refusals и `0/41` ACL leaks. Не пройдены target-document, Context Precision и English
+Answer Relevance gates. Reranking занял `612.04 s` на 1,980 пар при batch `16`; DB search —
+`3.30 s`. Запуск укладывается в доступную память только с ограничением контейнера и оставляет
+небольшой запас RAM на VPS. Результат подтверждает end-to-end baseline, но не обосновывает смену
+production profile или threshold. Подробности и агрегаты: [Task 3 diagnostic](../../reports/rag_quality_task3_diagnostic.md).
+
+Полный повтор кандидата `multilingual-compact` с порогом `0.01` дал target document `1.000`, target
+section `0.981`, Context Precision `0.941` и English Answer Relevance `0.768`; последние два gate не
+пройдены. Per-case JSON содержит только case IDs, стадии/ranks, reranker scores и числовые метрики;
+вопросы, ответы и текст passages исключены: [sanitized case diagnostics](../../reports/rag_quality_candidate_001_case_diagnostics.json).
+Повторный eval добавил per-rank context relevance и boolean отказа в отдельный артефакт:
+[instrumented diagnostics](../../reports/rag_quality_candidate_001_instrumented_case_diagnostics.json).
+Первоначальная симуляция Top-2 по сохранённым меткам была retrieval-only и не включала generation.
+Позже проведён полный paired end-to-end Top-2 run; его результат и сравнение с исправленным Top-4
+baseline см. в [Top-2 / Top-4 comparison](../../reports/rag_quality_corrected_classifier_comparison.md).
+Расчёты по старому инструментированному прогону остаются в [Top-K analysis](../../reports/rag_quality_context_selection_topk.md)
+и не заменяют end-to-end результат.
+
+### Решение по Top-K
+
+Полная таблица и ограничения парного сравнения находятся в [сравнительном отчёте](../../reports/rag_quality_corrected_classifier_comparison.md).
+Top-2 не выбран как production default: небольшое улучшение Context Precision не компенсирует потерю
+document/section hits и снижение answer metrics. Generation и judge scores вариативны между запусками.
+
+### Разбор провалившихся срезов
+
+English AR gate провалился при `0.799`; без трёх точных отказов на positive English cases средний
+score обычных ответов был бы `0.847`. Отказы нельзя исключать из основного gate: они являются
+ошибками ответа. MIRACL Context Precision `0.902` при target-document hit `40/40` сочетается с
+низкой judge-релевантностью контекстов на rank 2–4. Детали и пределы вывода — в
+[case-level failure analysis](../../reports/rag_quality_failure_analysis.md). Следующие улучшения
+должны проверять false refusals и качество последующих контекстных рангов, а не ослаблять regression
+floors.
+
+Дополнительно повторены 11 positive кейсов, ранее классифицированных как отказ. Первый replay дал
+9 отказов, второй — 10; в последнем 5 ответов содержали фразу отказа внутри более длинного ответа,
+5 были точной фразой отказа, 1 был обычным ответом. Same-model rubric-review первого replay счёл
+отказ уместным в 4 случаях и неуместным в 7; это не независимая разметка и не оценка второго
+replay. Кодовый путь передавал непустые retrieved chunks в prompt, ACL leaks — `0`. См.
+[refusal case analysis](../../reports/rag_quality_refusal_case_analysis.md). Raw prompts, answers и
+passages не сохранялись.
+
+На том же dataset hash проверен `multilingual-compact` с порогом `0.25`: target document hit вырос
+до `0.953` (`81/85`), target section hit — до `0.846`, English Answer Relevance — до `0.741`,
+all-language Answer Relevance — до `0.666`; no-answer остался `6/6`, ACL leaks `0/41`, case errors
+`0`. Context Precision составил `0.944`, reranking занял `1,257.78 s` (`2.06×` дольше текущего).
+Затем полный прогон на пороге `0.10` дал document hit `0.965`, section hit `0.885`, но Context
+Precision снизился до `0.927`, English Answer Relevance — до `0.739`, citation support — до `0.891`.
+Safety gates остались пройдены (`6/6` no-answer, `0/41` ACL leaks), все 132 кейса завершились без
+ошибок. Порог `0.10` не проходит quality floors и не является безопасным продвижением; профиль
+и production threshold не изменены.
+
+Stage-метрики кандидата показывают, что на MIRACL exact target section присутствует в Top-4 в
+`39/40` случаях после reranker scoring, но только в `34/40` после threshold `0.10` и `32/40` после
+`0.25`. Глобальный порог отсекает часть релевантных мультиязычных passages; его снижение возвращает
+два раздела, но full run одновременно теряет Context Precision и citation support. Это основание
+для дальнейшей калибровки, а не для переключения на отдельные RU/EN пороги: текущая выборка пока не
+подтверждает безопасность такой политики.
+При `0.10` остаются шесть промахов exact section: два английских и четыре русских MIRACL cases.
+Их IDs и ограниченная гипотеза об entity/term matching приведены в [Task 3 diagnostic](../../reports/rag_quality_task3_diagnostic.md);
+перед выбором изменения нужно проверить retrieved passages.
+
+Новые eval reports дополнительно выводят для каждого exact-section miss case ID и ранги по
+retrieval stages и threshold sweep, без passage text. Это позволяет увидеть, где теряется каждый
+слабый кейс; текущие сохранённые candidate reports были созданы до добавления этой таблицы.
 
 ### Historical full generation run: 2026-09-22, 35 cases
 
@@ -93,9 +185,10 @@ Answer Relevance не рассчитан, так как multilingual MiniLM ONNX
 | `eval/concurrency.py` | Ограниченная параллельная обработка независимых generation/judge кейсов |
 | `eval/corpus.py` | 9 synthetic PDFs и русский synthetic DOCX со стабильными IDs и ACL tags |
 | `eval/seed_demo.py` | Локальный demo corpus: 3 роли и 12 PDF |
-| `reports/rag_benchmark.md` | Сохранённые метрики и подробности прогона |
-| `reports/rag_candidate_multilingual.md` | Multilingual candidate benchmark, срезы и per-question результаты |
-| `reports/rag_quality_task3_diagnostic.md` | Full retrieval-only baseline и generation-срез Task 3 с ограничениями VPS |
+| [`reports/README.md`](../../reports/README.md) | Каталог baseline/candidate, MIRACL, Top-K, refusal/error и load/performance отчётов; отмечает их статус и ограничения содержимого |
+| `reports/rag_quality_corrected_classifier_comparison.md` | Последний полный Top-4/Top-2 результат, конфигурация, артефакты и ограничения |
+| `reports/rag_benchmark.md`, `reports/rag_candidate_multilingual.md` | Исторические прогоны; в отдельных старых benchmark reports есть per-case question fields |
+| `reports/rag_quality_task3_diagnostic.md` | Историческая диагностика полного retrieval/generation прогона и ограничений VPS |
 | `eval/prepare_miracl.py` | Загружает закреплённые MIRACL topics/qrels и выбранные Wikipedia passages; eval не запускает |
 
 Текущий синтетический golden set содержит 92 кейса: 45 answerable, 6 `no_answer` и 41 `acl_negative`.
@@ -122,7 +215,8 @@ Answer Relevance не рассчитан, так как multilingual MiniLM ONNX
   для каждого evaluator account.
 - **Ноль ACL leaks и ноль case errors** — обязательные gates. Пороговые значения качества применяются к средним
   метрикам положительных кейсов; значение на границе проходит.
-- `No-answer refusal rate` оценивается только по `no_answer` cases; начальный floor — `0.800`. Он не
+- `No-answer refusal rate` оценивает только точные стандартные отказы в `no_answer` cases; фраза
+  отказа внутри более длинного ответа не засчитывается как корректный отказ. Начальный floor — `0.800`. Он не
   смешивается с answerable recall или ACL leak count. В retrieval-only запуске оценка generation имеет `N/A`.
 - Начальные regression floors: target document/page hit `≥ 0.980`, Faithfulness `≥ 0.800`, Context Precision
   `≥ 0.975`, English Answer Relevance `≥ 0.827`. Retrieval floors оставляют запас 0.02 от текущего baseline;
@@ -137,13 +231,16 @@ Answer Relevance не рассчитан, так как multilingual MiniLM ONNX
   rerank threshold и SHA-256 system prompt. API key и base URL не записываются.
 - Метрики положительных кейсов агрегируются по Unicode script bucket (`en`, `ru`, `mixed`, `unknown`),
   evaluator persona, `kind` и `source_dataset`. Языковой bucket описывает письменность вопроса, а не язык ответа.
-- Отказ получает Faithfulness `N/A`, а пустая выдача — Context Precision `N/A`; эти случаи не считаются
-  идеальными scores. Refusal сохраняет Answer Relevance `0`, а полный отчёт отдельно показывает
-  ответы, отказы и positive cases с контекстом; для retrieval-only generation coverage помечается `N/A`.
-- Для каждого source slice отчёт содержит target-document hit и точный target-section rank на стадиях dense,
+- Точный отказ получает Faithfulness `N/A` и Answer Relevance `0`; пустая выдача — Context Precision
+  `N/A`; эти случаи не считаются идеальными scores. Положительная generation coverage разделяет
+  обычные ответы, точные отказы, ответы со встроенной фразой отказа и пустые ответы. Встроенная
+  фраза не превращает весь ответ в отказ и такой ответ оценивается обычными answer metrics. В
+  retrieval-only запуске generation coverage помечается `N/A`.
+- Новые отчёты содержат target-document hit и точный target-section rank на стадиях dense,
   sparse, RRF, reranker scoring, после порога и после Top-4: Recall@1/4/10 и MRR. Кандидатные пороги reranker
   `0.10–0.30` дополнительно симулируются на том же наборе scores; отчёт показывает coverage и долю пустой выдачи.
-  В отчёт попадают только агрегаты; stage snippets, ответы и текст passages не сохраняются.
+  Новая схема не сохраняет stage snippets, ответы и текст passages; старые отчёты могут содержать per-case
+  question fields и не должны описываться как полностью aggregate/sanitized. Сверяйтесь с [каталогом](../../reports/README.md).
 
 ## Подготовленный real-data candidate: MIRACL
 

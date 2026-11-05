@@ -1,0 +1,328 @@
+{
+  "generated_at": "2026-11-01T04:20:24+00:00",
+  "dataset_sha256": "6e4415d48602313394c23415c6e8b5db0576a2489d9b606a7b091e5d22ee5cd5",
+  "source_dataset_sha256": "04e8b54242c9951607330e39030a6a461f1398c9eab50d4c33e066aacf225f84",
+  "case_count": 11,
+  "cases": [
+    {
+      "case_id": "miracl-en-2284",
+      "prior_refusal": true,
+      "repeat_refusal": false,
+      "refusal_form": "not_refusal",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "reranker_scores": [
+        0.9003467817169428,
+        0.2785111881769807,
+        0.1993175671150754,
+        0.1257834866840204
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "sufficient",
+        "refusal_appropriate": "no",
+        "primary_reason": "context_contains_answer",
+        "confidence": "high",
+        "reference_supported_by_context": true
+      }
+    },
+    {
+      "case_id": "miracl-en-3809",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "exact",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        false,
+        true,
+        false,
+        true
+      ],
+      "reranker_scores": [
+        0.7044550256598816,
+        0.1537404334145853,
+        0.03247602017975554,
+        0.0160383930235956
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 2,
+      "review": {
+        "context_sufficiency": "partial",
+        "refusal_appropriate": "no",
+        "primary_reason": "context_partially_supports_answer",
+        "confidence": "medium",
+        "reference_supported_by_context": null
+      }
+    },
+    {
+      "case_id": "miracl-en-277",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "exact",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        false,
+        true,
+        true,
+        false
+      ],
+      "reranker_scores": [
+        0.9788738220338784,
+        0.694844770039531,
+        0.560194479075467,
+        0.5505827575267911
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 2,
+      "review": {
+        "context_sufficiency": "insufficient",
+        "refusal_appropriate": "yes",
+        "primary_reason": "context_lacks_answer",
+        "confidence": "high",
+        "reference_supported_by_context": null
+      }
+    },
+    {
+      "case_id": "miracl-en-4081",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "exact",
+      "repeat_case_error": false,
+      "retrieved_context_count": 1,
+      "context_relevance_by_rank": [
+        true
+      ],
+      "reranker_scores": [
+        0.9837115558006948
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "insufficient",
+        "refusal_appropriate": "yes",
+        "primary_reason": "context_lacks_answer",
+        "confidence": "high",
+        "reference_supported_by_context": true
+      }
+    },
+    {
+      "case_id": "miracl-en-2546",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "exact",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "reranker_scores": [
+        0.9861281354467171,
+        0.7892200901605282,
+        0.3893360610920165,
+        0.0249479489333148
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "sufficient",
+        "refusal_appropriate": "no",
+        "primary_reason": "context_contains_answer",
+        "confidence": "high",
+        "reference_supported_by_context": null
+      }
+    },
+    {
+      "case_id": "miracl-ru-3483",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "embedded",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "reranker_scores": [
+        0.9903400300532096,
+        0.8059652503059374,
+        0.5066433727668836,
+        0.2872206718705585
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "sufficient",
+        "refusal_appropriate": "no",
+        "primary_reason": "context_contains_answer",
+        "confidence": "medium",
+        "reference_supported_by_context": null
+      }
+    },
+    {
+      "case_id": "miracl-ru-223",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "exact",
+      "repeat_case_error": false,
+      "retrieved_context_count": 3,
+      "context_relevance_by_rank": [
+        true,
+        true,
+        false
+      ],
+      "reranker_scores": [
+        0.8616786622716452,
+        0.4736087564135744,
+        0.02950616614196197
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": false,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "insufficient",
+        "refusal_appropriate": "yes",
+        "primary_reason": "retrieval_misaligned",
+        "confidence": "medium",
+        "reference_supported_by_context": null
+      }
+    },
+    {
+      "case_id": "miracl-ru-5857",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "embedded",
+      "repeat_case_error": false,
+      "retrieved_context_count": 3,
+      "context_relevance_by_rank": [
+        false,
+        true,
+        false
+      ],
+      "reranker_scores": [
+        0.9519019514761515,
+        0.8567587320295968,
+        0.5123784072759135
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "sufficient",
+        "refusal_appropriate": "no",
+        "primary_reason": "context_contains_answer",
+        "confidence": "high",
+        "reference_supported_by_context": true
+      }
+    },
+    {
+      "case_id": "miracl-ru-1808",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "embedded",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        true,
+        true,
+        false,
+        false
+      ],
+      "reranker_scores": [
+        0.9992147292551977,
+        0.9559299932928259,
+        0.6175592033323024,
+        0.4053980023036724
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 2,
+      "review": {
+        "context_sufficiency": "sufficient",
+        "refusal_appropriate": "no",
+        "primary_reason": "context_contains_answer",
+        "confidence": "high",
+        "reference_supported_by_context": null
+      }
+    },
+    {
+      "case_id": "miracl-ru-4489",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "embedded",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "reranker_scores": [
+        0.7801916348355075,
+        0.0679390613720647,
+        0.04326102738543339,
+        0.018118119896914964
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "sufficient",
+        "refusal_appropriate": "no",
+        "primary_reason": "context_contains_answer",
+        "confidence": "high",
+        "reference_supported_by_context": null
+      }
+    },
+    {
+      "case_id": "miracl-ru-168",
+      "prior_refusal": true,
+      "repeat_refusal": true,
+      "refusal_form": "embedded",
+      "repeat_case_error": false,
+      "retrieved_context_count": 4,
+      "context_relevance_by_rank": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "reranker_scores": [
+        0.986843907940675,
+        0.6761688137443151,
+        0.10839464033392844,
+        0.08741071319523284
+      ],
+      "target_doc_hit": true,
+      "target_section_hit": true,
+      "prior_relevant_context_count": 1,
+      "review": {
+        "context_sufficiency": "insufficient",
+        "refusal_appropriate": "yes",
+        "primary_reason": "context_lacks_answer",
+        "confidence": "high",
+        "reference_supported_by_context": null
+      }
+    }
+  ]
+}

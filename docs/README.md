@@ -7,7 +7,7 @@
 
 | Если вы… | Читайте по порядку |
 | --- | --- |
-| Знакомитесь с проектом | [README и демо](../README.md) → [архитектура](product/architecture.md) → [поиск и чат](pipeline/retrieval.md) → [evaluation](product/evaluation.md) |
+| Знакомитесь с проектом | [README и демо](../README.md) → [архитектура](product/architecture.md) → [поиск и чат](pipeline/retrieval.md) → [evaluation](product/evaluation.md) → [каталог экспериментов](../reports/README.md) |
 | Хотите запустить код | [быстрый старт](development/getting-started.md) → [конфигурация](development/configuration.md) → [API](engineering/api.md) |
 | Разбираетесь в доступах | [tenancy](platform/tenancy.md) → [auth и ACL](platform/auth.md) → [безопасность](security/overview.md) |
 | Обслуживаете deployment | [operations](operations/operations.md) → [публичное демо](operations/public-demo.md) → [технический долг](maintenance/technical-debt.md) |
@@ -37,6 +37,7 @@ flowchart LR
 | Operations | [Runbook](operations/operations.md), публичное демо, backup/restore и диагностика |
 | Security | [Trust boundaries](security/overview.md) и ограничения защиты |
 | Maintenance | [Техдолг](maintenance/technical-debt.md), обзор репозитория и аудит документации |
+| Отчёты и эксперименты | [Каталог `reports/`](../reports/README.md): baseline/candidate, MIRACL, Top-K, диагностика отказов и нагрузочные замеры |
 | [portfolio/screenshots/](portfolio/screenshots/README.md) | Скриншоты и инструкция обновления |
 
 ## Три границы, которые важно помнить

@@ -1,0 +1,7236 @@
+{
+  "generated_at": "2026-10-31T19:58:14+00:00",
+  "code_revision": "unrecorded",
+  "dataset_sha256": "04e8b54242c9951607330e39030a6a461f1398c9eab50d4c33e066aacf225f84",
+  "config": {
+    "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "embedding_profile": "multilingual-compact",
+    "answer_relevance_encoders": "Latin=BAAI/bge-small-en-v1.5; Cyrillic=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "embedding_max_input_tokens": 128,
+    "eval_chunk_max_tokens": 80,
+    "reranker_model": "BAAI/bge-reranker-v2-m3-int8",
+    "reranker_size_gb_estimate": 0.57,
+    "llm_model": "openai/gpt-5-nano",
+    "dense_top_k": 25,
+    "sparse_top_k": 25,
+    "rrf_top_k": 15,
+    "rrf_k": 60,
+    "rerank_top_k": 4,
+    "rerank_threshold": 0.01,
+    "system_prompt_sha256": "94f656e7b710f6d2b673fd6a3f5d317939c7268b83108c16312731f8d508b4f3",
+    "eval_concurrency": 4,
+    "eval_embedding_batch_size": 1,
+    "eval_rerank_batch_size": 16,
+    "eval_limit": 0
+  },
+  "case_count": 132,
+  "cases": [
+    {
+      "case_id": "hb-hours",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9994352442700793
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8356833597949218,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-lunch",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9660738239686172
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8910313012586218,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-hybrid-office",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9395372392220869,
+        0.10138612492490233
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7239088026563621,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-desk-booking",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.971496281027255
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.6400615705409619,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-personal-devices",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9974027593105506
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9292510237842411,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-security-email",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9445949173556163,
+        0.3829448028422451
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7558177219933787,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-vendor-gifts",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9804890454892556
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8842080799905839,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-warranty",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9956783373496936,
+        0.050011588756829636
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9041008382365909,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "hb-badge-fee",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9953119539425069
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9430110204031696,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "lv-vacation-days",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9943312935352687,
+        0.9532368491567108,
+        0.62154306195624,
+        0.13615409154705382
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7884286835867501,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "lv-sick-days",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.988903911814315,
+        0.2533302671092937,
+        0.20899402619066343,
+        0.049320953895472246
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.8333333333333333,
+      "answer_relevance": 0.8968323573944077,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "lv-notice",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9852733650561153,
+        0.4042349581031984,
+        0.03675571297526185
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9315440603670059,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "lv-parental",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.9815987101728655,
+        0.02463162836737187,
+        0.0214747791959346
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8876301016550334,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "lv-carryover",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9902175605955129,
+        0.7131684078166409,
+        0.17952216233542123,
+        0.1308009303723009
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8849900963409935,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "lv-bereavement",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9679470461434987,
+        0.21772728806368968,
+        0.09419175618636008,
+        0.03777271221176895
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7804187646328172,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "lv-unpaid",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.925497275100402,
+        0.010249511287156187
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8998102989201167,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ex-taxi",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9996496606216603
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9273747551869874,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ex-meals",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9898002264799428
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7881946716140432,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ex-deadline",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9632231952246755
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.885706563166352,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ex-intl-approval",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9919475703242747,
+        0.8286432290867785
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7182604712574999,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ex-per-diem",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9818394340260383
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8768533892477958,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ex-business-class",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9442413643331486,
+        0.8317003872538972
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8381998030141379,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ex-card-limit",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9865098298877254
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9468886529980601,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "eng-buddy",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9943967799513808
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9088103082594756,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "eng-first-pr",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9848146811395199,
+        0.9826590976255858
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8798326031031772,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "eng-python",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9983059097471856
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.911827188549147,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "eng-prod-approvers",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9912485082501687
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.747258230008571,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "eng-oncall",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9996806658277271,
+        0.13182903020566164,
+        0.08951775597880378,
+        0.018465998393695383
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9258069821196869,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-l3-band",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.03421777796516409
+      ],
+      "faithfulness": null,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-bonus-pct",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-bonus-day",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-ceo-multiplier",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-q4-revenue",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-headcount-freeze",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-marketing-budget",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-promotion-packet-deadline",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-retention-rsus",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-gross-margin",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-customer-concentration",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-bad-debt-reserve",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-board-pack-deadline",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-allowed-hr",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9993108618117628
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9330719635794633,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-allowed-finance",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9976825344171951
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9205034630357617,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-allowed-legal",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.9993608244161432,
+        0.09801598598579113,
+        0.03441301905011446
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8995937556083664,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-allowed-security",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9990918915264129,
+        0.7763182300992667
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8635599922069606,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-allowed-engineering",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": true,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9827949971934602,
+        0.9820431937057764,
+        0.010439808937607422
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.928007829891447,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-denied-employee-legal",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.09801598598579113
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-denied-employee-security",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.7763182300992667
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-denied-employee-engineering",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9827949971934602,
+        0.010439808937607422
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-hr-denies-finance",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-hr-denies-legal",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.09801598598579113
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-hr-denies-security",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.7763182300992667
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-hr-denies-engineering",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9827949971934602,
+        0.010439808937607422
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-finance-denies-hr",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-finance-denies-legal",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.09801598598579113
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-finance-denies-security",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.7763182300992667
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-finance-denies-engineering",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9827949971934602,
+        0.010439808937607422
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-legal-denies-hr",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-legal-denies-finance",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-legal-denies-security",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.7763182300992667
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-legal-denies-engineering",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9827949971934602,
+        0.010439808937607422
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-security-denies-hr",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-security-denies-finance",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-security-denies-legal",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.09801598598579113
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-security-denies-engineering",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9827949971934602,
+        0.010439808937607422
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-engineering-denies-hr",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-engineering-denies-finance",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-engineering-denies-legal",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.09801598598579113
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "acl-matrix-engineering-denies-security",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.8170506025738007
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-employee-start",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9968796622812305,
+        0.08239744703503098
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.6683238950397511,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-employee-office-days",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9577256998237205,
+        0.5809248774710297
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7723139514691567,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-hr-vacation-days",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9979676893597791,
+        0.9504192016017315,
+        0.42414899984947
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7624200924739414,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-hr-carryover",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.997393945784085,
+        0.8871825698287703,
+        0.12309137579570688,
+        0.017961389619572374
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.838225919206328,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-finance-per-diem",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9882944364930437,
+        0.5840193901326132
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.794064312636189,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-finance-trip-approval",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9852235083113383,
+        0.7939077753284283
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.40046881334343154,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-legal-contract-review",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9916130137238506,
+        0.32705779086885445
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7811636257712117,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-legal-review-team",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9846280922673359,
+        0.09477602309390226
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7557704748530848,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-security-rotation",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9994487196191162,
+        0.8184780178082246
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.5471036558779664,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-security-report",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 4,
+        "rrf": 1,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9706757393028098,
+        0.9606904725686806,
+        0.0669690397869666
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7999998846082242,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-engineering-canary",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9994377846488853,
+        0.9467269390146477
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8995601359073196,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-engineering-first-pr",
+      "kind": "positive",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.982297629217958,
+        0.9347884257382366
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.48505991634425016,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-acl-employee-hr",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-acl-employee-finance",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-acl-employee-legal",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9632350850683536
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-acl-employee-security",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9993641746060091
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "ru-acl-employee-engineering",
+      "kind": "acl_negative",
+      "source_dataset": "synthetic-golden",
+      "target_doc_hit": false,
+      "target_page_hit": false,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 0,
+      "retrieved_scores": [
+        0.9949331121162376
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.0,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "no-answer-en-office-paint",
+      "kind": "no_answer",
+      "source_dataset": "synthetic-no-answer",
+      "target_doc_hit": null,
+      "target_page_hit": null,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {},
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": true
+    },
+    {
+      "case_id": "no-answer-en-pet-policy",
+      "kind": "no_answer",
+      "source_dataset": "synthetic-no-answer",
+      "target_doc_hit": null,
+      "target_page_hit": null,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {},
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": true
+    },
+    {
+      "case_id": "no-answer-en-lunar-travel",
+      "kind": "no_answer",
+      "source_dataset": "synthetic-no-answer",
+      "target_doc_hit": null,
+      "target_page_hit": null,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {},
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": true
+    },
+    {
+      "case_id": "no-answer-ru-office-paint",
+      "kind": "no_answer",
+      "source_dataset": "synthetic-no-answer",
+      "target_doc_hit": null,
+      "target_page_hit": null,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {},
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": true
+    },
+    {
+      "case_id": "no-answer-ru-pet-policy",
+      "kind": "no_answer",
+      "source_dataset": "synthetic-no-answer",
+      "target_doc_hit": null,
+      "target_page_hit": null,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {},
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": true
+    },
+    {
+      "case_id": "no-answer-ru-lunar-travel",
+      "kind": "no_answer",
+      "source_dataset": "synthetic-no-answer",
+      "target_doc_hit": null,
+      "target_page_hit": null,
+      "target_section_hit": null,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {},
+      "retrieved_context_count": 0,
+      "target_context_count": 0,
+      "retrieved_scores": [],
+      "faithfulness": null,
+      "context_precision": null,
+      "answer_relevance": null,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": true
+    },
+    {
+      "case_id": "miracl-en-224",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 3,
+        "sparse": 5,
+        "rrf": 4,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.8713509951996639,
+        0.6933638293494354,
+        0.5116551877449018,
+        0.05120436021319435
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.9356124006185332,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-1489",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.7352309828113619,
+        0.14122269363152973,
+        0.06491236867217584,
+        0.050280958731795444
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.75,
+      "answer_relevance": 0.8600625773354892,
+      "citation_support_rate": 0.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-1713",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 16,
+        "rrf": 6,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.9580041452903942,
+        0.22517498992503032,
+        0.07496943146286203,
+        0.06803405572661834
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8423246188189366,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2284",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 4,
+        "rrf": 3,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.893051542710925,
+        0.27850703213585665,
+        0.1314908348491652,
+        0.12849452543535536
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8109197280852958,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2493",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 3,
+        "rrf": 1,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.8818747907227396,
+        0.45817063301984423,
+        0.016375083199007785,
+        0.014406500345553798
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.6819527305774381,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2679",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 4,
+        "rrf": 3,
+        "rerank_scored": 4,
+        "rerank_thresholded": 4,
+        "reranked": 4
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.8373687170454527,
+        0.6866984906101132,
+        0.08141119600773056,
+        0.05672290307782141
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8480297845880008,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-1236",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 4,
+        "rrf": 2,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.8908729018804872,
+        0.06643056787326111,
+        0.028941071216201465,
+        0.021583972985012544
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.8055555555555555,
+      "answer_relevance": 0.6930809257450252,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2085",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 6,
+        "sparse": 3,
+        "rrf": 3,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9236786518950496,
+        0.0563022829382679,
+        0.022666632569231036
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8302952921543394,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2959",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 2,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9990358070510863,
+        0.013550320917954831
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8677154874972839,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-495",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "rrf": 2,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.9997266348403261,
+        0.2042389243636494,
+        0.06834283375150718,
+        0.02847351665721043
+      ],
+      "faithfulness": null,
+      "context_precision": 1.0,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-1063",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9989847241629136,
+        0.9439468150948723,
+        0.05005017254162012,
+        0.022624934461882643
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8765798974981442,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-3809",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 6,
+        "rrf": 3,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.7081905010917244,
+        0.1519571367216667,
+        0.024610621126486147,
+        0.018743890933857286
+      ],
+      "faithfulness": null,
+      "context_precision": 0.5,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-277",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 3,
+        "sparse": 3,
+        "rrf": 3,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 4
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 4
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.9803220867010161,
+        0.7795765267119008,
+        0.521752759044282,
+        0.4943236400072744
+      ],
+      "faithfulness": null,
+      "context_precision": 0.5833333333333333,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-3459",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 2,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9983343488584094,
+        0.9630908320638086,
+        0.8895912448412375,
+        0.5486974275614093
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.6500574151000759,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2204",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 10,
+        "sparse": 3,
+        "rrf": 5,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.04087900012716282,
+        0.03631025760271585,
+        0.02946758935608273,
+        0.027417173125493244
+      ],
+      "faithfulness": null,
+      "context_precision": 1.0,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2195",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 2,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.9149671444369813,
+        0.7264546882651467,
+        0.38936069094162745,
+        0.20297741247470638
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8436620134147482,
+      "citation_support_rate": 0.5,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-4081",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 6,
+        "sparse": 3,
+        "rrf": 3,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 1,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9827316136987476
+      ],
+      "faithfulness": null,
+      "context_precision": 1.0,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-2546",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9842877170632921,
+        0.8461576716328796,
+        0.35743536470369697,
+        0.02634651377980224
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8733117511640097,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-1680",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9779826441529476,
+        0.14851034084453477,
+        0.12975621235273768,
+        0.05999367452541363
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7967202656176777,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-en-365",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.7863622120024453,
+        0.06292982516848192,
+        0.01732992025339897
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.5,
+      "answer_relevance": 0.8393974550846274,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-107",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 13,
+        "sparse": 1,
+        "rrf": 2,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9997894223561193,
+        0.8740974006307797,
+        0.18387721321913766,
+        0.010494705055025595
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8120920085872774,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-2468",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 6,
+        "sparse": 6,
+        "rrf": 4,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.06193955365072667,
+        0.05176324177839436,
+        0.015848596144672662
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.5,
+      "answer_relevance": 0.7345432791074873,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-1045",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": null,
+        "rrf": 5,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.9741931653425948,
+        0.916143047253041,
+        0.08916559163388216,
+        0.07524286646739138
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.6056842780605542,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-3483",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.991627400877362,
+        0.6942740920820224,
+        0.5304189672130208,
+        0.24005222283322444
+      ],
+      "faithfulness": null,
+      "context_precision": 1.0,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-5642",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.9985474034841433,
+        0.9236091400421066,
+        0.8887064301142129,
+        0.8633960529750202
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7128226817640718,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-6661",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 3,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9935574823566857,
+        0.06497446546045132,
+        0.02240739991537776
+      ],
+      "faithfulness": 0.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.6573244055669142,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-1914",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.9985885558407522,
+        0.9618346371124051,
+        0.7189923692963276,
+        0.7091611324865005
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.8055555555555555,
+      "answer_relevance": 0.8772094993228778,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-3340",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 4,
+        "sparse": null,
+        "rrf": 13,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.6613144447745465,
+        0.34204561631979313,
+        0.13951872632186127,
+        0.021639280585955545
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8122314579190283,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-23",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9941916911911504,
+        0.9297242259931466,
+        0.6519906382363384,
+        0.028629725713574288
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.8217247168719882,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-4559",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": null,
+        "rrf": 3,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 0
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.21685165402222423,
+        0.16031022046355753,
+        0.0479472301193689
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.5,
+      "answer_relevance": 0.770744807694108,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-223",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": false,
+      "retrieval_stage_ranks": {
+        "dense": null,
+        "sparse": null,
+        "rrf": null,
+        "rerank_scored": null,
+        "rerank_thresholded": null,
+        "reranked": null
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 2,
+      "retrieved_scores": [
+        0.9103414555634792,
+        0.557051910088855,
+        0.024656018435117933
+      ],
+      "faithfulness": null,
+      "context_precision": 1.0,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-1086",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 4,
+        "sparse": 4,
+        "rrf": 4,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.8848637641813879,
+        0.04862554620836441,
+        0.04051578072211667
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.5833333333333333,
+      "answer_relevance": 0.6452368897487589,
+      "citation_support_rate": 0.75,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-5857",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 3,
+        "sparse": 3,
+        "rrf": 3,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 3,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.8829444243977721,
+        0.7602346768261793,
+        0.42377448197975315
+      ],
+      "faithfulness": null,
+      "context_precision": 0.5,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-1808",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.9986527013097969,
+        0.9562218117435045,
+        0.6418075265225981,
+        0.5250894308409974
+      ],
+      "faithfulness": 0.5,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7878770565554022,
+      "citation_support_rate": 0.5,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-920",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 3,
+        "sparse": 2,
+        "rrf": 3,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 4
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.9910279959206402,
+        0.9839076989337049,
+        0.9787195962944532,
+        0.9393036064560556
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.824042162233679,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-4489",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 4,
+        "rerank_thresholded": 4,
+        "reranked": 4
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.15": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.20": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.25": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        },
+        "0.30": {
+          "target_doc_hit": false,
+          "section_rank": null,
+          "returned": 1
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.8657575770735824,
+        0.056540058438079764,
+        0.05369996652624709,
+        0.019323703606345204
+      ],
+      "faithfulness": null,
+      "context_precision": 0.25,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-4783",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 5,
+        "sparse": 5,
+        "rrf": 3,
+        "rerank_scored": 2,
+        "rerank_thresholded": 2,
+        "reranked": 2
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 2,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9615401742735192,
+        0.4427822290089359,
+        0.17586455705320267,
+        0.02633464522009027
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 0.8333333333333333,
+      "answer_relevance": 0.7934981096931897,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-4149",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "rrf": 3,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 3,
+      "retrieved_scores": [
+        0.9312207129890184,
+        0.9301663041435505,
+        0.5317617358946689,
+        0.051538070399063045
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.4017914828753894,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-168",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 8,
+        "sparse": null,
+        "rrf": 13,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 1,
+      "retrieved_scores": [
+        0.9864405934942265,
+        0.5186310760003986,
+        0.09953227189178332,
+        0.08263214768654852
+      ],
+      "faithfulness": null,
+      "context_precision": 1.0,
+      "answer_relevance": 0.0,
+      "citation_support_rate": null,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    },
+    {
+      "case_id": "miracl-ru-643",
+      "kind": "positive",
+      "source_dataset": "MIRACL v1.0 dev",
+      "target_doc_hit": true,
+      "target_page_hit": null,
+      "target_section_hit": true,
+      "retrieval_stage_ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "rrf": 1,
+        "rerank_scored": 1,
+        "rerank_thresholded": 1,
+        "reranked": 1
+      },
+      "rerank_threshold_sweep": {
+        "0.10": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 3
+        },
+        "0.15": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.20": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.25": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        },
+        "0.30": {
+          "target_doc_hit": true,
+          "section_rank": 1,
+          "returned": 2
+        }
+      },
+      "retrieved_context_count": 4,
+      "target_context_count": 4,
+      "retrieved_scores": [
+        0.9973693471147393,
+        0.31270580435065726,
+        0.10317778631852591,
+        0.01831543062148338
+      ],
+      "faithfulness": 1.0,
+      "context_precision": 1.0,
+      "answer_relevance": 0.7412467109541727,
+      "citation_support_rate": 1.0,
+      "acl_leak_count": 0,
+      "case_error": false,
+      "no_answer_correct": null
+    }
+  ]
+}

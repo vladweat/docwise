@@ -6,7 +6,7 @@
 Проект показывает полный путь от загрузки документов и разграничения доступа до hybrid search,
 LLM-ответа и подсветки цитаты в PDF.
 
-[Открыть публичное демо](https://docwise.wvzl.site) · [Документация](docs/README.md) · [Отчёт оценки RAG](reports/rag_benchmark.md)
+Публичное демо **приостановлено и недоступно с 2026-11-05** · [Инструкция запуска](docs/operations/public-demo.md) · [Документация](docs/README.md) · [Оценка RAG](docs/product/evaluation.md) · [Каталог экспериментов](reports/README.md)
 
 ## Что показывает проект
 
@@ -39,29 +39,41 @@ flowchart LR
 работают внутри организации. Ни тело запроса, ни подсказка для LLM не задают права доступа.
 Подробнее — [модель tenancy](docs/platform/tenancy.md) и [безопасность](docs/security/overview.md).
 
-## Короткий сценарий демо
+## Сценарий продукта для локального запуска
 
-В [публичном демо](https://docwise.wvzl.site) можно показать:
+После локального запуска с синтетическим corpus сценарий показывает:
 
 1. Войти как сотрудник и найти правило в handbook — ответ содержит цитату и открывает страницу PDF.
 2. Спросить о закрытой HR-информации — сотрудник получает отказ без подтверждения содержимого файла.
 3. Войти как HR и задать тот же вопрос — разрешённый источник появляется в ответе.
 4. Открыть `/inspect` под администратором организации и пройти путь dense/FTS → RRF → rerank.
 
-Демо использует синтетические документы. SSO в публичном профиле отключён; `BILLING_PROVIDER=dev`,
-а Garage работает как одноузловое хранилище. Это демонстрация продукта и архитектуры, не HA production-конфигурация.
-Порядок запуска и ограничения описаны в [руководстве публичного демо](docs/operations/public-demo.md).
+Публичный профиль также рассчитан на синтетические документы: SSO отключён, `BILLING_PROVIDER=dev`,
+Garage — одноузловое хранилище, это не HA production-конфигурация. На 2026-11-05 его контейнеры были
+остановлены, а HTTPS завершался ошибкой TLS. Порядок подготовки и запуска описан в
+[руководстве публичного демо](docs/operations/public-demo.md).
 
 ## Оценка качества
 
-Сохранённый прогон от 2026-09-22 покрывает **35 кейсов**: 28 положительных и 7 проверок ACL. Golden set
-сейчас содержит 69 кейсов (33 положительных, 36 ACL-negative) и пять restricted документов для разных отделов;
-метрики старого отчёта остаются historical до нового прогона.
-В историческом прогоне target document/page hit rate — `1.000`, Faithfulness — `1.000`, Context Precision —
-`0.994`, Answer Relevance — `0.776`; ограниченные документы не попали в Top-4 ни в одном из 7 отрицательных
-кейсов. Это результат конкретного benchmark-прогона, а не гарантия качества на произвольных данных.
+Последний полный end-to-end прогон Top-4 от **2026-11-01** охватывает 132 кейса: 85 positive, 6 no-answer и
+41 ACL-negative. Он выполнен на `multilingual-compact` с `BAAI/bge-reranker-v2-m3-int8` и threshold `0.01`.
 
-Подробности, датасет и release gates: [evaluation](docs/product/evaluation.md) и [полный отчёт](reports/rag_benchmark.md).
+| Метрика Top-4 | Результат |
+| --- | ---: |
+| Target document / exact target section | `85/85` / `51/52` |
+| Context Precision / Faithfulness | `0.952` / `0.974` |
+| Citation support | `0.931` |
+| Answer Relevance: English (`n=53`) / Russian (`n=28`) / mixed-script (`n=4`) | `0.799` / `0.635` / `0.369` |
+| No-answer refusals / ACL leaks / case errors | `6/6` / `0` / `0` |
+
+Context Precision (`0.975`) и English Answer Relevance (`0.827`) не проходят gates. Парный Top-2 также не прошёл:
+он потерял document/section hits и снизил Faithfulness и English Answer Relevance, поэтому не выбран. Production
+Top-4 и threshold `0.01` остались без изменений. English score включает три точных отказа на positive-кейсах,
+получивших `0.0`.
+
+Оба артефакта Top-4/Top-2 указывают `code_revision=unrecorded`: hash датасета и параметры записаны, но
+byte-for-byte воспроизводимость не подтверждена. Полные результаты, ограничения и исторические эксперименты:
+[оценка RAG](docs/product/evaluation.md) и [каталог отчётов](reports/README.md).
 
 ## Технологии
 
