@@ -98,6 +98,16 @@ healthchecks, TLS и HTTP `200` для `/` и `/ready` — историческ�
 SSE `meta` тогда не запускался. Отдельные `labtrack-demo-*` контейнеры к Docwise не относятся.
 Нагрузочные тесты, backup restore drill, firewall вне VPS и реальные IdP/Stripe credentials не проверялись.
 
+## GitHub CI после публикации — 2026-11-05
+
+[CI run `41987986694`](https://github.com/vladweat/docwise/actions/runs/41987986694) завершился с общим
+`success`: backend lint, backend tests, frontend typecheck/build/tests/lint и frontend E2E прошли.
+`supply-chain-advisory` завершился с ошибкой, но настроен как `continue-on-error`: `pip-audit` обнаружил
+19 advisory records для четырёх Python-пакетов (`python-jose`, `pytest`, `starlette`, `ecdsa`). Следующие
+шаги job — настройка Node и `npm audit` — были пропущены после ошибки `pip-audit`. Детали и follow-up
+зафиксированы в [техническом долге](technical-debt.md). Проверка не подтвердила эксплуатируемость находок;
+зависимости этим проходом не менялись.
+
 ## Результаты документационной валидации
 
 | Проверка | Результат |

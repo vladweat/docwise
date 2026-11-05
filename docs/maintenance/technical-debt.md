@@ -1,7 +1,7 @@
 # Открытый технический долг
 
 **Инфраструктурные сведения сверены:** 2026-10-29 · **evaluation обновлена:** 2026-11-01 ·
-**статус демо проверен:** 2026-11-05 — приостановлено, недоступно.
+**CI и статус демо проверены:** 2026-11-05 — демо приостановлено, advisory scan выявил уязвимые зависимости.
 
 Приоритет отражает возможный impact. Статус «исправлено в коде» не означает, что есть нагрузочная проверка,
 restore drill или подтверждённый SLA.
@@ -14,6 +14,7 @@ restore drill или подтверждённый SLA.
 | High | Single-VPS demo, без HA | Один Postgres, Redis, Garage node и ingress | Для production определить redundancy, monitoring и recovery targets |
 | Medium | Нет реального enterprise SSO | Только dev fixture; публичный demo отключил SSO | Не обещать SAML/OIDC до внедрения provider adapter |
 | Medium | RAG quality gates не пройдены | На последнем полном наборе из 132 кейсов Top-4 имеет Context Precision `0.952` и English Answer Relevance `0.799` против gates `0.975` и `0.827`; Top-2 также не проходит и теряет recall. См. [evaluation](../product/evaluation.md) и [каталог](../../reports/README.md) | Разобрать false refusals и judge-оценки контекстов по rank; не продвигать профиль или Top-K до повторной проверки |
+| Medium | Advisory-скан зависимостей нашёл уязвимости | CI run от 2026-11-05 сообщил 19 advisory records в `python-jose 3.5.0`, `pytest 8.4.2`, `starlette 0.46.2` и `ecdsa 0.19.2`. Это результат разрешения `backend/requirements.txt`, а не подтверждение эксплуатируемой уязвимости. Advisory job не блокирует CI; npm audit в этом запуске был пропущен после ошибки pip-audit. См. [CI run](https://github.com/vladweat/docwise/actions/runs/41987986694) | Проверить применимость и цепочки зависимостей, обновить совместимые ограничения и прогнать backend suite; отдельно обеспечить запуск npm audit при падении pip-audit |
 | Medium | Redis — общий blast radius | Queue, refresh state, rate limits, locks и cache используют Redis | Наблюдать availability; при росте разделить workload/DB |
 | Medium | Ingestion не атомарен end-to-end | Статусы, chunks и S3 side effects фиксируются раздельно | Сохранять dry-run recovery и проверять повтор при restore drill |
 | Medium | Chat corpus snapshot race | ACL/corpus может измениться между retrieval и audit/persist | Ввести version/snapshot guarantee, если требуется строгая воспроизводимость |
