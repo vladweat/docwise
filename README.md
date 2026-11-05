@@ -83,5 +83,3 @@ make demo                  # загрузить синтетические да�
 | Чат и цитата | Переход к странице PDF | Проверка ACL | Этапы поиска |
 | --- | --- | --- | --- |
 | ![Чат с цитатой](docs/portfolio/screenshots/01-chat-citation.png) | ![Подсветка PDF](docs/portfolio/screenshots/02-pdf-highlight.png) | ![Отказ по ACL](docs/portfolio/screenshots/03-acl-refuse.png) | ![Этапы поиска](docs/portfolio/screenshots/04-inspect-pipeline.png) |
-
-Инструкция по обновлению изображений: [скриншоты интерфейса](docs/portfolio/screenshots/README.md).
