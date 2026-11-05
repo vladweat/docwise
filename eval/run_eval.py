@@ -7,6 +7,7 @@ Not invoked by default CI: needs an LLM key and indexed fixture documents.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -31,7 +32,7 @@ from concurrency import map_bounded  # noqa: E402
 from app.services.ingestion.embedding_profiles import supported_profiles  # noqa: E402
 from app.services.ingestion.embeddings import active_embedding_profile, embed_texts, select_evaluation_embedding_profile  # noqa: E402
 from dataset import GoldenCase, load_golden_dataset  # noqa: E402
-from metrics import RagasScores, is_refusal, score_answer_relevance_batch, score_case  # noqa: E402
+from metrics import RagasScores, classify_refusal, is_refusal, score_answer_relevance_batch, score_case  # noqa: E402
 from provenance import code_revision, dataset_sha256, evaluation_config  # noqa: E402
 from quality_gates import GateResult, all_gates_pass, evaluate_gates  # noqa: E402
 from reporting import (  # noqa: E402
@@ -42,6 +43,7 @@ from reporting import (  # noqa: E402
     rerank_threshold_metrics,
     retrieval_stage_metrics,
     runtime_timing_metrics,
+    safe_case_diagnostics,
     stage_target_ranks,
 )
 
@@ -71,12 +73,15 @@ class CaseResult:
     target_doc_hit: bool | None
     target_page_hit: bool | None
     target_section_hit: bool | None = None
+    retrieved_scores: list[float] = field(default_factory=list)
     retrieval_stage_doc_hits: dict[str, bool] = field(default_factory=dict)
     retrieval_stage_ranks: dict[str, int | None] = field(default_factory=dict)
     rerank_threshold_sweep: dict[str, dict[str, int | bool | None]] = field(default_factory=dict)
     ragas: RagasScores | None = None
     error: str | None = None
     no_answer_correct: bool | None = None
+    answer_is_refusal: bool | None = None
+    answer_refusal_form: str | None = None
     stage_timings_ms: dict[str, float] = field(default_factory=dict)
 
 
@@ -152,6 +157,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Docwise RAG eval (real retrieval + generation)")
     parser.add_argument("--dataset", type=Path, default=default_dataset_path())
     parser.add_argument("--report", type=Path, default=default_report_path())
+    parser.add_argument(
+        "--diagnostics-report",
+        type=Path,
+        help="Write per-case scores/ranks without question, answer, or passage text",
+    )
     parser.add_argument("--seed", action="store_true", help="Index fixture PDFs and ensure the eval user")
     parser.add_argument("--external-corpus", type=Path, help="Index a prepared external DOCX corpus manifest; requires --seed")
     parser.add_argument(
@@ -337,6 +347,21 @@ def main(argv: list[str] | None = None) -> int:
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(render_report(summary), encoding="utf-8")
     logger.info("Wrote %s", args.report)
+    if args.diagnostics_report:
+        args.diagnostics_report.parent.mkdir(parents=True, exist_ok=True)
+        diagnostics = {
+            "generated_at": summary.generated_at,
+            "code_revision": summary.code_revision,
+            "dataset_sha256": summary.dataset_sha256,
+            "config": summary.config,
+            "case_count": len(summary.results),
+            "cases": safe_case_diagnostics(summary.results),
+        }
+        args.diagnostics_report.write_text(
+            json.dumps(diagnostics, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        logger.info("Wrote sanitized case diagnostics to %s", args.diagnostics_report)
 
     leaks = summary.leak_count
     logger.info(
@@ -547,6 +572,7 @@ def _populate_prepared_case(prepared: PreparedCase, retrieval) -> PreparedCase:
         contexts = [chunk.content for chunk in chunks]
 
     prepared.result.retrieved_doc_ids = retrieved_doc_ids
+    prepared.result.retrieved_scores = [float(chunk.score) for chunk in chunks]
     prepared.result.retrieved_pages = retrieved_pages
     prepared.result.contexts = contexts
     prepared.result.leaks = leaks
@@ -573,6 +599,8 @@ def _evaluate_prepared_case(prepared: PreparedCase) -> CaseResult:
         # A retrieval ACL regression must not expose restricted text to a prompt.
         allowed_chunks = [] if result.leaks else prepared.chunks
         answer = _generate(result.case.question, allowed_chunks)
+        result.answer_refusal_form = classify_refusal(answer)
+        result.answer_is_refusal = result.answer_refusal_form == "exact"
         if result.case.is_no_answer:
             result.no_answer_correct = is_refusal(answer)
         else:
@@ -747,13 +775,18 @@ def render_report(summary: EvalSummary) -> str:
             ]
         )
     else:
-        answered = sum(bool(row.answer.strip()) and not is_refusal(row.answer) for row in positives)
-        refusals = sum(is_refusal(row.answer) for row in positives)
+        answer_forms = [row.answer_refusal_form or classify_refusal(row.answer) for row in positives]
+        regular_answers = answer_forms.count("none")
+        exact_refusals = answer_forms.count("exact")
+        embedded_refusals = answer_forms.count("embedded")
+        empty_responses = sum(not row.answer.strip() for row in positives)
         with_context = sum(bool(row.contexts) for row in positives)
         lines.extend(
             [
-                f"| Answers | {answered} / {len(positives)} |",
-                f"| Refusals | {refusals} / {len(positives)} |",
+                f"| Regular answers | {regular_answers} / {len(positives)} |",
+                f"| Exact refusals | {exact_refusals} / {len(positives)} |",
+                f"| Embedded refusal phrases | {embedded_refusals} / {len(positives)} |",
+                f"| Empty responses | {empty_responses} / {len(positives)} |",
                 f"| Cases with context | {with_context} / {len(positives)} |",
                 f"| Correct no-answer refusals | {sum(row.no_answer_correct is True for row in no_answer_rows)} / {len(no_answer_rows)} |",
                 f"| False no-answer answers | {sum(row.no_answer_correct is False for row in no_answer_rows)} / {len(no_answer_rows)} |",
@@ -881,6 +914,35 @@ def render_report(summary: EvalSummary) -> str:
                     empty=_fmt(threshold_row["empty_rate"]),
                 )
             )
+        lines.append("")
+    section_misses = [
+        row
+        for row in positives
+        if row.case.target_section is not None and row.target_section_hit is False
+    ]
+    if section_misses:
+        lines.extend(
+            [
+                "## Exact-section misses by case",
+                "",
+                "Ranks include only case ID and target-section position; `—` means the exact section was absent at that stage.",
+                "",
+                "| Case | Dense | Sparse | RRF | Reranker scored | Active threshold | Threshold 0.10 | Threshold 0.25 |",
+                "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for row in section_misses:
+            ranks = row.retrieval_stage_ranks
+            sweep = row.rerank_threshold_sweep
+            values = [
+                ranks.get(stage)
+                for stage in ("dense", "sparse", "rrf", "rerank_scored", "reranked")
+            ]
+            values.extend(
+                sweep.get(threshold, {}).get("section_rank") for threshold in ("0.10", "0.25")
+            )
+            formatted_ranks = [str(value) if value is not None else "—" for value in values]
+            lines.append(f"| {row.case.id} | {' | '.join(formatted_ranks)} |")
         lines.append("")
     lines.extend([
         "## Quality gates",

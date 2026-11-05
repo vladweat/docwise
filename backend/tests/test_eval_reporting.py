@@ -104,6 +104,73 @@ def test_metric_slices_group_cases_and_keep_missing_scores_unavailable():
     assert slices[1]["faithfulness"] is None
 
 
+def test_safe_case_diagnostics_keeps_scores_and_ranks_without_text():
+    import json
+
+    reporting = _eval_module("reporting")
+    result = SimpleNamespace(
+        case=SimpleNamespace(
+            id="case-17",
+            kind="positive",
+            source_dataset="fixture-set",
+            question="private question text",
+            ground_truth_answer="private expected answer",
+            target_doc_id="target-doc",
+        ),
+        target_doc_hit=True,
+        target_page_hit=None,
+        target_section_hit=False,
+        retrieval_stage_ranks={"dense": 3, "rerank_scored": 1},
+        rerank_threshold_sweep={"0.01": {"section_rank": 2, "returned": 3}},
+        retrieved_doc_ids=["target-doc", "other-doc"],
+        retrieved_scores=[0.82, 0.11],
+        leaks=[],
+        error="private exception text",
+        no_answer_correct=None,
+        answer_is_refusal=True,
+        answer_refusal_form="exact",
+        ragas=SimpleNamespace(
+            faithfulness=0.9,
+            context_precision=0.7,
+            context_relevance_by_rank=[True, False],
+            answer_relevance=0.8,
+            citation_support_rate=0.75,
+        ),
+        answer="private generated answer",
+        contexts=["private chunk text"],
+    )
+
+    diagnostics = reporting.safe_case_diagnostics([result])
+    encoded = json.dumps(diagnostics, ensure_ascii=False)
+
+    assert diagnostics == [
+        {
+            "case_id": "case-17",
+            "kind": "positive",
+            "source_dataset": "fixture-set",
+            "target_doc_hit": True,
+            "target_page_hit": None,
+            "target_section_hit": False,
+            "retrieval_stage_ranks": {"dense": 3, "rerank_scored": 1},
+            "rerank_threshold_sweep": {"0.01": {"section_rank": 2, "returned": 3}},
+            "retrieved_context_count": 2,
+            "target_context_count": 1,
+            "retrieved_scores": [0.82, 0.11],
+            "context_relevance_by_rank": [True, False],
+            "faithfulness": 0.9,
+            "context_precision": 0.7,
+            "answer_relevance": 0.8,
+            "citation_support_rate": 0.75,
+            "acl_leak_count": 0,
+            "case_error": True,
+            "no_answer_correct": None,
+            "answer_is_refusal": True,
+            "answer_refusal_form": "exact",
+        }
+    ]
+    assert "private" not in encoded
+
+
 def test_provenance_contains_only_non_secret_configuration_fingerprints():
     provenance = _eval_module("provenance")
 
@@ -179,7 +246,15 @@ def test_docx_eval_target_section_is_measured_without_inventing_a_page_number(mo
         run_eval,
         "retrieve",
         lambda *_args, **_kwargs: SimpleNamespace(
-            chunks=[SimpleNamespace(document_id=doc_id, page_number=0, section_title="Рабочее время", content="09:00")]
+            chunks=[
+                SimpleNamespace(
+                    document_id=doc_id,
+                    page_number=0,
+                    section_title="Рабочее время",
+                    content="09:00",
+                    score=0.9,
+                )
+            ]
         ),
     )
     case = run_eval.GoldenCase(
@@ -204,7 +279,15 @@ def test_retrieval_case_records_target_section_rank_at_every_pipeline_stage(monk
         return SimpleNamespace(document_id=doc_id, section_title=section_title, score=score)
 
     retrieval = SimpleNamespace(
-        chunks=[SimpleNamespace(document_id=doc_id, page_number=0, section_title="target", content="text")],
+        chunks=[
+            SimpleNamespace(
+                document_id=doc_id,
+                page_number=0,
+                section_title="target",
+                content="text",
+                score=0.9,
+            )
+        ],
         dense=[hit("other"), hit("target")],
         sparse=[hit("target")],
         rrf=[hit("other"), hit("target")],
@@ -253,19 +336,39 @@ def test_refusal_without_context_is_not_scored_as_perfect_faithfulness_or_precis
 
 def test_refusal_with_context_keeps_retrieval_precision_but_not_faithfulness(monkeypatch):
     metrics = _eval_module("metrics")
-    monkeypatch.setattr(metrics, "_context_precision", lambda *_args: 0.5)
+    monkeypatch.setattr(metrics, "_context_relevance_flags", lambda *_args: [False, True])
 
     scores = metrics.score_case(
         question="What is documented?",
         answer=metrics.NO_CONTEXT_ANSWER,
-        contexts=["A policy."],
+        contexts=["Other text.", "A policy."],
         ground_truth="A policy.",
         include_answer_relevance=True,
     )
 
     assert scores.faithfulness is None
     assert scores.context_precision == 0.5
+    assert scores.context_relevance_by_rank == [False, True]
     assert scores.answer_relevance == 0.0
+
+
+def test_context_relevance_verdicts_keep_retrieval_order_and_default_missing_to_false(monkeypatch):
+    metrics = _eval_module("metrics")
+    monkeypatch.setattr(
+        metrics,
+        "_complete_json",
+        lambda _messages: {
+            "verdicts": [
+                {"index": 3, "relevant": True},
+                {"index": 1, "relevant": True},
+                {"index": 2, "relevant": False},
+            ]
+        },
+    )
+
+    flags = metrics._context_relevance_flags("Question", "Answer", ["a", "b", "c"])
+
+    assert flags == [True, False, True]
 
 
 def test_eval_is_refusal_recognizes_ru_and_en():
@@ -275,6 +378,25 @@ def test_eval_is_refusal_recognizes_ru_and_en():
     assert metrics.is_refusal("The provided documents do not contain information on this question.")
     assert metrics.is_refusal("Answer: The provided documents do not contain information on this question.")
     assert not metrics.is_refusal("The document says the office opens at nine.")
+
+
+def test_eval_refusal_classifier_distinguishes_embedded_phrase_from_exact_refusal():
+    metrics = _eval_module("metrics")
+
+    assert metrics.classify_refusal(metrics.NO_CONTEXT_ANSWER) == "exact"
+    assert metrics.classify_refusal(
+        "Answer: The provided documents do not contain information on this question."
+    ) == "exact"
+    assert metrics.classify_refusal(
+        "The provided documents do not contain information on this question. "
+        "However, the policy says access starts at nine."
+    ) == "embedded"
+    assert metrics.classify_refusal("The office opens at nine.") == "none"
+    assert metrics.classify_refusal("") == "empty"
+    assert not metrics.is_refusal(
+        "The provided documents do not contain information on this question. "
+        "However, the policy says access starts at nine."
+    )
 
 
 def test_eval_empty_retrieval_uses_localized_refusal(monkeypatch):
@@ -345,7 +467,7 @@ def test_report_shows_generation_coverage_and_retrieval_stages_without_text():
     report = run_eval.render_report(summary)
 
     assert "## Response coverage" in report
-    assert "Refusals | 1 / 1" in report
+    assert "Exact refusals | 1 / 1" in report
     assert "## Retrieval stage diagnostics" in report
     assert "rerank_scored" in report
     assert "rerank_thresholded" in report
@@ -353,6 +475,93 @@ def test_report_shows_generation_coverage_and_retrieval_stages_without_text():
     assert "MIRACL v1.0 dev" in report
     assert "What is documented?" in report
     assert "A policy." not in report
+
+
+def test_report_separates_regular_answers_exact_refusals_and_embedded_phrases():
+    run_eval = _eval_module("run_eval")
+    answers = [
+        ("The office opens at nine.", "none"),
+        (run_eval.no_context_answer("Что говорят документы?"), "exact"),
+        (
+            "The provided documents do not contain information on this question. "
+            "However, the policy says access starts at nine.",
+            "embedded",
+        ),
+        ("", "empty"),
+    ]
+    results = []
+    for index, (answer, form) in enumerate(answers):
+        case = run_eval.GoldenCase(
+            id=f"coverage-{index}",
+            question=f"Question {index}?",
+            ground_truth_answer="A fact.",
+            target_doc_id=None,
+        )
+        results.append(
+            run_eval.CaseResult(
+                case=case,
+                answer=answer,
+                retrieved_doc_ids=[],
+                retrieved_pages=[],
+                contexts=["A context."],
+                leaks=[],
+                target_doc_hit=True,
+                target_page_hit=None,
+                ragas=run_eval.RagasScores(None, 1.0, 0.0),
+                answer_refusal_form=form,
+            )
+        )
+    summary = run_eval.EvalSummary("eval@example.test", "now", "rev", "hash", results=results)
+
+    report = run_eval.render_report(summary)
+
+    assert "| Regular answers | 1 / 4 |" in report
+    assert "| Exact refusals | 1 / 4 |" in report
+    assert "| Embedded refusal phrases | 1 / 4 |" in report
+    assert "| Empty responses | 1 / 4 |" in report
+
+
+def test_report_lists_stage_ranks_for_exact_section_misses():
+    run_eval = _eval_module("run_eval")
+    case = run_eval.GoldenCase(
+        id="miracl-weak-case",
+        question="Which passage covers the named topic?",
+        ground_truth_answer="A fact.",
+        target_doc_id="aaaaaaaa-1111-4111-8111-000000000010",
+        target_section="MIRACL passage 1#2",
+        source_dataset="MIRACL v1.0 dev",
+    )
+    result = run_eval.CaseResult(
+        case=case,
+        answer="A fact.",
+        retrieved_doc_ids=[],
+        retrieved_pages=[],
+        contexts=[],
+        leaks=[],
+        target_doc_hit=False,
+        target_page_hit=None,
+        target_section_hit=False,
+        ragas=run_eval.RagasScores(None, None, None),
+        retrieval_stage_ranks={
+            "dense": 2,
+            "sparse": None,
+            "rrf": 5,
+            "rerank_scored": 1,
+            "rerank_thresholded": None,
+            "reranked": None,
+        },
+        rerank_threshold_sweep={
+            "0.10": {"section_rank": None},
+            "0.25": {"section_rank": 3},
+        },
+    )
+    summary = run_eval.EvalSummary("eval@example.test", "now", "rev", "hash", results=[result])
+
+    report = run_eval.render_report(summary)
+
+    assert "## Exact-section misses by case" in report
+    assert "miracl-weak-case" in report
+    assert "| miracl-weak-case | 2 | — | 5 | 1 | — | — | 3 |" in report
 
 
 def test_report_separates_no_answer_and_acl_denominators():

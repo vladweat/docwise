@@ -31,6 +31,44 @@ def question_language(question: str) -> str:
     return "unknown"
 
 
+def safe_case_diagnostics(results) -> list[dict[str, object]]:
+    """Export case metrics and retrieval scores without question, answer, or passage text."""
+    output: list[dict[str, object]] = []
+    for row in results:
+        ragas = getattr(row, "ragas", None)
+        target_doc_id = getattr(row.case, "target_doc_id", None)
+        retrieved_doc_ids = list(getattr(row, "retrieved_doc_ids", ()) or ())
+        output.append(
+            {
+                "case_id": row.case.id,
+                "kind": row.case.kind,
+                "source_dataset": getattr(row.case, "source_dataset", None),
+                "target_doc_hit": row.target_doc_hit,
+                "target_page_hit": row.target_page_hit,
+                "target_section_hit": getattr(row, "target_section_hit", None),
+                "retrieval_stage_ranks": dict(getattr(row, "retrieval_stage_ranks", {}) or {}),
+                "rerank_threshold_sweep": dict(getattr(row, "rerank_threshold_sweep", {}) or {}),
+                "retrieved_context_count": len(retrieved_doc_ids),
+                "target_context_count": sum(doc_id == target_doc_id for doc_id in retrieved_doc_ids),
+                "retrieved_scores": [float(score) for score in getattr(row, "retrieved_scores", ())],
+                "context_relevance_by_rank": [
+                    bool(relevant)
+                    for relevant in getattr(ragas, "context_relevance_by_rank", ())
+                ],
+                "faithfulness": getattr(ragas, "faithfulness", None),
+                "context_precision": getattr(ragas, "context_precision", None),
+                "answer_relevance": getattr(ragas, "answer_relevance", None),
+                "citation_support_rate": getattr(ragas, "citation_support_rate", None),
+                "acl_leak_count": len(getattr(row, "leaks", ()) or ()),
+                "case_error": bool(getattr(row, "error", None)),
+                "no_answer_correct": getattr(row, "no_answer_correct", None),
+                "answer_is_refusal": getattr(row, "answer_is_refusal", None),
+                "answer_refusal_form": getattr(row, "answer_refusal_form", None),
+            }
+        )
+    return output
+
+
 def metric_slices(
     results, dimension: SliceDimension, *, default_persona: str
 ) -> list[dict[str, object]]:

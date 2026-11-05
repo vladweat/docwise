@@ -95,12 +95,29 @@ def no_context_answer(question: str) -> str:
 
 
 def is_no_context_answer(answer: str) -> bool:
-    """Recognize the standard refusal in either supported language, including short framing text."""
+    """Recognize a complete standard refusal, optionally preceded by an answer label."""
+    normalized = _normalize_refusal_text(answer)
+    return normalized in {_normalize_refusal_text(text) for text in _no_context_answers()}
+
+
+def contains_no_context_phrase(answer: str) -> bool:
+    """Return whether an answer contains a standard refusal phrase anywhere."""
     normalized = " ".join((answer or "").split()).casefold()
-    return any(
-        refusal.casefold() in normalized
-        for refusal in (NO_CONTEXT_ANSWER, NO_CONTEXT_ANSWER_EN)
-    )
+    return any(refusal.casefold() in normalized for refusal in _no_context_answers())
+
+
+def _no_context_answers() -> tuple[str, str]:
+    return NO_CONTEXT_ANSWER, NO_CONTEXT_ANSWER_EN
+
+
+def _normalize_refusal_text(answer: str) -> str:
+    normalized = " ".join((answer or "").split()).casefold().strip()
+    for prefix in ("answer:", "ответ:"):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix) :].lstrip()
+            break
+    normalized = normalized.strip(" \t\r\n\"'`“”‘’«»*_ ")
+    return normalized.rstrip(".!?。！？… ").strip()
 
 
 def _latest_question_language_instruction(question: str) -> str:

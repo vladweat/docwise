@@ -40,6 +40,15 @@ def test_lexical_tokens_keep_words_digits_and_cyrillic():
     assert "график" in cyrillic
     assert "работы" in cyrillic
     assert "безопасен" in cyrillic
+    assert lexical_tokens("Ænglish") == ["ænglish"]
+
+
+def test_fts_query_keeps_cyrillic_words_with_combining_stress_marks():
+    q = _fts_or_query("Что открыл Ру́аль Э́нгельбрегт Гра́внинг А́мундсен?")
+    assert q is not None
+    parts = set(q.split(" | "))
+    assert {"ру́аль", "э́нгельбрегт", "гра́внинг", "а́мундсен"} <= parts
+    assert not {"ру", "аль", "э", "нгельбрегт", "гра", "внинг", "а", "мундсен"} & parts
 
 
 def test_bm25_ranks_relevant_document_first():
@@ -308,3 +317,27 @@ def test_sparse_search_applies_org_and_acl(db: Session):
     assert secret.id not in ids
     assert foreign_chunk.id not in ids
     assert any("Public" in chunk.content for chunk, _score in hits)
+
+
+def test_sparse_search_matches_cyrillic_words_with_combining_stress_marks(db: Session):
+    org = make_org(db)
+    user = make_principal(db, org)
+    doc = _ready_doc(db, org, title="MIRACL RU.docx", roles=["all"])
+    target = _chunk(
+        db,
+        doc,
+        page=1,
+        content="Ру́аль Э́нгельбрегт Гра́внинг А́мундсен",
+        embedding=_vec(1),
+    )
+    db.commit()
+
+    hits = sparse_search(
+        db,
+        "Ру́аль Э́нгельбрегт Гра́внинг А́мундсен",
+        list(user.allowed_roles()),
+        organization_id=org.id,
+        limit=25,
+    )
+
+    assert target.id in {chunk.id for chunk, _score in hits}

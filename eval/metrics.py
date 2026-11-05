@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 from app.services.ingestion.embeddings import embed_texts_for_profile
 from app.services.chat.llm import complete_openai
-from app.services.chat.prompt import is_no_context_answer
+from app.services.chat.prompt import contains_no_context_phrase, is_no_context_answer
 from app.services.retrieval import NO_CONTEXT_ANSWER
 from citation_metrics import citation_support_rate
 
@@ -35,11 +35,23 @@ class RagasScores:
     context_precision: float | None
     answer_relevance: float | None
     citation_support_rate: float | None = None
+    context_relevance_by_rank: list[bool] = field(default_factory=list)
     relevance_questions: list[str] = field(default_factory=list, repr=False)
 
 
+def classify_refusal(answer: str) -> str:
+    """Classify a response as exact refusal, embedded phrase, regular answer, or empty."""
+    if not answer.strip():
+        return "empty"
+    if answer.strip() == NO_CONTEXT_ANSWER or is_no_context_answer(answer):
+        return "exact"
+    if contains_no_context_phrase(answer):
+        return "embedded"
+    return "none"
+
+
 def is_refusal(answer: str) -> bool:
-    return is_no_context_answer(answer)
+    return classify_refusal(answer) == "exact"
 
 
 def score_case(
@@ -57,10 +69,12 @@ def score_case(
     else:
         faithfulness = _faithfulness(question, answer, contexts)
 
+    context_relevance_by_rank: list[bool] = []
     if not contexts:
         context_precision = None
     else:
-        context_precision = _context_precision(question, ground_truth, contexts)
+        context_relevance_by_rank = _context_relevance_flags(question, ground_truth, contexts)
+        context_precision = _precision_at_k(context_relevance_by_rank)
 
     answer_relevance: float | None
     relevance_questions: list[str] = []
@@ -81,6 +95,7 @@ def score_case(
         context_precision=context_precision,
         answer_relevance=answer_relevance,
         citation_support_rate=source_support,
+        context_relevance_by_rank=context_relevance_by_rank,
         relevance_questions=relevance_questions,
     )
 
@@ -140,6 +155,12 @@ def _faithfulness(question: str, answer: str, contexts: list[str]) -> float:
 
 
 def _context_precision(question: str, ground_truth: str, contexts: list[str]) -> float:
+    """Return rank-weighted precision from the context relevance judge."""
+    return _precision_at_k(_context_relevance_flags(question, ground_truth, contexts))
+
+
+def _context_relevance_flags(question: str, ground_truth: str, contexts: list[str]) -> list[bool]:
+    """Return one relevance verdict per context in retrieval order, defaulting missing verdicts to false."""
     numbered = "\n\n".join(f"[{index}] {text}" for index, text in enumerate(contexts, start=1))
     messages = [
         {
@@ -169,8 +190,7 @@ def _context_precision(question: str, ground_truth: str, contexts: list[str]) ->
             except (TypeError, ValueError):
                 continue
             relevant_by_index[index] = bool(item.get("relevant"))
-    flags = [relevant_by_index.get(index, False) for index in range(1, len(contexts) + 1)]
-    return _precision_at_k(flags)
+    return [relevant_by_index.get(index, False) for index in range(1, len(contexts) + 1)]
 
 
 def _precision_at_k(relevance: list[bool]) -> float:

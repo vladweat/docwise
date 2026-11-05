@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import unicodedata
 from uuid import UUID
 
 from sqlalchemy import func, literal_column, text
@@ -178,7 +179,10 @@ def _fts_or_query(query: str) -> str | None:
     for token in tokens:
         if token in seen:
             continue
-        if not token.replace("_", "").isalnum() and not token.isalpha():
+        if not all(
+            char.isalnum() or char == "_" or unicodedata.category(char).startswith("M")
+            for char in token
+        ):
             continue
         seen.add(token)
         safe.append(token)
