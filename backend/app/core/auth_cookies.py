@@ -5,8 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import jwt
 from fastapi import HTTPException, Response, status
-from jose import JWTError, jwt
+from jwt.exceptions import InvalidTokenError
 from redis import RedisError
 
 from app.core.config import get_settings
@@ -66,7 +67,7 @@ def decode_refresh_token(token: str) -> dict:
     settings = get_settings()
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise ValueError("Invalid token") from exc
     if payload.get("typ") != "refresh":
         raise ValueError("Invalid token")
@@ -90,7 +91,7 @@ def revoke_refresh_token(token: str) -> None:
         jti = payload.get("jti")
         if jti:
             get_redis_client().delete(f"{REFRESH_PREFIX}{jti}")
-    except (JWTError, RedisError, ValueError):
+    except (InvalidTokenError, RedisError, ValueError):
         return
 
 

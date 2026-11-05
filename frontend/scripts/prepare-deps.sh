@@ -8,11 +8,11 @@ if ! command -v npm &>/dev/null; then
   exit 1
 fi
 
-# optionalDependencies (Next SWC, Tailwind lightningcss/oxide, Rollup, esbuild) пропускаются.
-# Нативные gnu+musl бинарники — прямые deps: хост glibc, образ node:20-alpine (musl).
+# Нативные gnu+musl бинарники — прямые зависимости: хост glibc, образ node:20-alpine (musl).
 # Версии SWC = next; lightningcss/oxide = tailwindcss; rollup/esbuild = vitest/vite.
 echo "Installing frontend dependencies..."
-npm install --omit=optional --no-audit --no-fund
+# --force позволяет npm установить обе целевые версии нативных пакетов на хосте glibc.
+npm ci --omit=optional --no-audit --no-fund --force
 
 mkdir -p public
 if [[ -f node_modules/pdfjs-dist/build/pdf.worker.min.mjs ]]; then

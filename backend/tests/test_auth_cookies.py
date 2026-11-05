@@ -2,7 +2,7 @@
 
 import uuid
 
-from jose import jwt
+import jwt
 from fastapi.testclient import TestClient
 
 from app.core.auth_cookies import ACCESS_COOKIE, REFRESH_COOKIE
