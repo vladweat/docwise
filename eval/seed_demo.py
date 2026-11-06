@@ -23,12 +23,6 @@ sys.path.insert(0, str(EVAL_DIR))
 
 from corpus import (  # noqa: E402
     DEMO_ACCOUNTS,
-    DEMO_ADMIN_EMAIL,
-    DEMO_ADMIN_PASSWORD,
-    DEMO_EMPLOYEE_EMAIL,
-    DEMO_EMPLOYEE_PASSWORD,
-    DEMO_HR_EMAIL,
-    DEMO_HR_PASSWORD,
     reset_demo_data,
     seed_demo,
 )
@@ -40,10 +34,8 @@ UI = os.environ.get("FRONTEND_URL", "http://localhost:3001").rstrip("/")
 WALKTHROUGH = f"""
 Demo is ready. UI: {UI}
 
-Demo credentials (public in this demo; do not reuse these passwords elsewhere):
-  {DEMO_EMPLOYEE_EMAIL}   {DEMO_EMPLOYEE_PASSWORD}   role=employee  departments=[]
-  {DEMO_HR_EMAIL}         {DEMO_HR_PASSWORD}         role=employee  departments=['hr']
-  {DEMO_ADMIN_EMAIL}      {DEMO_ADMIN_PASSWORD}      role=admin     (KB upload)
+Choose an Employee, HR, or Admin button in the demo login panel. The public
+demo login buttons authenticate the corresponding synthetic account.
 
 Documents (same org):
   Employee-Handbook.pdf         access_roles=['all']       everyone in this org
@@ -60,12 +52,12 @@ Documents (same org):
   People-Compendium.pdf         access_roles=['hr']        long HR-only compendium
 
 Walkthrough:
-  1. Open {UI} → «Войти как сотрудник» ({DEMO_EMPLOYEE_EMAIL})
+  1. Open {UI} → choose «Войти как сотрудник» in the demo login panel
   2. Ask: What are the core working hours at Docwise?
      → handbook page 1 + PDF highlight on the citation
   3. Ask: What is the individual contributor L3 salary band in USD?
      → refuse; SQL ACL drops the HR chunk before the LLM
-  4. Log out → «Войти как HR» ({DEMO_HR_EMAIL})
+  4. Log out → choose «Войти как HR» in the demo login panel
   5. Ask the salary question again
      → 72000 to 88000 USD from HR-Compensation.pdf
   6. Neither account sees Finance-Q4-Memo.pdf in the list or in chat
@@ -74,7 +66,7 @@ Walkthrough:
   9. Employee can open Operations-Handbook.pdf, but not People-Compendium.pdf
   10. HR sees both long docs; the People-Compendium stays hidden from employee
 
-The three demo emails keep membership only in org Demo (password login would otherwise pick an older org).
+The three reserved demo accounts keep membership only in org Demo.
 """
 
 

@@ -168,8 +168,18 @@ echo "==> Starting stack"
 docker compose up -d
 
 echo "==> Waiting for /ready"
+check_ready() {
+  if [[ -n "${RESTORE_READY_URL:-}" ]]; then
+    curl -sf "$RESTORE_READY_URL" >/dev/null 2>&1
+  else
+    docker compose exec -T backend python -c \
+      "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)" \
+      >/dev/null 2>&1
+  fi
+}
+
 for _ in $(seq 1 90); do
-  if curl -sf "${RESTORE_READY_URL:-http://localhost:8001/ready}" >/dev/null 2>&1; then
+  if check_ready; then
     echo "==> Review ingestion recovery candidates (dry-run)"
     docker compose exec -T backend python /app/scripts/requeue_stale_ingestion.py
     echo "==> Restore complete from $BACKUP_DIR"

@@ -12,6 +12,8 @@ if [[ -f .env ]]; then
   set +a
 fi
 
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$ROOT")}"
+
 POSTGRES_USER="${POSTGRES_USER:-docwise}"
 POSTGRES_DB="${POSTGRES_DB:-docwise_db}"
 MINIO_ROOT_USER="${MINIO_ROOT_USER:-docwise}"
@@ -97,7 +99,7 @@ postgres_user=$POSTGRES_USER
 postgres_db=$POSTGRES_DB
 s3_bucket=$S3_BUCKET
 alembic_revision=$ALEMBIC_REVISION
-compose_project=$(basename "$ROOT")
+compose_project=$COMPOSE_PROJECT_NAME
 EOF
 
 echo "==> Create checksums"

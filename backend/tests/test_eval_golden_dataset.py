@@ -37,6 +37,22 @@ def _load_module(name: str):
     return module
 
 
+def _compose_service_block(compose_text: str, name: str) -> str:
+    lines = compose_text.splitlines()
+    start = lines.index(f"  {name}:")
+    end = next(
+        (
+            index
+            for index in range(start + 1, len(lines))
+            if lines[index].startswith("  ")
+            and not lines[index].startswith("    ")
+            and lines[index].rstrip().endswith(":")
+        ),
+        len(lines),
+    )
+    return "\n".join(lines[start:end])
+
+
 def test_golden_dataset_meets_eval_contract():
     dataset_mod = _load_module("dataset")
     corpus_mod = _load_module("corpus")
@@ -293,6 +309,74 @@ def test_demo_reset_is_scoped_to_the_seeded_fixture_catalog():
     assert len(seeded_ids) == 12
     assert corpus.demo_fixture_document_ids() == seeded_ids
     assert corpus.DEMO_ORG_SLUG == "demo"
+
+
+def test_demo_seed_walkthrough_does_not_expose_passwords():
+    corpus = _load_module("corpus")
+    seed_script = _load_module("seed_demo")
+    leaks_password = any(
+        bool(account.password) and account.password in seed_script.WALKTHROUGH
+        for account in corpus.DEMO_ACCOUNTS
+    )
+
+    assert not leaks_password, "demo seed walkthrough must not print account passwords"
+
+
+def test_public_demo_compose_requires_explicit_database_password_and_domain():
+    compose = Path(__file__).resolve().parents[2] / "docker-compose.public-demo.yml"
+    compose_text = compose.read_text(encoding="utf-8")
+
+    assert (
+        "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+        in compose_text
+    )
+    assert "DOCWISE_DOMAIN: ${DOCWISE_DOMAIN:?Set DOCWISE_DOMAIN in .env}" in compose_text
+    env_example = (Path(__file__).resolve().parents[2] / ".env.example").read_text(
+        encoding="utf-8"
+    )
+    assert "DOCWISE_DOMAIN=" in env_example
+
+
+def test_public_demo_does_not_publish_internal_services():
+    root = Path(__file__).resolve().parents[2]
+    compose_text = (root / "docker-compose.public-demo.yml").read_text(encoding="utf-8")
+
+    for service in ("postgres", "redis", "minio", "backend", "celery-worker", "frontend"):
+        assert "ports: !override []" in _compose_service_block(compose_text, service)
+
+    caddy = _compose_service_block(compose_text, "caddy")
+    assert '"80:80"' in caddy
+    assert '"443:443"' in caddy
+    assert '"443:443/udp"' in caddy
+
+
+def test_public_demo_disables_search_inspection_and_blocks_registration():
+    root = Path(__file__).resolve().parents[2]
+    compose_text = (root / "docker-compose.public-demo.yml").read_text(encoding="utf-8")
+    caddyfile = (root / "ops/public-demo/Caddyfile").read_text(encoding="utf-8")
+
+    assert 'ENABLE_SEARCH_INSPECT: "false"' in _compose_service_block(compose_text, "backend")
+    assert "@register path /api/v1/auth/register" in caddyfile
+    assert "respond @register 404" in caddyfile
+
+
+def test_public_demo_waits_for_garage_health_before_api_and_worker():
+    compose_text = (
+        Path(__file__).resolve().parents[2] / "docker-compose.public-demo.yml"
+    ).read_text(encoding="utf-8")
+    expected = "minio:\n        condition: service_healthy"
+
+    for service in ("backend", "celery-worker"):
+        assert expected in _compose_service_block(compose_text, service)
+
+
+def test_restore_defaults_to_internal_backend_readiness_probe():
+    restore_script = Path(__file__).resolve().parents[2] / "ops/restore-pilot.sh"
+    script_text = restore_script.read_text(encoding="utf-8")
+
+    assert "docker compose exec -T backend python -c" in script_text
+    assert "http://localhost:8001/ready" not in script_text
+    assert "RESTORE_READY_URL" in script_text
 
 
 @pytest.mark.parametrize("args", [["--reset"], ["--confirm-reset"]])
