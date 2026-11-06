@@ -114,13 +114,16 @@ def _iter_sse_events_impl(
             session = get_owned_session(db, user, session_id) if session_id is not None else None
             allowed = canonical_allowed_roles(allowed_roles_for(user))
             history = snapshot_history(db, session.id) if session is not None else []
+            cacheable = not history
             index_generation = int(user.organization.llm_index_generation or 0)
-            cached = load_cached_answer(
-                query,
-                allowed,
-                organization_id=user.organization_id,
-                index_generation=index_generation,
-            )
+            cached = None
+            if cacheable:
+                cached = load_cached_answer(
+                    query,
+                    allowed,
+                    organization_id=user.organization_id,
+                    index_generation=index_generation,
+                )
             if cached is not None:
                 persist_ok = True
                 try:
@@ -195,13 +198,14 @@ def _iter_sse_events_impl(
                 result,
                 _elapsed_ms(started),
             )
-            save_cached_answer(
-                query,
-                allowed,
-                result,
-                organization_id=organization_id,
-                index_generation=index_generation,
-            )
+            if cacheable:
+                save_cached_answer(
+                    query,
+                    allowed,
+                    result,
+                    organization_id=organization_id,
+                    index_generation=index_generation,
+                )
             yield sse({"type": "token", "content": result.answer})
             yield from sse_finish(result, persist_ok=persist_ok)
             return
@@ -232,13 +236,14 @@ def _iter_sse_events_impl(
             result,
             _elapsed_ms(started),
         )
-        save_cached_answer(
-            query,
-            allowed,
-            result,
-            organization_id=organization_id,
-            index_generation=index_generation,
-        )
+        if cacheable:
+            save_cached_answer(
+                query,
+                allowed,
+                result,
+                organization_id=organization_id,
+                index_generation=index_generation,
+            )
         yield from sse_finish(result, persist_ok=persist_ok)
     except ChatPersistError:
         yield sse({"type": "error", "content": PERSIST_FAILED})

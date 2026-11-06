@@ -577,6 +577,45 @@ def test_empty_retrieval_refuses_without_openai(monkeypatch):
     get_settings.cache_clear()
 
 
+def test_no_history_refusal_is_cached_and_persisted(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    get_settings.cache_clear()
+    calls = {"retrieve": 0}
+
+    def fake_retrieve(_db, user, _query, **_kwargs):
+        calls["retrieve"] += 1
+        return _result([], user)
+
+    monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
+    admin = _register()
+    first = _invite_into(admin, role=UserRole.employee.value)
+    second = _invite_into(admin, role=UserRole.employee.value)
+    question = f"What do the documents say about this unknown topic {uuid4().hex}?"
+
+    first_response = first.post("/api/v1/chat/stream", json={"query": question})
+    second_response = second.post("/api/v1/chat/stream", json={"query": question})
+
+    assert first_response.status_code == second_response.status_code == 200
+    first_events = _parse_sse(first_response.text)
+    second_events = _parse_sse(second_response.text)
+    expected = "The provided documents do not contain information on this question."
+    for events in (first_events, second_events):
+        answer = "".join(
+            item["content"] for item in events if isinstance(item, dict) and item.get("type") == "token"
+        )
+        assert answer == expected
+        assert events[-1] == "[DONE]"
+    assert _meta(first_events)["cached"] is False
+    assert _meta(second_events)["cached"] is True
+    assert calls["retrieve"] == 1
+
+    db = SessionLocal()
+    assert db.query(ChatSession).count() == 2
+    assert db.query(ChatMessage).count() == 4
+    db.close()
+    get_settings.cache_clear()
+
+
 @pytest.mark.parametrize(
     ("query", "expected"),
     [
@@ -683,7 +722,7 @@ def test_history_does_not_bypass_acl(monkeypatch):
     get_settings.cache_clear()
 
 
-def test_admin_cache_is_not_served_to_employee(monkeypatch):
+def test_admin_cache_is_not_served_to_employee_within_same_org(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     get_settings.cache_clear()
     question = f"What is the severance policy {uuid4().hex}?"
@@ -707,7 +746,7 @@ def test_admin_cache_is_not_served_to_employee(monkeypatch):
     monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
 
     admin = _register(role=UserRole.admin.value)
-    employee = _register(role=UserRole.employee.value, departments=[])
+    employee = _invite_into(admin, role=UserRole.employee.value, departments=[])
 
     admin_resp = admin.post("/api/v1/chat/stream", json={"query": question})
     assert admin_resp.status_code == 200
@@ -778,6 +817,120 @@ def test_same_roles_share_cache(monkeypatch):
     logs = db.query(RagAuditLog).order_by(RagAuditLog.created_at.asc()).all()
     assert logs[-1].tokens_used is None
     assert any(log.tokens_used == 9 for log in logs)
+    db.close()
+    get_settings.cache_clear()
+
+
+def test_same_roles_in_different_organizations_do_not_share_cache(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    question = f"What is the office schedule {uuid4().hex}?"
+    public = _chunk(title="Office.pdf", page=1, content="Office hours are 9 to 5.", roles=("all",))
+    calls = {"stream": 0, "retrieve": 0}
+
+    def fake_retrieve(_db, user, _query, **_kwargs):
+        calls["retrieve"] += 1
+        return _result([public], user)
+
+    def fake_stream(_messages, **_kwargs):
+        calls["stream"] += 1
+        yield "Office hours are 9 to 5 [Office.pdf, p. 1]."
+        yield LLMUsage(tokens_used=6, cost_usd=Decimal("0.000001"))
+
+    monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+    first = _register(role=UserRole.employee.value)
+    second = _register(role=UserRole.employee.value)
+
+    first_response = first.post("/api/v1/chat/stream", json={"query": question})
+    second_response = second.post("/api/v1/chat/stream", json={"query": question})
+
+    assert first_response.status_code == second_response.status_code == 200
+    assert _meta(_parse_sse(first_response.text))["cached"] is False
+    assert _meta(_parse_sse(second_response.text))["cached"] is False
+    assert calls == {"stream": 2, "retrieve": 2}
+    get_settings.cache_clear()
+
+
+def test_two_sessions_with_different_histories_do_not_share_cached_answers(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    get_settings.cache_clear()
+    question = f"What did I ask before? {uuid4().hex}"
+    public = _chunk(title="Notes.pdf", page=1, content="Notes are available.", roles=("all",))
+    calls = {"stream": 0, "retrieve": 0}
+    cache_calls = {"load": [], "save": []}
+
+    from app.services.chat.prompt import load_cached_answer, save_cached_answer
+
+    def tracked_load(query, *args, **kwargs):
+        cache_calls["load"].append(query)
+        return load_cached_answer(query, *args, **kwargs)
+
+    def tracked_save(query, *args, **kwargs):
+        cache_calls["save"].append(query)
+        return save_cached_answer(query, *args, **kwargs)
+
+    def fake_retrieve(_db, user, _query, **_kwargs):
+        calls["retrieve"] += 1
+        return _result([public], user)
+
+    def fake_stream(messages, **_kwargs):
+        calls["stream"] += 1
+        user_messages = [item["content"] for item in messages if item["role"] == "user"]
+        if len(user_messages) > 1:
+            yield f"Earlier question: {user_messages[-2]}"
+        else:
+            yield "This was the first question."
+        yield LLMUsage(tokens_used=6, cost_usd=Decimal("0.000001"))
+
+    monkeypatch.setattr("app.services.chat.sse.load_cached_answer", tracked_load)
+    monkeypatch.setattr("app.services.chat.sse.save_cached_answer", tracked_save)
+    monkeypatch.setattr("app.services.chat.retrieve", fake_retrieve)
+    monkeypatch.setattr("app.services.chat.stream_openai", fake_stream)
+    http = _register(role=UserRole.employee.value)
+    first_history = f"First session seed {uuid4().hex}"
+    second_history = f"Second session seed {uuid4().hex}"
+
+    first_seed_response = http.post("/api/v1/chat/stream", json={"query": first_history})
+    second_seed_response = http.post("/api/v1/chat/stream", json={"query": second_history})
+    assert first_seed_response.status_code == second_seed_response.status_code == 200
+    first_session_id = _meta(_parse_sse(first_seed_response.text))["session_id"]
+    second_session_id = _meta(_parse_sse(second_seed_response.text))["session_id"]
+
+    first_follow_up = http.post(
+        "/api/v1/chat/stream",
+        json={"query": question, "session_id": first_session_id},
+    )
+    second_follow_up = http.post(
+        "/api/v1/chat/stream",
+        json={"query": question, "session_id": second_session_id},
+    )
+
+    assert first_follow_up.status_code == second_follow_up.status_code == 200
+    first_events = _parse_sse(first_follow_up.text)
+    second_events = _parse_sse(second_follow_up.text)
+    assert _event_types(first_events) == ["citations", "token", "meta", "[DONE]"]
+    assert _event_types(second_events) == ["citations", "token", "meta", "[DONE]"]
+    assert _meta(first_events)["cached"] is False
+    assert _meta(second_events)["cached"] is False
+    first_answer = next(
+        item["content"] for item in first_events if isinstance(item, dict) and item["type"] == "token"
+    )
+    second_answer = next(
+        item["content"] for item in second_events if isinstance(item, dict) and item["type"] == "token"
+    )
+    assert first_answer == f"Earlier question: {first_history}"
+    assert second_answer == f"Earlier question: {second_history}"
+    assert first_answer != second_answer
+    assert calls == {"stream": 4, "retrieve": 4}
+    assert question not in cache_calls["load"]
+    assert question not in cache_calls["save"]
+
+    db = SessionLocal()
+    first_rows = db.query(ChatMessage).filter(ChatMessage.session_id == UUID(first_session_id)).all()
+    second_rows = db.query(ChatMessage).filter(ChatMessage.session_id == UUID(second_session_id)).all()
+    assert {row.content for row in first_rows} >= {first_history, question, first_answer}
+    assert {row.content for row in second_rows} >= {second_history, question, second_answer}
     db.close()
     get_settings.cache_clear()
 
