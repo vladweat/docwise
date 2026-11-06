@@ -5,12 +5,21 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+EXPLICIT_COMPOSE_FILE="${COMPOSE_FILE:-}"
+EXPLICIT_COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-}"
 if [[ -f .env ]]; then
   set -a
   # shellcheck disable=SC1091
   source .env
   set +a
 fi
+if [[ -n "$EXPLICIT_COMPOSE_FILE" ]]; then
+  COMPOSE_FILE="$EXPLICIT_COMPOSE_FILE"
+fi
+if [[ -n "$EXPLICIT_COMPOSE_PROJECT_NAME" ]]; then
+  COMPOSE_PROJECT_NAME="$EXPLICIT_COMPOSE_PROJECT_NAME"
+fi
+unset EXPLICIT_COMPOSE_FILE EXPLICIT_COMPOSE_PROJECT_NAME
 
 if [[ "${RESTORE_DRILL_CONFIRM:-}" != "YES" ]]; then
   echo "error: this drill briefly stops source writers; set RESTORE_DRILL_CONFIRM=YES after choosing a maintenance window" >&2
@@ -46,7 +55,7 @@ COMPOSE_FILE="$COMPOSE_FILES" COMPOSE_PROJECT_NAME="$SOURCE_PROJECT" \
 echo "==> Restore into isolated project: $DRILL_PROJECT"
 COMPOSE_FILE="$COMPOSE_FILES:ops/restore-drill.compose.yml" COMPOSE_PROJECT_NAME="$DRILL_PROJECT" \
   RESTORE_READY_URL=http://127.0.0.1:18001/ready \
-  bash ops/restore-pilot.sh "$BACKUP_DIR" --wipe-volumes
+  bash ops/restore-pilot.sh "$BACKUP_DIR" --wipe-volumes --allow-project-mismatch
 
 echo "==> Verify isolated application and restored database"
 curl -fsS http://127.0.0.1:18001/ready >/dev/null

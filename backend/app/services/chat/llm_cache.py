@@ -20,7 +20,7 @@ from app.models.organization import Organization
 
 logger = logging.getLogger(__name__)
 
-CACHE_VERSION = "v4"
+CACHE_VERSION = "v5"
 LLM_CACHE_TTL_SECONDS = 86400
 SCAN_COUNT = 200
 

@@ -6,14 +6,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 WIPE_VOLUMES=0
+ALLOW_PROJECT_MISMATCH=0
 BACKUP_DIR=""
 
 for arg in "$@"; do
   case "$arg" in
     --wipe-volumes) WIPE_VOLUMES=1 ;;
+    --allow-project-mismatch) ALLOW_PROJECT_MISMATCH=1 ;;
     -h | --help)
-      echo "Usage: $0 <backup-dir> [--wipe-volumes]"
+      echo "Usage: $0 <backup-dir> [--wipe-volumes] [--allow-project-mismatch]"
       echo "  --wipe-volumes  docker compose down -v before restore (local drill only)"
+      echo "  --allow-project-mismatch  only for an isolated docwise-restore-drill-* project with --wipe-volumes"
       exit 0
       ;;
     *)
@@ -56,6 +59,34 @@ echo "==> Verify backup checksums before stopping services"
 if ! (cd "$BACKUP_DIR" && sha256sum --check --status checksums.sha256); then
   echo "error: backup checksum mismatch; refusing restore" >&2
   exit 1
+fi
+EXPLICIT_COMPOSE_FILE="${COMPOSE_FILE:-}"
+EXPLICIT_COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-}"
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+if [[ -n "$EXPLICIT_COMPOSE_FILE" ]]; then
+  COMPOSE_FILE="$EXPLICIT_COMPOSE_FILE"
+fi
+if [[ -n "$EXPLICIT_COMPOSE_PROJECT_NAME" ]]; then
+  COMPOSE_PROJECT_NAME="$EXPLICIT_COMPOSE_PROJECT_NAME"
+fi
+unset EXPLICIT_COMPOSE_FILE EXPLICIT_COMPOSE_PROJECT_NAME
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$ROOT")}"
+
+BACKUP_COMPOSE_PROJECT="$(sed -n 's/^compose_project=//p' "$BACKUP_DIR/manifest.txt" | tail -n 1)"
+if [[ -z "$BACKUP_COMPOSE_PROJECT" ]]; then
+  echo "error: backup manifest has no Compose project; refusing restore" >&2
+  exit 1
+fi
+if [[ "$BACKUP_COMPOSE_PROJECT" != "$COMPOSE_PROJECT_NAME" ]]; then
+  if [[ "$ALLOW_PROJECT_MISMATCH" != 1 || "$WIPE_VOLUMES" != 1 || ! "$COMPOSE_PROJECT_NAME" =~ ^docwise-restore-drill-[a-z0-9-]+$ ]]; then
+    echo "error: backup belongs to Compose project '$BACKUP_COMPOSE_PROJECT', current project is '$COMPOSE_PROJECT_NAME'; refusing restore" >&2
+    exit 1
+  fi
 fi
 BACKUP_ALEMBIC_REVISION="$(sed -n 's/^alembic_revision=//p' "$BACKUP_DIR/manifest.txt" | tail -n 1)"
 if [[ -z "$BACKUP_ALEMBIC_REVISION" ]]; then
@@ -103,13 +134,6 @@ if not backup_revisions or unknown or disconnected:
 print("Backup revision is an ancestor of the current Alembic head(s).")
 PY
 )
-
-if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
 
 POSTGRES_USER="${POSTGRES_USER:-docwise}"
 POSTGRES_DB="${POSTGRES_DB:-docwise_db}"

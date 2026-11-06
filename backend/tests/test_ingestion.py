@@ -222,6 +222,7 @@ def test_process_document_task_persists_failure_on_exception(monkeypatch, caplog
     assert len(events) == 1
     assert events[0].error_type == "RuntimeError"
     assert events[0].attempt == 1
+    assert events[0].state_persisted is True
     assert "document_id" not in events[0].__dict__
 
 
@@ -260,8 +261,54 @@ def test_process_document_task_logs_retry_event_without_document_identifier(monk
     assert events[0].retry_attempt == 1
     assert events[0].max_retries == 3
     assert events[0].error_type == "RetryableIngestionError"
+    assert events[0].state_persisted is True
     assert "document_id" not in events[0].__dict__
     assert retry_calls == ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]
+
+
+@pytest.mark.parametrize("retryable", [True, False], ids=["retry", "permanent-failure"])
+def test_process_document_task_logs_outcome_when_state_persistence_fails(
+    monkeypatch, caplog, retryable
+):
+    from app.services.ingestion.indexing import RetryableIngestionError
+
+    class FakeSession:
+        def close(self):
+            pass
+
+        def rollback(self):
+            pass
+
+    error = (
+        RetryableIngestionError("temporary failure")
+        if retryable
+        else RuntimeError("permanent failure")
+    )
+    monkeypatch.setattr("worker.celery_app.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr(
+        "worker.celery_app.run_ingestion",
+        lambda *_args: (_ for _ in ()).throw(error),
+    )
+    persist_name = "persist_ingestion_retry" if retryable else "persist_ingestion_failure"
+    monkeypatch.setattr(
+        f"worker.celery_app.{persist_name}",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("database unavailable")),
+    )
+    monkeypatch.setattr("worker.celery_app.release_indexing_lock", lambda _document_id: None)
+    monkeypatch.setattr("worker.celery_app.capture_pipeline_error", lambda *_args: None)
+    monkeypatch.setattr(process_document_task, "retry", lambda **_kwargs: None)
+
+    with caplog.at_level(logging.WARNING, logger="worker.celery_app"):
+        process_document_task.apply(
+            args=["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"],
+            throw=False,
+        )
+
+    expected_event = "ingestion_retry_scheduled" if retryable else "ingestion_failed_permanently"
+    events = [record for record in caplog.records if getattr(record, "event", None) == expected_event]
+    assert len(events) == 1
+    assert events[0].state_persisted is False
+    assert "document_id" not in events[0].__dict__
 
 
 def test_downloads_from_minio_and_marks_ready(db: Session, storage: FakeStorage, locks: set[str]):

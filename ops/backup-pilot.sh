@@ -5,12 +5,21 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+EXPLICIT_COMPOSE_FILE="${COMPOSE_FILE:-}"
+EXPLICIT_COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-}"
 if [[ -f .env ]]; then
   set -a
   # shellcheck disable=SC1091
   source .env
   set +a
 fi
+if [[ -n "$EXPLICIT_COMPOSE_FILE" ]]; then
+  COMPOSE_FILE="$EXPLICIT_COMPOSE_FILE"
+fi
+if [[ -n "$EXPLICIT_COMPOSE_PROJECT_NAME" ]]; then
+  COMPOSE_PROJECT_NAME="$EXPLICIT_COMPOSE_PROJECT_NAME"
+fi
+unset EXPLICIT_COMPOSE_FILE EXPLICIT_COMPOSE_PROJECT_NAME
 
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$ROOT")}"
 

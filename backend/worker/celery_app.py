@@ -110,38 +110,51 @@ def process_document_task(self, document_id: str) -> dict:
         )
         return result
     except Exception as exc:
-        db.rollback()
         retryable = isinstance(exc, (RetryableIngestionError, SQLAlchemyError, RedisError))
         retry_exhausted = self.request.retries >= INGEST_MAX_RETRIES
+        retry_scheduled = retryable and not retry_exhausted
+        target_state = "retry" if retry_scheduled else "failed"
+        state_persisted = True
         try:
-            if retryable and not retry_exhausted:
+            db.rollback()
+            if retry_scheduled:
                 persist_ingestion_retry(db, document_id)
-                logger.warning(
-                    "ingestion retry scheduled",
-                    extra={
-                        "event": "ingestion_retry_scheduled",
-                        "error_type": type(exc).__name__,
-                        "retry_attempt": self.request.retries + 1,
-                        "max_retries": INGEST_MAX_RETRIES,
-                    },
-                )
             else:
                 persist_ingestion_failure(db, document_id, exc)
-                logger.error(
-                    "ingestion failed permanently",
-                    extra={
-                        "event": "ingestion_failed_permanently",
-                        "error_type": type(exc).__name__,
-                        "retryable": retryable,
-                        "attempt": self.request.retries + 1,
-                        "max_retries": INGEST_MAX_RETRIES,
-                    },
-                )
         except Exception as persist_exc:
+            state_persisted = False
             logger.error(
                 "failed to persist ingestion state document_id=%s error_type=%s",
                 document_id,
                 type(persist_exc).__name__,
+                extra={
+                    "event": "ingestion_state_persist_failed",
+                    "target_state": target_state,
+                    "error_type": type(persist_exc).__name__,
+                },
+            )
+        if retry_scheduled:
+            logger.warning(
+                "ingestion retry scheduled",
+                extra={
+                    "event": "ingestion_retry_scheduled",
+                    "error_type": type(exc).__name__,
+                    "retry_attempt": self.request.retries + 1,
+                    "max_retries": INGEST_MAX_RETRIES,
+                    "state_persisted": state_persisted,
+                },
+            )
+        else:
+            logger.error(
+                "ingestion failed permanently",
+                extra={
+                    "event": "ingestion_failed_permanently",
+                    "error_type": type(exc).__name__,
+                    "retryable": retryable,
+                    "attempt": self.request.retries + 1,
+                    "max_retries": INGEST_MAX_RETRIES,
+                    "state_persisted": state_persisted,
+                },
             )
         # run_ingestion normally releases its lock in finally. This is a safe
         # owner-checked no-op if the failure happened before acquisition.
