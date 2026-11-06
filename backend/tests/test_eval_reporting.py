@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
+import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -183,6 +185,175 @@ def test_provenance_contains_only_non_secret_configuration_fingerprints():
     assert "api_key" not in config
     assert "base_url" not in config
     assert all("url" not in key for key in config)
+
+
+def test_capture_metadata_records_reproducibility_fields(tmp_path, monkeypatch):
+    provenance = _eval_module("provenance")
+    dataset = tmp_path / "dataset.json"
+    dataset.write_bytes(b'{"items": []}\n')
+    config = {
+        "embedding_model": "embedding-v1",
+        "reranker_model": "reranker-v2",
+        "llm_model": "chat-v3",
+        "judge_model": "judge-v4",
+        "dense_top_k": 25,
+        "sparse_top_k": 25,
+        "rrf_top_k": 15,
+        "rrf_k": 60,
+        "rerank_top_k": 4,
+        "rerank_threshold": 0.25,
+        "hnsw_iterative_scan": "relaxed_order",
+        "hnsw_max_scan_tuples": 20000,
+    }
+    monkeypatch.setattr(provenance, "code_revision", lambda: "a" * 40)
+    monkeypatch.setattr(provenance, "working_tree_dirty", lambda: True)
+
+    metadata = provenance.capture_metadata(
+        dataset,
+        evaluation_profile="multilingual-compact",
+        timestamp="2026-11-06T12:00:00+00:00",
+        retrieval_only=False,
+        configuration=config,
+        runtime_parameters={
+            "concurrency": 4,
+            "embedding_batch_size": 8,
+            "rerank_batch_size": 32,
+            "limit": 0,
+        },
+    )
+
+    assert metadata["git_commit_sha"] == "a" * 40
+    assert metadata["working_tree_dirty"] is True
+    assert metadata["dataset_sha256"] == hashlib.sha256(dataset.read_bytes()).hexdigest()
+    assert metadata["evaluation_profile"] == "multilingual-compact"
+    assert metadata["embedding_model_identifier"] == "embedding-v1"
+    assert metadata["reranker_model_identifier"] == "reranker-v2"
+    assert metadata["llm_model_identifier"] == "chat-v3"
+    assert metadata["judge_model_identifier"] == "judge-v4"
+    assert metadata["retrieval_parameters"] == {
+        "dense_top_k": 25,
+        "sparse_top_k": 25,
+        "rrf_top_k": 15,
+        "rrf_k": 60,
+        "hnsw_iterative_scan": "relaxed_order",
+        "hnsw_max_scan_tuples": 20000,
+    }
+    assert metadata["reranking_parameters"] == {
+        "top_k": 4,
+        "threshold": 0.25,
+        "batch_size": 32,
+    }
+    assert metadata["runtime_parameters"] == {
+        "concurrency": 4,
+        "embedding_batch_size": 8,
+        "limit": 0,
+        "retrieval_only": False,
+    }
+    assert metadata["timestamp"] == "2026-11-06T12:00:00+00:00"
+    assert metadata["evaluation_framework_version"] != ""
+    assert json.loads(json.dumps(metadata)) == metadata
+
+
+def test_capture_metadata_marks_missing_values_and_retrieval_only_models(tmp_path, monkeypatch):
+    provenance = _eval_module("provenance")
+    dataset = tmp_path / "dataset.json"
+    dataset.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(provenance, "code_revision", lambda: "unavailable")
+    monkeypatch.setattr(provenance, "working_tree_dirty", lambda: "unavailable")
+
+    metadata = provenance.capture_metadata(
+        dataset,
+        evaluation_profile="current",
+        timestamp="2026-11-06T12:00:00+00:00",
+        retrieval_only=True,
+        configuration={"embedding_model": "", "reranker_model": "reranker-v1"},
+    )
+
+    assert metadata["git_commit_sha"] == "unavailable"
+    assert metadata["working_tree_dirty"] == "unavailable"
+    assert metadata["embedding_model_identifier"] == "unavailable"
+    assert metadata["llm_model_identifier"] == "not_run"
+    assert metadata["judge_model_identifier"] == "not_run"
+    assert metadata["retrieval_parameters"]["dense_top_k"] == "unavailable"
+    assert metadata["reranking_parameters"]["batch_size"] == "unavailable"
+
+
+def test_missing_git_sha_is_reported_as_unavailable(tmp_path, monkeypatch):
+    provenance = _eval_module("provenance")
+    monkeypatch.delenv("DOCWISE_GIT_REVISION", raising=False)
+    monkeypatch.setattr(provenance.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(stdout=""))
+
+    assert provenance.code_revision(tmp_path) == "unavailable"
+
+
+def test_dirty_working_tree_is_reported(monkeypatch, tmp_path):
+    provenance = _eval_module("provenance")
+    monkeypatch.delenv("DOCWISE_GIT_DIRTY", raising=False)
+    monkeypatch.setattr(
+        provenance.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(stdout=" M eval/provenance.py\n"),
+    )
+
+    assert provenance.working_tree_dirty(tmp_path) is True
+
+
+def test_new_report_metadata_omits_prompts_answers_and_custom_emails():
+    run_eval = _eval_module("run_eval")
+    private_question = "private prompt text must not be published"
+    private_answer = "private generated answer must not be published"
+    private_context = "private document contents must not be published"
+    private_email = "private.person@example.test"
+    case = run_eval.GoldenCase(
+        id="safe-case-id",
+        question=private_question,
+        ground_truth_answer="private expected answer",
+        target_doc_id=None,
+        eval_user_email=private_email,
+        source_dataset="synthetic-fixture",
+    )
+    result = run_eval.CaseResult(
+        case=case,
+        answer=private_answer,
+        retrieved_doc_ids=[],
+        retrieved_pages=[],
+        contexts=[private_context],
+        leaks=[],
+        target_doc_hit=True,
+        target_page_hit=None,
+    )
+    metadata = {
+        "git_commit_sha": "a" * 40,
+        "working_tree_dirty": False,
+        "dataset_sha256": "b" * 64,
+        "evaluation_profile": "current",
+        "embedding_model_identifier": "embedding-v1",
+        "reranker_model_identifier": "reranker-v1",
+        "llm_model_identifier": "chat-v1",
+        "judge_model_identifier": "judge-v1",
+        "retrieval_parameters": {"dense_top_k": 25},
+        "reranking_parameters": {"top_k": 4},
+        "timestamp": "2026-11-06T12:00:00+00:00",
+        "evaluation_framework_version": "not_applicable",
+    }
+    summary = run_eval.EvalSummary(
+        private_email,
+        "2026-11-06T12:00:00+00:00",
+        "a" * 40,
+        "b" * 64,
+        results=[result],
+        metadata=metadata,
+    )
+
+    report = run_eval.render_report(summary)
+
+    assert "## Run metadata" in report
+    assert "git_commit_sha" in report
+    assert "retrieval_parameters" in report
+    assert private_question not in report
+    assert private_answer not in report
+    assert private_context not in report
+    assert private_email not in report
 
 
 @pytest.mark.parametrize(
@@ -473,7 +644,7 @@ def test_report_shows_generation_coverage_and_retrieval_stages_without_text():
     assert "rerank_thresholded" in report
     assert "Threshold simulation from the same reranker scores" in report
     assert "MIRACL v1.0 dev" in report
-    assert "What is documented?" in report
+    assert "What is documented?" not in report
     assert "A policy." not in report
 
 
@@ -697,6 +868,9 @@ def test_retrieval_only_report_shows_provenance_and_marks_generation_metrics_una
     report = run_eval.render_report(summary)
 
     assert "`llm_model`: `test-model`" in report
+    assert "Code revision: `test-revision`" in report
+    assert "Golden dataset SHA-256: `test-dataset-hash`" in report
+    assert "`git_commit_sha` | `unavailable`" in report
     assert "Generation quality was not evaluated" in report
     assert "| Target document hit rate | 1.000 | 1 |" in report
     assert "| Citation support | 0.500 | 1 |" in report

@@ -33,7 +33,7 @@ from app.services.ingestion.embedding_profiles import supported_profiles  # noqa
 from app.services.ingestion.embeddings import active_embedding_profile, embed_texts, select_evaluation_embedding_profile  # noqa: E402
 from dataset import GoldenCase, load_golden_dataset  # noqa: E402
 from metrics import RagasScores, classify_refusal, is_refusal, score_answer_relevance_batch, score_case  # noqa: E402
-from provenance import code_revision, dataset_sha256, evaluation_config  # noqa: E402
+from provenance import capture_metadata, evaluation_config  # noqa: E402
 from quality_gates import GateResult, all_gates_pass, evaluate_gates  # noqa: E402
 from reporting import (  # noqa: E402
     RETRIEVAL_STAGES,
@@ -92,6 +92,7 @@ class EvalSummary:
     code_revision: str
     dataset_sha256: str
     config: dict[str, str | int | float] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
     results: list[CaseResult] = field(default_factory=list)
     retrieval_only: bool = False
     query_embedding_ms: float = 0.0
@@ -229,18 +230,36 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit and args.limit > 0:
         items = items[: args.limit]
 
+    generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    runtime_parameters = {
+        "concurrency": args.concurrency,
+        "embedding_batch_size": args.embedding_batch_size,
+        "rerank_batch_size": args.rerank_batch_size,
+        "limit": args.limit,
+    }
+    config = {
+        **evaluation_config(retrieval_only=args.retrieval_only),
+        "evaluation_profile": args.model_profile,
+        "eval_concurrency": args.concurrency,
+        "eval_embedding_batch_size": args.embedding_batch_size,
+        "eval_rerank_batch_size": args.rerank_batch_size,
+        "eval_limit": args.limit,
+    }
+    metadata = capture_metadata(
+        args.dataset,
+        evaluation_profile=args.model_profile,
+        timestamp=generated_at,
+        retrieval_only=args.retrieval_only,
+        runtime_parameters=runtime_parameters,
+        configuration=config,
+    )
     summary = EvalSummary(
         eval_user_email=email,
-        generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        code_revision=code_revision(),
-        dataset_sha256=dataset_sha256(args.dataset),
-        config={
-            **evaluation_config(),
-            "eval_concurrency": args.concurrency,
-            "eval_embedding_batch_size": args.embedding_batch_size,
-            "eval_rerank_batch_size": args.rerank_batch_size,
-            "eval_limit": args.limit,
-        },
+        generated_at=generated_at,
+        code_revision=str(metadata["git_commit_sha"]),
+        dataset_sha256=str(metadata["dataset_sha256"]),
+        config=config,
+        metadata=metadata,
         retrieval_only=args.retrieval_only,
     )
     evaluator_accounts = {account.email: account for account in EVAL_ACCOUNTS}
@@ -354,6 +373,7 @@ def main(argv: list[str] | None = None) -> int:
             "code_revision": summary.code_revision,
             "dataset_sha256": summary.dataset_sha256,
             "config": summary.config,
+            "metadata": summary.metadata,
             "case_count": len(summary.results),
             "cases": safe_case_diagnostics(summary.results),
         }
@@ -709,6 +729,13 @@ def _fmt_gate_value(value: int | float | None) -> str:
     return _fmt(value)
 
 
+def _safe_persona_label(email: str) -> str:
+    account = next((item for item in EVAL_ACCOUNTS if item.email == email), None)
+    if account is None:
+        return "custom"
+    return ", ".join(account.departments) if account.departments else "employee"
+
+
 def render_report(summary: EvalSummary) -> str:
     positives = summary.positives
     no_answer_rows = summary.no_answer_cases
@@ -739,6 +766,33 @@ def render_report(summary: EvalSummary) -> str:
         "Run configuration (safe fields only):",
     ]
     lines.extend(f"- `{key}`: `{value}`" for key, value in sorted(summary.config.items()))
+    lines.extend(["", "## Run metadata", "", "| Field | Value |", "| --- | --- |"])
+    metadata_fields = (
+        "schema_version",
+        "git_commit_sha",
+        "working_tree_dirty",
+        "dataset_sha256",
+        "evaluation_profile",
+        "embedding_model_identifier",
+        "reranker_model_identifier",
+        "llm_model_identifier",
+        "judge_model_identifier",
+        "retrieval_parameters",
+        "reranking_parameters",
+        "runtime_parameters",
+        "timestamp",
+        "evaluation_framework",
+        "evaluation_framework_version",
+    )
+    for key in metadata_fields:
+        value = summary.metadata.get(key, "unavailable")
+        if isinstance(value, (dict, list)):
+            display_value = json.dumps(value, ensure_ascii=False, sort_keys=True)
+        elif isinstance(value, bool):
+            display_value = str(value).lower()
+        else:
+            display_value = str(value)
+        lines.append(f"| `{key}` | `{display_value}` |")
     lines.extend([
         "Eval personas: `employee`, `hr`, `finance`, `legal`, `security`, `engineering`",
         f"Cases: {len(summary.results)} ({len(positives)} positive, {len(no_answer_rows)} no-answer, {len(acl_rows)} ACL-negative)",
@@ -973,9 +1027,12 @@ def render_report(summary: EvalSummary) -> str:
             ]
         )
         for row in metric_slices(summary.results, dimension, default_persona=summary.eval_user_email):
+            label = str(row["label"])
+            if dimension == "persona":
+                label = _safe_persona_label(label)
             lines.append(
                 "| {label} | {cases} | {doc} | {page} | {section} | {faith} | {context} | {relevance} | {citation} | {errors} |".format(
-                    label=row["label"],
+                    label=label,
                     cases=row["cases"],
                     doc=_fmt(row["doc_hit_rate"]),
                     page=_fmt(row["page_hit_rate"]),
@@ -1000,10 +1057,10 @@ def render_report(summary: EvalSummary) -> str:
         "Each case lists documents outside that persona's access in `must_not_doc_ids`. "
         "A leak is any Top-4 chunk from those documents. Restricted chunk text is not written here.",
         "",
-        "## Per-question",
+        "## Per-case",
         "",
-        "| id | persona | kind | target doc | page hit | section hit | ACL leak | faith | ctx p | ans rel | citation support | question |",
-        "| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- |",
+        "| id | persona | kind | target doc | page | section | ACL leak | faith | ctx p | ans rel | citation |",
+        "| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |",
     ])
     for row in summary.results:
         ragas = row.ragas
@@ -1019,13 +1076,13 @@ def render_report(summary: EvalSummary) -> str:
             section = "miss"
         slug = CATALOG_BY_ID.get(row.case.target_doc_id)
         target = slug.slug if slug else (row.case.target_doc_id[:8] if row.case.target_doc_id else "—")
-        leak = ",".join(row.leaks) if row.leaks else "0"
-        question = row.case.question.replace("|", "/")
+        leak = str(len(row.leaks))
         persona = row.case.eval_user_email or summary.eval_user_email
         lines.append(
-            "| {id} | {persona} | {kind} | {target} | {page} | {section} | {leak} | {faith} | {ctx} | {rel} | {citation} | {q} |".format(
+            "| {id} | {persona} | {kind} | {target} | {page} | {section} | {leak} | "
+            "{faith} | {ctx} | {rel} | {citation} |".format(
                 id=row.case.id,
-                persona=persona,
+                persona=_safe_persona_label(persona),
                 kind=row.case.kind,
                 target=target,
                 page=page,
@@ -1035,7 +1092,6 @@ def render_report(summary: EvalSummary) -> str:
                 ctx=_fmt(ragas.context_precision if ragas else None),
                 rel=_fmt(ragas.answer_relevance if ragas else None),
                 citation=_fmt(ragas.citation_support_rate if ragas else None),
-                q=question,
             )
         )
     lines.append("")

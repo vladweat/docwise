@@ -360,6 +360,55 @@ make eval-retrieval EVAL_RERANK_BATCH_SIZE=32     # ограничить раз�
 Набор модульных проверок CI по умолчанию не запускает полную оценку. Запускайте её с отдельной базой и
 томом; не подключайте к базе публичной демонстрации или документам пользователей.
 
+### Метаданные и воспроизводимость
+
+`make eval` и `make eval-retrieval` запускают один `eval/run_eval.py`; дополнительный JSON по случаям задаётся через
+`--diagnostics-report`. Новые Markdown-отчёт и JSON содержат метаданные запуска: полный Git commit SHA, состояние
+рабочего дерева, SHA-256 набора данных, профиль `--model-profile`, идентификаторы embedding/reranker/LLM/judge-моделей,
+параметры retrieval и reranking, время запуска и версию evaluation framework. В режиме `--retrieval-only` для моделей,
+которые не вызывались, указывается `not_run`; для недоступных значений — `unavailable`. Judge использует модель из
+`OPENAI_MODEL`, как и генерация. Версия framework имеет значение `not_applicable`: метрики реализованы в репозитории
+по определениям Ragas, но runtime-зависимость `ragas` не используется; реализация привязана к Git commit SHA.
+
+Пример секции нового отчёта:
+
+```markdown
+## Run metadata
+
+| Field | Value |
+| --- | --- |
+| `schema_version` | `1` |
+| `git_commit_sha` | `0123456789abcdef0123456789abcdef01234567` |
+| `working_tree_dirty` | `true` |
+| `dataset_sha256` | `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb` |
+| `evaluation_profile` | `multilingual-compact` |
+| `embedding_model_identifier` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` |
+| `reranker_model_identifier` | `BAAI/bge-reranker-v2-m3-int8` |
+| `llm_model_identifier` | `gpt-4o-mini` |
+| `judge_model_identifier` | `gpt-4o-mini` |
+| `retrieval_parameters` | `{"dense_top_k": 25, "hnsw_iterative_scan": "relaxed_order", "hnsw_max_scan_tuples": 20000, "rrf_k": 60, "rrf_top_k": 15, "sparse_top_k": 25}` |
+| `reranking_parameters` | `{"batch_size": 64, "threshold": 0.25, "top_k": 4}` |
+| `runtime_parameters` | `{"concurrency": 4, "embedding_batch_size": 8, "limit": 0, "retrieval_only": false}` |
+| `timestamp` | `2026-11-06T12:00:00+00:00` |
+| `evaluation_framework` | `Docwise in-repo Ragas-style evaluator` |
+| `evaluation_framework_version` | `not_applicable (versioned with the Git commit)` |
+```
+
+Новые публичные отчёты не выводят вопросы, ожидаемые ответы, ответы генерации, тексты фрагментов, произвольные адреса
+учётных записей, API keys или service endpoints. Хеш системного запроса — только fingerprint, сам запрос не сохраняется.
+JSON-диагностика сохраняет прежние поля верхнего уровня (`generated_at`, `code_revision`, `dataset_sha256`, `config`,
+`case_count`, `cases`) и добавляет `metadata`; потребители старых JSON должны считать отсутствующее поле `metadata`
+не записанным, а не ошибкой. Исторические отчёты не переписываются и могут содержать вопросы, как указано в
+[`reports/README.md`](../../reports/README.md).
+
+Эти данные улучшают сравнимость, но не гарантируют побайтовое воспроизведение. Флаг `working_tree_dirty` не сохраняет
+содержимое незакоммиченных изменений. Идентификаторы embedding/reranker-моделей не являются хешами файлов весов.
+Генерация выполняется с temperature `0.2`, судья — с temperature `0.0`, однако ответы обеих моделей могут меняться
+из-за недетерминированного исполнения, обновлений снимка модели или изменений у поставщика. Endpoint намеренно не
+записывается, поэтому одинаковый model ID у разных провайдеров не гарантирует одинаковый результат. Для точного
+повтора нужны доступные версии весов, тот же provider/runtime, корпус и состояние индекса; артефакт сам по себе этого
+не фиксирует.
+
 Для запуска подготовленного варианта MIRACL требуется отдельное решение:
 
 ```bash

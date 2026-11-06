@@ -45,10 +45,24 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          if [[ "${{ inputs.retrieval_only }}" == "true" ]]; then
-            docker compose exec -T -e PYTHONPATH=/app backend python /eval/run_eval.py --seed --retrieval-only
+          revision="$(git rev-parse HEAD)"
+          if [[ -z "$(git status --porcelain --untracked-files=all)" ]]; then
+            dirty=false
           else
-            docker compose exec -T -e PYTHONPATH=/app backend python /eval/run_eval.py --seed
+            dirty=true
+          fi
+          if [[ "${{ inputs.retrieval_only }}" == "true" ]]; then
+            docker compose exec -T \
+              -e PYTHONPATH=/app \
+              -e "DOCWISE_GIT_REVISION=$revision" \
+              -e "DOCWISE_GIT_DIRTY=$dirty" \
+              backend python /eval/run_eval.py --seed --retrieval-only
+          else
+            docker compose exec -T \
+              -e PYTHONPATH=/app \
+              -e "DOCWISE_GIT_REVISION=$revision" \
+              -e "DOCWISE_GIT_DIRTY=$dirty" \
+              backend python /eval/run_eval.py --seed
           fi
 
       - name: Upload benchmark report

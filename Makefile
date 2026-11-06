@@ -122,11 +122,13 @@ load-baseline:
 EVAL_CONCURRENCY ?= 4
 EVAL_EMBEDDING_BATCH_SIZE ?= 1
 EVAL_RERANK_BATCH_SIZE ?= 64
+DOCWISE_GIT_REVISION ?= $(shell git rev-parse HEAD 2>/dev/null || echo unavailable)
+DOCWISE_GIT_DIRTY ?= $(shell if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then if test -z "$$(git status --porcelain --untracked-files=all 2>/dev/null)"; then echo false; else echo true; fi; else echo unavailable; fi)
 eval:
-	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --concurrency $(EVAL_CONCURRENCY) --embedding-batch-size $(EVAL_EMBEDDING_BATCH_SIZE) --rerank-batch-size $(EVAL_RERANK_BATCH_SIZE)
+	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(DOCWISE_GIT_REVISION) -e DOCWISE_GIT_DIRTY=$(DOCWISE_GIT_DIRTY) backend python /eval/run_eval.py --seed --concurrency $(EVAL_CONCURRENCY) --embedding-batch-size $(EVAL_EMBEDDING_BATCH_SIZE) --rerank-batch-size $(EVAL_RERANK_BATCH_SIZE)
 
 eval-retrieval:
-	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) backend python /eval/run_eval.py --seed --retrieval-only --embedding-batch-size $(EVAL_EMBEDDING_BATCH_SIZE) --rerank-batch-size $(EVAL_RERANK_BATCH_SIZE)
+	docker compose exec -e PYTHONPATH=/app -e DOCWISE_GIT_REVISION=$(DOCWISE_GIT_REVISION) -e DOCWISE_GIT_DIRTY=$(DOCWISE_GIT_DIRTY) backend python /eval/run_eval.py --seed --retrieval-only --embedding-batch-size $(EVAL_EMBEDDING_BATCH_SIZE) --rerank-batch-size $(EVAL_RERANK_BATCH_SIZE)
 
 # Local demo: employee vs HR + 12 PDFs (all / hr / finance)
 demo:
