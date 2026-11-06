@@ -5,9 +5,10 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
+import logging
 from sqlalchemy.orm import Session
 
-from worker.celery_app import process_document_task
+from worker.celery_app import configure_worker_logging, process_document_task, settings
 from app.core.database import SessionLocal
 from app.models.document import EMBEDDING_DIM, Document, DocumentChunk, DocumentStatus, make_chunk_id
 from app.models.organization import Organization
@@ -24,6 +25,15 @@ from app.services.storage import StorageError
 from helpers import make_org, wipe_app_tables
 from docx_fixtures import policy_docx_bytes
 from pdf_fixtures import blank_pdf_bytes, policy_pdf_bytes
+
+
+def test_worker_logging_uses_shared_json_formatter(monkeypatch):
+    configured: list[str] = []
+    monkeypatch.setattr("worker.celery_app.setup_json_logging", configured.append)
+
+    configure_worker_logging()
+
+    assert configured == [settings.log_level]
 
 MIN_PDF = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
 
@@ -170,7 +180,7 @@ def test_process_document_task_delegates_to_run_ingestion(monkeypatch):
     assert closed
 
 
-def test_process_document_task_persists_failure_on_exception(monkeypatch):
+def test_process_document_task_persists_failure_on_exception(monkeypatch, caplog):
     persisted: list[str] = []
     released: list[str] = []
     captured: list[str] = []
@@ -200,13 +210,58 @@ def test_process_document_task_persists_failure_on_exception(monkeypatch):
         lambda component, exc: captured.append(component),
     )
 
-    with pytest.raises(RuntimeError, match="worker boom"):
-        process_document_task.apply(args=["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]).get()
+    with caplog.at_level(logging.ERROR, logger="worker.celery_app"):
+        with pytest.raises(RuntimeError, match="worker boom"):
+            process_document_task.apply(args=["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]).get()
 
     doc_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     assert persisted == [doc_id]
     assert released == [doc_id]
     assert captured == ["ingestion"]
+    events = [record for record in caplog.records if getattr(record, "event", None) == "ingestion_failed_permanently"]
+    assert len(events) == 1
+    assert events[0].error_type == "RuntimeError"
+    assert events[0].attempt == 1
+    assert "document_id" not in events[0].__dict__
+
+
+def test_process_document_task_logs_retry_event_without_document_identifier(monkeypatch, caplog):
+    from app.services.ingestion.indexing import RetryableIngestionError
+
+    class FakeSession:
+        def close(self):
+            pass
+
+        def rollback(self):
+            pass
+
+    monkeypatch.setattr("worker.celery_app.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr(
+        "worker.celery_app.run_ingestion",
+        lambda *_args: (_ for _ in ()).throw(RetryableIngestionError("temporary failure")),
+    )
+    retry_calls: list[str] = []
+    monkeypatch.setattr(
+        "worker.celery_app.persist_ingestion_retry",
+        lambda _db, document_id: retry_calls.append(str(document_id)),
+    )
+    monkeypatch.setattr("worker.celery_app.release_indexing_lock", lambda _document_id: None)
+    monkeypatch.setattr("worker.celery_app.capture_pipeline_error", lambda *_args: None)
+    monkeypatch.setattr(process_document_task, "retry", lambda **_kwargs: None)
+
+    with caplog.at_level(logging.WARNING, logger="worker.celery_app"):
+        process_document_task.apply(
+            args=["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"],
+            throw=False,
+        )
+
+    events = [record for record in caplog.records if getattr(record, "event", None) == "ingestion_retry_scheduled"]
+    assert len(events) == 1
+    assert events[0].retry_attempt == 1
+    assert events[0].max_retries == 3
+    assert events[0].error_type == "RetryableIngestionError"
+    assert "document_id" not in events[0].__dict__
+    assert retry_calls == ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]
 
 
 def test_downloads_from_minio_and_marks_ready(db: Session, storage: FakeStorage, locks: set[str]):

@@ -45,3 +45,26 @@ def test_ready_checks_dependencies():
     assert data["billing"] in {"dev", "ok", "error"}
     assert "qdrant" not in data
     assert "slither" not in data
+
+
+def test_ready_reports_dependency_state_without_worker_or_request_data(monkeypatch):
+    from app.api import health
+
+    monkeypatch.setattr(health, "check_postgres", lambda: None)
+    monkeypatch.setattr(health, "_check_redis", lambda: True)
+    monkeypatch.setattr(health, "check_pgvector", lambda: True)
+    monkeypatch.setattr(health, "_check_minio", lambda: True)
+    monkeypatch.setattr(health, "billing_readiness", lambda: "dev")
+
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "environment": health.get_settings().environment,
+        "postgres": "ok",
+        "redis": "ok",
+        "pgvector": "ok",
+        "minio": "ok",
+        "billing": "dev",
+    }

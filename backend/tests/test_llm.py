@@ -1,6 +1,7 @@
 """Non-streaming LLM helper used by eval judges. No live network."""
 
 from app.core.config import get_settings
+from app.core.metrics import REGISTRY
 from app.services.chat.llm import LLMUsage, OpenAIRequestError, complete_openai
 
 
@@ -52,9 +53,16 @@ def test_complete_openai_raises_on_http_error(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     get_settings.cache_clear()
     client = _FakeClient(_FakeResponse(500, text="nope"))
+    before = REGISTRY.get_sample_value(
+        "docwise_llm_request_failures_total", {"operation": "complete"}
+    ) or 0
     try:
         complete_openai([{"role": "user", "content": "q"}], client=client)
         raise AssertionError("expected OpenAIRequestError")
     except OpenAIRequestError as exc:
         assert "500" in str(exc)
     assert client.closed is False
+    after = REGISTRY.get_sample_value(
+        "docwise_llm_request_failures_total", {"operation": "complete"}
+    ) or 0
+    assert after == before + 1

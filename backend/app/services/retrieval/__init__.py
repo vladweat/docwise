@@ -12,6 +12,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.metrics import RERANK_DURATION, RETRIEVAL_DURATION
 from app.services.ingestion.embeddings import embed_texts
 from app.services.retrieval.search import dense_search, hybrid_search, sparse_search
 from app.services.retrieval.types import (
@@ -102,7 +103,8 @@ def finish_retrieval(
             raise RetrievalError("Reranker score count does not match chunk count")
         return blank
 
-    scored = _rerank_records(query, fused_records, reranker, scores=precomputed_scores)
+    with RERANK_DURATION.time():
+        scored = _rerank_records(query, fused_records, reranker, scores=precomputed_scores)
     rerank_scored = [_stage_hit(record, score) for record, score in scored]
     threshold = get_settings().rerank_threshold
     thresholded = [(record, score) for record, score in scored if score >= threshold]
@@ -152,8 +154,9 @@ def retrieve(
     if not (query or "").strip():
         return blank
 
-    vector = embed_query(query, embedder=embedder)
-    pool = hybrid_search(db, user, query, vector)
+    with RETRIEVAL_DURATION.time():
+        vector = embed_query(query, embedder=embedder)
+        pool = hybrid_search(db, user, query, vector)
     return finish_retrieval(query, pool, reranker=reranker)
 
 

@@ -24,6 +24,24 @@ def test_before_send_strips_request_body_and_document_text():
     assert cleaned["exception"]["values"][0]["value"] == "[redacted]"
 
 
+def test_before_send_removes_sensitive_url_query_and_cookies():
+    event = {
+        "request": {
+            "url": "https://docwise.example/api/v1/search?query=private+text&token=secret#fragment",
+            "query_string": "query=private+text&token=secret",
+            "cookies": {"session": "secret"},
+        }
+    }
+
+    cleaned = before_send(event, None)
+
+    assert cleaned["request"]["url"] == "https://docwise.example/api/v1/search"
+    assert "query_string" not in cleaned["request"]
+    assert "cookies" not in cleaned["request"]
+    assert "private text" not in str(cleaned)
+    assert "secret" not in str(cleaned)
+
+
 def test_init_sentry_noop_without_dsn(monkeypatch):
     from app.core.config import get_settings
 

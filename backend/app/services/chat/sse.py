@@ -8,6 +8,7 @@ from collections.abc import Generator
 from uuid import UUID
 
 from app.core.errors import NotFoundError
+from app.core.metrics import RETRIEVAL_DURATION
 from app.core.rls import bind_session_rls
 from app.core.sentry import capture_pipeline_error
 from app.models.chat import ChatSession
@@ -263,21 +264,23 @@ def _run_retrieval(search, user_id: UUID, organization_id: UUID, query: str, *, 
     chat = _chat()
     session_local = chat.SessionLocal
     if use_split:
-        vector = chat.embed_query(query)
+        with RETRIEVAL_DURATION.time():
+            vector = chat.embed_query(query)
+            with session_local() as db:
+                bind_session_rls(db, organization_id=organization_id)
+                user = principal_or_none(db, user_id, organization_id)
+                if user is None:
+                    return None
+                pool = chat.hybrid_search(db, user, query, vector)
+        return chat.finish_retrieval(query, pool)
+
+    with RETRIEVAL_DURATION.time():
         with session_local() as db:
             bind_session_rls(db, organization_id=organization_id)
             user = principal_or_none(db, user_id, organization_id)
             if user is None:
                 return None
-            pool = chat.hybrid_search(db, user, query, vector)
-        return chat.finish_retrieval(query, pool)
-
-    with session_local() as db:
-        bind_session_rls(db, organization_id=organization_id)
-        user = principal_or_none(db, user_id, organization_id)
-        if user is None:
-            return None
-        return search(db, user, query)
+            return search(db, user, query)
 
 
 def _create_chat_session(session_local, user_id: UUID, organization_id: UUID, query: str) -> UUID | None:

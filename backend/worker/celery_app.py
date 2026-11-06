@@ -6,6 +6,7 @@ import time
 from celery import Celery
 from celery.schedules import crontab
 from celery.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
+from celery.signals import setup_logging as celery_setup_logging
 from redis.exceptions import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -16,6 +17,7 @@ apply_internal_no_proxy()
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
+from app.core.logging import setup_logging as setup_json_logging
 from app.core.redis import release_indexing_lock
 from app.core.rls import clear_session_rls
 from app.core.sentry import capture_pipeline_error, init_sentry
@@ -28,6 +30,12 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 init_sentry()
+
+
+@celery_setup_logging.connect
+def configure_worker_logging(**_kwargs) -> None:
+    """Use the API's JSON formatter for worker events and exception types."""
+    setup_json_logging(settings.log_level)
 
 # Long CPU work (parse + FastEmbed). acks_late + prefetch=1 so a hung embed
 # does not hold extra reserved tasks; the lock is per document UUID.
@@ -108,8 +116,27 @@ def process_document_task(self, document_id: str) -> dict:
         try:
             if retryable and not retry_exhausted:
                 persist_ingestion_retry(db, document_id)
+                logger.warning(
+                    "ingestion retry scheduled",
+                    extra={
+                        "event": "ingestion_retry_scheduled",
+                        "error_type": type(exc).__name__,
+                        "retry_attempt": self.request.retries + 1,
+                        "max_retries": INGEST_MAX_RETRIES,
+                    },
+                )
             else:
                 persist_ingestion_failure(db, document_id, exc)
+                logger.error(
+                    "ingestion failed permanently",
+                    extra={
+                        "event": "ingestion_failed_permanently",
+                        "error_type": type(exc).__name__,
+                        "retryable": retryable,
+                        "attempt": self.request.retries + 1,
+                        "max_retries": INGEST_MAX_RETRIES,
+                    },
+                )
         except Exception as persist_exc:
             logger.error(
                 "failed to persist ingestion state document_id=%s error_type=%s",

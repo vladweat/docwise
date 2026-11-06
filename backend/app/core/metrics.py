@@ -1,4 +1,4 @@
-"""Low-cardinality Prometheus metrics for HTTP request volume and latency."""
+"""Low-cardinality Prometheus metrics for HTTP and RAG pipeline behavior."""
 
 from __future__ import annotations
 
@@ -19,6 +19,30 @@ HTTP_REQUEST_DURATION = Histogram(
     "HTTP request duration in seconds, excluding the metrics scrape endpoint.",
     ("method", "route"),
     buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30),
+    registry=REGISTRY,
+)
+RETRIEVAL_DURATION = Histogram(
+    "docwise_retrieval_duration_seconds",
+    "RAG query embedding and ACL-filtered retrieval duration in seconds.",
+    registry=REGISTRY,
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60),
+)
+RERANK_DURATION = Histogram(
+    "docwise_rerank_duration_seconds",
+    "RAG cross-encoder reranking duration in seconds.",
+    registry=REGISTRY,
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30),
+)
+LLM_REQUEST_FAILURES = Counter(
+    "docwise_llm_request_failures",
+    "Failed LLM provider requests; missing local configuration is excluded.",
+    ("operation",),
+    registry=REGISTRY,
+)
+LLM_CACHE_OPERATIONS = Counter(
+    "docwise_llm_cache_operations",
+    "Shared answer cache lookups by outcome.",
+    ("outcome",),
     registry=REGISTRY,
 )
 

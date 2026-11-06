@@ -69,6 +69,13 @@ if [[ "$worker_health" != healthy ]]; then
 fi
 
 echo ""
+echo "== Ingestion retry and final-failure events (last 24h, retained logs) =="
+worker_events="$(docker compose logs --since=24h --no-log-prefix --no-log-timestamp celery-worker 2>/dev/null || true)"
+retry_events="$(grep -Fc '"event": "ingestion_retry_scheduled"' <<<"$worker_events" || true)"
+failure_events="$(grep -Fc '"event": "ingestion_failed_permanently"' <<<"$worker_events" || true)"
+echo "retry_events=$retry_events permanent_failure_events=$failure_events (counts only; no identifiers printed)"
+
+echo ""
 echo "== documents.status=failed (count) =="
 failed_count="$(docker compose exec -T postgres psql -U "${POSTGRES_USER:-docwise}" -d "${POSTGRES_DB:-docwise_db}" -t -A -c \
   "SELECT count(*) FROM documents WHERE status = 'failed';" 2>/dev/null | tr -d '\r' || echo "unknown")"
@@ -93,7 +100,7 @@ echo ""
 echo "== Pending object-storage deletions =="
 delete_backlog="$(docker compose exec -T postgres psql -U "${POSTGRES_USER:-docwise}" -d "${POSTGRES_DB:-docwise_db}" -t -A -F ' ' -c \
   "SELECT count(*), coalesce(max(extract(epoch FROM (now() - created_at)))::int, 0) FROM storage_deletions;" \
-  2>/dev/null | tr -d '\r' || echo unknown)
+  2>/dev/null | tr -d '\r' || echo unknown)"
 delete_count="${delete_backlog%% *}"
 delete_age_seconds="${delete_backlog##* }"
 echo "pending=$delete_count oldest_seconds=$delete_age_seconds"

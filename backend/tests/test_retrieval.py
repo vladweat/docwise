@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.metrics import REGISTRY
 from app.models.document import Document, DocumentChunk, DocumentStatus, EMBEDDING_DIM, make_chunk_id
 from app.services.retrieval import (
     DENSE_TOP_K,
@@ -97,15 +98,19 @@ def test_finish_retrieval_preserves_scored_thresholded_and_top4_stages(monkeypat
     )
     monkeypatch.setattr(retrieval_module, "get_settings", lambda: type("Settings", (), {"rerank_threshold": 0.25})())
 
+    before = REGISTRY.get_sample_value("docwise_rerank_duration_seconds_count") or 0
+
     class _Scorer:
         def score(self, _query, _documents):
             return [0.99, 0.95, 0.9, 0.8, 0.7, 0.2]
 
     result = finish_retrieval("target question", pool, reranker=_Scorer())
+    after = REGISTRY.get_sample_value("docwise_rerank_duration_seconds_count") or 0
 
     assert [hit.section_title for hit in result.rerank_scored] == [f"section-{i}" for i in range(6)]
     assert [hit.section_title for hit in result.rerank_thresholded] == [f"section-{i}" for i in range(5)]
     assert [hit.section_title for hit in result.reranked] == [f"section-{i}" for i in range(4)]
+    assert after == before + 1
 
 
 def test_finish_retrieval_accepts_scores_from_bounded_cross_case_batch(monkeypatch):

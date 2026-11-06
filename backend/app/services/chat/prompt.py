@@ -12,6 +12,7 @@ from uuid import UUID
 
 from app.models.chat import ChatMessage, ChatMessageRole
 from app.schemas.chat import Citation
+from app.core.metrics import LLM_CACHE_OPERATIONS
 from app.services.chat.llm_cache import cache_key, redis_get, redis_set
 from app.services.retrieval import NO_CONTEXT_ANSWER, RetrievedChunk
 
@@ -243,7 +244,9 @@ def load_cached_answer(
         )
     )
     if payload is None:
+        LLM_CACHE_OPERATIONS.labels(outcome="miss").inc()
         return None
+    LLM_CACHE_OPERATIONS.labels(outcome="hit").inc()
     return _result_from_cache_payload(payload)
 
 

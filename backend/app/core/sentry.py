@@ -39,6 +39,11 @@ def before_send(event: Any, _hint: Any = None) -> Any:
     if isinstance(request, dict):
         request.pop("data", None)
         request.pop("body", None)
+        request.pop("query_string", None)
+        request.pop("cookies", None)
+        url = request.get("url")
+        if isinstance(url, str):
+            request["url"] = url.split("?", 1)[0].split("#", 1)[0]
         headers = request.get("headers")
         if isinstance(headers, dict):
             for name in list(headers):

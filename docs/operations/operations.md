@@ -46,7 +46,8 @@ curl -fsS http://localhost:8001/ready | python3 -m json.tool
 ```
 
 `/health` проверяет только процесс. `/ready` проверяет PostgreSQL/pgvector, Redis, S3 и обработчик оплаты;
-при деградации возвращает `503`.
+при деградации возвращает `503`. Этот endpoint не проверяет внешний LLM provider или Celery; здоровье Celery отдельно
+видно по Compose healthcheck и `make check-pilot-alerts`.
 
 Единственная задача `db-migrate` создаёт или проверяет `docwise_rls`, выдаёт разрешения и применяет миграции.
 Ошибка этой задачи блокирует API и фоновый обработчик. За пределами этих профилей Compose миграции и роль
@@ -84,11 +85,66 @@ make check-pilot-alerts
 curl -fsS http://localhost:8001/metrics
 ```
 
-Серверная часть записывает JSON-журналы с маскировкой данных; Sentry включается через `SENTRY_DSN`. `GET /metrics`
-возвращает число HTTP-запросов и гистограмму задержки с ограниченным набором меток по методу, шаблону маршрута
-и статусу; содержимое запросов, идентификаторы организаций и исходные пути URL не включаются. Маршрут доступен
-на loopback в базовом профиле Compose; публичный Caddy не проксирует `/metrics`. Сервер и конфигурация сбора Prometheus,
-общие панели мониторинга, трассировки OpenTelemetry и долговременное хранение журналов не настроены.
+API и Celery worker используют JSON-журналы с общим маскирующим форматтером. В worker для ingestion добавляются
+события `ingestion_retry_scheduled` и `ingestion_failed_permanently`; в них есть только тип ошибки и номер попытки,
+без `document_id`, `task_id`, вопроса или текста документа. Старые сообщения worker по-прежнему могут содержать
+идентификаторы документов и объектные ключи; новые события таких полей не добавляют. Sentry включается через
+`SENTRY_DSN`; перед отправкой удаляются тела запросов, query string и cookies, а секретные заголовки и тексты ошибок
+маскируются. Без настроенного DSN отправка событий не проверяется и выключена.
+
+`GET /metrics` исключает сам scrape и публикует метрики с ограниченными метками:
+
+| Метрика | Значение | Метки |
+| --- | --- | --- |
+| `docwise_http_requests_total` | число завершённых HTTP-запросов и статусов | `method`, шаблон `route`, `status` |
+| `docwise_http_request_duration_seconds` | задержка HTTP-запроса, включая завершение SSE-ответа | `method`, шаблон `route` |
+| `docwise_retrieval_duration_seconds` | embedding вопроса и ACL-фильтрованный hybrid search | нет |
+| `docwise_rerank_duration_seconds` | повторное ранжирование непустого набора кандидатов | нет |
+| `docwise_llm_request_failures_total` | неудачные запросы к LLM provider; отсутствие локального API key исключено | `operation=stream|complete` |
+| `docwise_llm_cache_operations_total` | чтения общего answer cache | `outcome=hit|miss` |
+
+В метрики не попадают пользователь, организация, документ, запрос, модель, содержимое ответа или исключение. Ошибка Redis
+при чтении общего кэша работает fail-open и учитывается как `miss`; отдельно она видна в безопасном JSON warning.
+Показатели `retrieval` и `rerank` измеряются раздельно: retrieval включает embedding и dense/sparse поиск, rerank — только
+переранжирование, если кандидаты были. `/metrics` доступен на loopback в базовом профиле Compose; публичный Caddy его
+не проксирует.
+
+Экспозиция новых метрик проверена через FastAPI `TestClient`; это не проверка внешнего scrape. Запросы для панелей и
+кандидаты alert rules ниже подготовлены, но не проверены Prometheus parser-ом и не применены на сервере. Ни Prometheus,
+ни Grafana/Loki в проект не добавлены: `prometheus-client` уже есть, но постоянно работающий
+сборщик и хранение метрик добавили бы отдельные процессы, тома и обслуживание, не оправданные текущим локальным Compose.
+Примеры запросов для панелей:
+
+```promql
+# Доля HTTP 5xx за 5 минут
+sum(rate(docwise_http_requests_total{status=~"5.."}[5m]))
+/ sum(rate(docwise_http_requests_total[5m]))
+
+# API p95 по шаблону маршрута
+histogram_quantile(0.95,
+  sum by (le, route) (rate(docwise_http_request_duration_seconds_bucket[5m])))
+
+# p95 retrieval и reranking
+histogram_quantile(0.95,
+  sum by (le) (rate(docwise_retrieval_duration_seconds_bucket[5m])))
+histogram_quantile(0.95,
+  sum by (le) (rate(docwise_rerank_duration_seconds_bucket[5m])))
+
+# Число ошибок LLM за 5 минут по типу вызова
+sum by (operation) (increase(docwise_llm_request_failures_total[5m]))
+
+# Доля попаданий answer cache; при отсутствии запросов ряд не имеет значения
+sum(increase(docwise_llm_cache_operations_total{outcome="hit"}[1h]))
+/ sum(increase(docwise_llm_cache_operations_total[1h]))
+```
+
+Кандидаты для alert rules — рост HTTP 5xx, хотя бы одна ошибка LLM за окно наблюдения, неготовность `/ready`, неотвечающий
+Celery worker, рост `documents.status=failed` и устаревшие ingestion-задачи. Пороги задержки и cache hit ratio нужно
+выбрать по реальному baseline; в репозитории нет применённых правил и настроенных получателей. `make check-pilot-alerts`
+— ручной Compose probe, а не расписанное оповещение. Он проверяет `/ready`, здоровье worker, очередь, число окончательно
+ошибочных и застрявших документов. События повторов и окончательных ошибок за последние 24 часа выводятся только
+счётчиками из сохранённых worker-журналов; результат ограничен сроком ротации логов. Метрики Celery в `/metrics` нет:
+worker — отдельный процесс, а агрегация процессов или отдельный exporter не настроены.
 
 `check-pilot-alerts` проверяет `/ready`, фоновый обработчик, документы с ошибками или устаревшим состоянием,
 очередь удаления объектов, отметку очистки по сроку хранения и задержку. Redis-команда `LLEN celery` — эвристика,

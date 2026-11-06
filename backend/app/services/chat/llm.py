@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 
 from app.core.config import get_settings
+from app.core.metrics import LLM_REQUEST_FAILURES
 from app.core.sentry import capture_pipeline_error
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,7 @@ def stream_openai(
             if response.status_code >= 400:
                 error_body = response.read().decode("utf-8", errors="replace")[:300]
                 error = OpenAIRequestError(f"LLM error {response.status_code}: {error_body}")
+                LLM_REQUEST_FAILURES.labels(operation="stream").inc()
                 capture_pipeline_error("llm", error)
                 raise error
             for line in response.iter_lines():
@@ -164,6 +166,7 @@ def stream_openai(
     except OpenAINotConfiguredError:
         raise
     except Exception as exc:
+        LLM_REQUEST_FAILURES.labels(operation="stream").inc()
         capture_pipeline_error("llm", exc)
         raise OpenAIRequestError(f"LLM stream failed: {exc}") from exc
     finally:
@@ -196,11 +199,13 @@ def complete_openai(
         if response.status_code >= 400:
             error_body = response.text[:300]
             error = OpenAIRequestError(f"LLM error {response.status_code}: {error_body}")
+            LLM_REQUEST_FAILURES.labels(operation="complete").inc()
             capture_pipeline_error("llm", error)
             raise error
         body = response.json()
         choices = body.get("choices") or []
         if not choices:
+            LLM_REQUEST_FAILURES.labels(operation="complete").inc()
             raise OpenAIRequestError("LLM returned no choices")
         content = str((choices[0].get("message") or {}).get("content") or "")
         usage = _usage_from_payload(body.get("usage"))
@@ -210,6 +215,7 @@ def complete_openai(
     except OpenAINotConfiguredError:
         raise
     except Exception as exc:
+        LLM_REQUEST_FAILURES.labels(operation="complete").inc()
         capture_pipeline_error("llm", exc)
         raise OpenAIRequestError(f"LLM request failed: {exc}") from exc
     finally:
