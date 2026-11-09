@@ -130,6 +130,111 @@ def test_citation_support_does_not_treat_a_conflicting_verbatim_claim_as_support
     assert score == 0.0
 
 
+@pytest.mark.parametrize(
+    ("claim", "source"),
+    [
+        (
+            "Employees receive paid leave.",
+            "Employees never receive paid leave.",
+        ),
+        (
+            "Employees can receive benefits.",
+            "Employees can't receive benefits.",
+        ),
+        (
+            "Работник получает отпуск.",
+            "Работник не получает отпуск.",
+        ),
+    ],
+)
+def test_citation_support_does_not_drop_negation_in_deterministic_fallback(claim, source):
+    metrics = _eval_module("citation_metrics")
+
+    score = metrics.citation_support_rate(
+        {"claims": [{"claim": claim, "source_indexes": []}]},
+        source_count=1,
+        sources=[source],
+    )
+
+    assert score == 0.0
+
+
+def test_citation_support_allows_unrelated_negation_in_a_later_sentence():
+    metrics = _eval_module("citation_metrics")
+
+    score = metrics.citation_support_rate(
+        {"claims": [{"claim": "The allowance is 20 days.", "source_indexes": []}]},
+        source_count=1,
+        sources=["The allowance is 20 days. Sick leave is not specified here."],
+    )
+
+    assert score == 1.0
+
+
+def test_offline_semantic_citation_cases_cover_paraphrase_quantity_and_polarity():
+    metrics = _eval_module("citation_metrics")
+
+    score = metrics.citation_support_rate(
+        {
+            "claims": [
+                {"claim": "Employees may take 12 weeks of parental leave.", "source_indexes": [0]},
+                {"claim": "Сотрудник получает оплачиваемый отпуск за выслугу лет.", "source_indexes": [1]},
+                {"claim": "Employees may take 20 weeks of parental leave.", "source_indexes": []},
+                {"claim": "Работник получает оплачиваемый отпуск.", "source_indexes": []},
+            ]
+        },
+        source_count=2,
+        sources=[
+            "Eligible parents can take up to twelve weeks away from work after a child's birth.",
+            "Работнику предоставляется оплачиваемый отпуск за выслугу лет.",
+            "Работник не получает оплачиваемый отпуск.",
+        ],
+    )
+
+    assert score == pytest.approx(0.5)
+
+
+def test_citation_reference_precision_matches_retrieved_pdf_pages_and_docx_sections():
+    metrics = _eval_module("citation_metrics")
+
+    result = metrics.citation_reference_metrics(
+        "The leave is paid [Policy.pdf, стр. 2]. See [Leave.docx, раздел: Annual leave]. "
+        "The handbook says [Other.pdf, стр. 2] and [policy.pdf, стр. 2].",
+        [
+            {"doc_title": "Policy.pdf", "page": 2, "section": None},
+            {"doc_title": "Leave.docx", "page": None, "section": "Annual leave"},
+        ],
+    )
+
+    assert result.valid_references == 2
+    assert result.total_references == 4
+    assert result.precision == pytest.approx(0.5)
+
+
+def test_citation_reference_precision_handles_brackets_in_source_title():
+    metrics = _eval_module("citation_metrics")
+
+    result = metrics.citation_reference_metrics(
+        "See [Guide [HR].pdf, стр. 3].",
+        [{"doc_title": "Guide [HR].pdf", "page": 3, "section": None}],
+    )
+
+    assert result.precision == 1.0
+
+
+def test_citation_reference_precision_is_unavailable_when_answer_has_no_citations():
+    metrics = _eval_module("citation_metrics")
+
+    result = metrics.citation_reference_metrics(
+        "The policy allows annual leave.",
+        [{"doc_title": "Policy.pdf", "page": 2, "section": None}],
+    )
+
+    assert result.precision is None
+    assert result.valid_references == 0
+    assert result.total_references == 0
+
+
 def test_citation_support_is_unavailable_for_answers_without_factual_claims():
     metrics = _eval_module("citation_metrics")
 
@@ -161,7 +266,80 @@ def test_citation_judge_scores_answer_claims_against_numbered_sources(monkeypatc
 
     assert score == pytest.approx(0.5)
     prompt = captured[0][1]["content"]
+    system_prompt = captured[0][0]["content"]
     assert "[0] First source" in prompt and "[1] Second source" in prompt
+    assert "negation" in system_prompt.lower()
+    assert "quantities" in system_prompt.lower()
+
+
+def test_score_case_reports_deterministic_citation_reference_precision(monkeypatch):
+    metrics = _eval_module("metrics")
+    monkeypatch.setattr(metrics, "_faithfulness", lambda *_args: 1.0)
+    monkeypatch.setattr(metrics, "_context_relevance_flags", lambda *_args: [True])
+    monkeypatch.setattr(metrics, "_citation_support", lambda *_args: 0.5)
+
+    scores = metrics.score_case(
+        question="What is the leave policy?",
+        answer="See [Policy.pdf, стр. 2] and [Unknown.pdf, стр. 1].",
+        contexts=["Employees get annual leave."],
+        ground_truth="Employees get annual leave.",
+        include_answer_relevance=False,
+        citation_sources=[
+            {"doc_title": "Policy.pdf", "page": 2, "section": None},
+        ],
+    )
+
+    assert scores.citation_reference_precision == pytest.approx(0.5)
+    assert scores.citation_reference_valid_count == 1
+    assert scores.citation_reference_count == 2
+
+
+def test_eval_runner_supplies_retrieved_source_metadata_to_citation_metrics(monkeypatch):
+    run_eval = _eval_module("run_eval")
+    citation = {"doc_id": "doc-1", "doc_title": "Policy.pdf", "page": 2, "section": None}
+    captured = {}
+    monkeypatch.setattr(run_eval, "_generate", lambda *_args: "A factual answer [Policy.pdf, стр. 2].")
+    monkeypatch.setattr(
+        run_eval,
+        "score_case",
+        lambda **kwargs: captured.update(kwargs) or SimpleNamespace(relevance_questions=[]),
+    )
+    case = SimpleNamespace(
+        question="What is the policy?",
+        ground_truth_answer="The policy is documented.",
+        is_no_answer=False,
+        is_acl_negative=False,
+    )
+    result = SimpleNamespace(case=case, leaks=[], contexts=["Policy text."])
+    chunk = SimpleNamespace(content="Policy text.", to_citation=lambda: citation)
+
+    run_eval._evaluate_prepared_case(SimpleNamespace(result=result, chunks=[chunk]))
+
+    assert captured["citation_sources"] == [citation]
+
+
+def test_eval_runner_excludes_acl_leaked_sources_from_citation_validation(monkeypatch):
+    run_eval = _eval_module("run_eval")
+    captured = {}
+    monkeypatch.setattr(run_eval, "_generate", lambda *_args: "No sources available.")
+    monkeypatch.setattr(
+        run_eval,
+        "score_case",
+        lambda **kwargs: captured.update(kwargs) or SimpleNamespace(relevance_questions=[]),
+    )
+    case = SimpleNamespace(
+        question="What is the policy?",
+        ground_truth_answer="The policy is documented.",
+        is_no_answer=False,
+        is_acl_negative=True,
+    )
+    result = SimpleNamespace(case=case, leaks=["restricted-doc"], contexts=["redacted"])
+    chunk = SimpleNamespace(content="restricted text", to_citation=lambda: {"doc_title": "Secret.pdf"})
+
+    run_eval._evaluate_prepared_case(SimpleNamespace(result=result, chunks=[chunk]))
+
+    assert captured["contexts"] == []
+    assert captured["citation_sources"] == []
 
 
 def test_citation_judge_skips_refusals_and_empty_sources():

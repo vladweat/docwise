@@ -59,6 +59,13 @@ def safe_case_diagnostics(results) -> list[dict[str, object]]:
                 "context_precision": getattr(ragas, "context_precision", None),
                 "answer_relevance": getattr(ragas, "answer_relevance", None),
                 "citation_support_rate": getattr(ragas, "citation_support_rate", None),
+                "citation_reference_precision": getattr(
+                    ragas, "citation_reference_precision", None
+                ),
+                "citation_reference_valid_count": getattr(
+                    ragas, "citation_reference_valid_count", 0
+                ),
+                "citation_reference_count": getattr(ragas, "citation_reference_count", 0),
                 "acl_leak_count": len(getattr(row, "leaks", ()) or ()),
                 "case_error": bool(getattr(row, "error", None)),
                 "no_answer_correct": getattr(row, "no_answer_correct", None),

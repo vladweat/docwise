@@ -632,6 +632,7 @@ def _evaluate_prepared_case(prepared: PreparedCase) -> CaseResult:
                 include_answer_relevance=not result.case.is_acl_negative,
                 include_citation_support=not result.case.is_acl_negative,
                 defer_answer_relevance=True,
+                citation_sources=[chunk.to_citation() for chunk in allowed_chunks],
             )
     except OpenAINotConfiguredError:
         raise
@@ -748,6 +749,21 @@ def render_report(summary: EvalSummary) -> str:
         for row in positives
         if row.ragas is not None and row.ragas.citation_support_rate is not None
     ]
+    citation_reference_valid_count = sum(
+        row.ragas.citation_reference_valid_count
+        for row in positives
+        if row.ragas is not None
+    )
+    citation_reference_count = sum(
+        row.ragas.citation_reference_count
+        for row in positives
+        if row.ragas is not None
+    )
+    citation_reference_precision = (
+        citation_reference_valid_count / citation_reference_count
+        if citation_reference_count
+        else None
+    )
     doc_hits = [row.target_doc_hit for row in positives]
     page_hits = [row.target_page_hit for row in positives if row.target_page_hit is not None]
     section_hits = [row.target_section_hit for row in positives if row.target_section_hit is not None]
@@ -812,6 +828,17 @@ def render_report(summary: EvalSummary) -> str:
         f"| Context Precision | {_fmt(precision)} | {sum(row.ragas is not None and row.ragas.context_precision is not None for row in positives)} |",
         f"| Answer Relevance | {_fmt(relevance)} | {sum(row.ragas is not None and row.ragas.answer_relevance is not None for row in positives)} |",
         f"| Citation support | {_fmt(_avg(citation_scores))} | {len(citation_scores)} |",
+        "",
+        "## Deterministic source reference check",
+        "",
+        "This check verifies that each inline page or section citation matches a retrieved source title and location. "
+        "It does not measure whether the cited source semantically supports an answer claim.",
+        "",
+        "| Metric | Value |",
+        "| --- | ---: |",
+        f"| Inline references matching retrieved sources | "
+        f"{citation_reference_valid_count} / {citation_reference_count} |",
+        f"| Citation reference precision | {_fmt(citation_reference_precision)} |",
         "",
         "## Response coverage",
         "",

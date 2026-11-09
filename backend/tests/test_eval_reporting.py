@@ -137,6 +137,9 @@ def test_safe_case_diagnostics_keeps_scores_and_ranks_without_text():
             context_relevance_by_rank=[True, False],
             answer_relevance=0.8,
             citation_support_rate=0.75,
+            citation_reference_precision=0.5,
+            citation_reference_valid_count=1,
+            citation_reference_count=2,
         ),
         answer="private generated answer",
         contexts=["private chunk text"],
@@ -163,6 +166,9 @@ def test_safe_case_diagnostics_keeps_scores_and_ranks_without_text():
             "context_precision": 0.7,
             "answer_relevance": 0.8,
             "citation_support_rate": 0.75,
+            "citation_reference_precision": 0.5,
+            "citation_reference_valid_count": 1,
+            "citation_reference_count": 2,
             "acl_leak_count": 0,
             "case_error": True,
             "no_answer_correct": None,
@@ -853,6 +859,9 @@ def test_retrieval_only_report_shows_provenance_and_marks_generation_metrics_una
             context_precision=1.0,
             answer_relevance=0.9,
             citation_support_rate=0.5,
+            citation_reference_precision=0.5,
+            citation_reference_valid_count=1,
+            citation_reference_count=2,
         ),
     )
     summary = run_eval.EvalSummary(
@@ -874,6 +883,9 @@ def test_retrieval_only_report_shows_provenance_and_marks_generation_metrics_una
     assert "Generation quality was not evaluated" in report
     assert "| Target document hit rate | 1.000 | 1 |" in report
     assert "| Citation support | 0.500 | 1 |" in report
+    assert "## Deterministic source reference check" in report
+    assert "| Inline references matching retrieved sources | 1 / 2 |" in report
+    assert "| Citation reference precision | 0.500 |" in report
     assert "## Quality gates" in report
     assert "| Faithfulness | n/a | n/a | N/A |" in report
 

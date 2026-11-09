@@ -17,7 +17,7 @@ from app.services.ingestion.embeddings import embed_texts_for_profile
 from app.services.chat.llm import complete_openai
 from app.services.chat.prompt import contains_no_context_phrase, is_no_context_answer
 from app.services.retrieval import NO_CONTEXT_ANSWER
-from citation_metrics import citation_support_rate
+from citation_metrics import citation_reference_metrics, citation_support_rate
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,9 @@ class RagasScores:
     context_precision: float | None
     answer_relevance: float | None
     citation_support_rate: float | None = None
+    citation_reference_precision: float | None = None
+    citation_reference_valid_count: int = 0
+    citation_reference_count: int = 0
     context_relevance_by_rank: list[bool] = field(default_factory=list)
     relevance_questions: list[str] = field(default_factory=list, repr=False)
 
@@ -63,6 +66,7 @@ def score_case(
     include_answer_relevance: bool,
     include_citation_support: bool = True,
     defer_answer_relevance: bool = False,
+    citation_sources: list[dict[str, object]] | None = None,
 ) -> RagasScores:
     if is_refusal(answer) or not contexts:
         faithfulness = None
@@ -89,12 +93,16 @@ def score_case(
         answer_relevance = _answer_relevance(question, answer)
 
     source_support = _citation_support(question, answer, contexts) if include_citation_support else None
+    citation_references = citation_reference_metrics(answer, citation_sources or [])
 
     return RagasScores(
         faithfulness=faithfulness,
         context_precision=context_precision,
         answer_relevance=answer_relevance,
         citation_support_rate=source_support,
+        citation_reference_precision=citation_references.precision,
+        citation_reference_valid_count=citation_references.valid_references,
+        citation_reference_count=citation_references.total_references,
         context_relevance_by_rank=context_relevance_by_rank,
         relevance_questions=relevance_questions,
     )
@@ -111,9 +119,11 @@ def _citation_support(question: str, answer: str, contexts: list[str]) -> float 
                 "Evaluate whether every factual claim in the answer is supported by at least one numbered source. "
                 "Return JSON only: {\"claims\": [{\"claim\": \"short claim\", "
                 "\"source_indexes\": [0]}]}. Use an empty source_indexes list for unsupported claims. "
-                "Use only source indexes that directly support that claim. If there are no factual claims, return "
-                "{\"claims\": []}. First check each source for a direct statement of the claim; a verbatim match "
-                "is supported. Do not infer evidence that is not in the sources. Source indexes are zero-based."
+                "Use only source indexes that support the complete claim; a merely related source is not support. "
+                "Check paraphrases by meaning, and check negation, modality, quantities, units, dates, and exceptions "
+                "carefully. A source that contradicts any part of a claim does not support it. Do not infer evidence "
+                "that is not in the sources. If there are no factual claims, return {\"claims\": []}. "
+                "Source indexes are zero-based."
             ),
         },
         {
