@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
+from threading import Barrier, Event
 from uuid import UUID, uuid4
 
 import pytest
@@ -18,6 +20,7 @@ from app.core.database import SessionLocal, engine
 from app.main import app
 from app.models.audit import RagAuditLog
 from app.models.chat import ChatMessage, ChatSession
+from app.models.organization import Organization
 from app.models.user import UserRole
 from app.services.chat import (
     CACHE_VERSION,
@@ -1180,6 +1183,61 @@ def test_cache_miss_after_index_generation_bump(monkeypatch):
     assert _meta(_parse_sse(b.text))["cached"] is False
     assert calls["stream"] == 2
     get_settings.cache_clear()
+
+
+def test_concurrent_cache_generation_bumps_are_atomic():
+    from app.services.chat.llm_cache import bump_llm_index_generation
+
+    organization = Organization(name="Cache race test", slug=f"cache-race-{uuid4().hex}")
+    with SessionLocal() as db:
+        db.add(organization)
+        db.commit()
+        organization_id = organization.id
+    both_loaded = Barrier(2)
+    first_flushed = Event()
+    second_at_bump = Event()
+    allow_first_commit = Event()
+
+    def bump_first_transaction() -> None:
+        with SessionLocal() as db:
+            organization = db.get(Organization, organization_id)
+            assert organization is not None
+            assert organization.llm_index_generation == 0
+            both_loaded.wait(timeout=10)
+            assert bump_llm_index_generation(db, organization_id) == 1
+            first_flushed.set()
+            assert allow_first_commit.wait(timeout=10)
+            db.commit()
+
+    def bump_second_transaction() -> int:
+        with SessionLocal() as db:
+            organization = db.get(Organization, organization_id)
+            assert organization is not None
+            assert organization.llm_index_generation == 0
+            both_loaded.wait(timeout=10)
+            assert first_flushed.wait(timeout=10)
+            second_at_bump.set()
+            generation = bump_llm_index_generation(db, organization_id)
+            db.commit()
+            return generation
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first = executor.submit(bump_first_transaction)
+        second = executor.submit(bump_second_transaction)
+        try:
+            assert second_at_bump.wait(timeout=10)
+        finally:
+            allow_first_commit.set()
+        first.result(timeout=10)
+        second_generation = second.result(timeout=10)
+
+    with SessionLocal() as db:
+        organization = db.get(Organization, organization_id)
+        assert organization is not None
+        final_generation = organization.llm_index_generation
+
+    assert second_generation == 2
+    assert final_generation == 2
 
 
 def test_stream_releases_db_before_llm_tokens(monkeypatch):

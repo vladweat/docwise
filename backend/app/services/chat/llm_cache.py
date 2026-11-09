@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from typing import Any, cast
 from uuid import UUID
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.core.redis import get_redis_client
@@ -99,12 +100,14 @@ def delete_org_cache_keys(organization_id: UUID) -> None:
 
 
 def bump_llm_index_generation(db: Session, organization_id: UUID) -> int:
-    org = db.get(Organization, organization_id)
-    if org is None:
-        return 0
-    org.llm_index_generation = int(org.llm_index_generation or 0) + 1
-    db.flush()
-    return org.llm_index_generation
+    generation = db.execute(
+        update(Organization)
+        .where(Organization.id == organization_id)
+        .values(llm_index_generation=Organization.llm_index_generation + 1)
+        .returning(Organization.llm_index_generation)
+        .execution_options(synchronize_session="fetch")
+    ).scalar_one_or_none()
+    return int(generation) if generation is not None else 0
 
 
 def invalidate_llm_cache(db: Session, organization_id: UUID) -> int:
