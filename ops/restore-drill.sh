@@ -43,6 +43,11 @@ if [[ "$SOURCE_PROJECT" == "$DRILL_PROJECT" ]]; then
   echo "error: source and drill Compose projects must be different" >&2
   exit 2
 fi
+KEEP_FAILED_DRILL="${RESTORE_DRILL_KEEP_ON_FAILURE:-0}"
+if [[ "$KEEP_FAILED_DRILL" != "0" && "$KEEP_FAILED_DRILL" != "1" ]]; then
+  echo "error: RESTORE_DRILL_KEEP_ON_FAILURE must be 0 or 1" >&2
+  exit 2
+fi
 if [[ -e "$BACKUP_DIR" ]]; then
   echo "error: backup path already exists: $BACKUP_DIR" >&2
   exit 2
@@ -52,7 +57,46 @@ echo "==> Create backup from source project: $SOURCE_PROJECT"
 COMPOSE_FILE="$COMPOSE_FILES" COMPOSE_PROJECT_NAME="$SOURCE_PROJECT" \
   bash ops/backup-pilot.sh "$BACKUP_DIR"
 
+echo "==> Check isolated project name is unused: $DRILL_PROJECT"
+PROJECT_LABEL="com.docker.compose.project=$DRILL_PROJECT"
+if [[ -n "$(docker ps --all --quiet --filter "label=$PROJECT_LABEL")" \
+  || -n "$(docker volume ls --quiet --filter "label=$PROJECT_LABEL")" \
+  || -n "$(docker network ls --quiet --filter "label=$PROJECT_LABEL")" ]]; then
+  echo "error: drill Compose project already has Docker resources: $DRILL_PROJECT" >&2
+  exit 2
+fi
+
+DRILL_STARTED=0
+cleanup_drill() {
+  local exit_status=$?
+  local cleanup_status=0
+  trap - EXIT INT TERM
+
+  if (( DRILL_STARTED == 0 )); then
+    return "$exit_status"
+  fi
+  if (( exit_status != 0 )) && [[ "$KEEP_FAILED_DRILL" == "1" ]]; then
+    echo "==> preserving failed drill project for diagnosis: $DRILL_PROJECT"
+    return "$exit_status"
+  fi
+
+  echo "==> Remove isolated containers and volumes: $DRILL_PROJECT"
+  COMPOSE_FILE="$COMPOSE_FILES:ops/restore-drill.compose.yml" COMPOSE_PROJECT_NAME="$DRILL_PROJECT" \
+    docker compose down --volumes --remove-orphans || cleanup_status=$?
+  if (( cleanup_status != 0 )); then
+    echo "error: cleanup failed for isolated project $DRILL_PROJECT (status $cleanup_status)" >&2
+    if (( exit_status == 0 )); then
+      exit "$cleanup_status"
+    fi
+  fi
+  exit "$exit_status"
+}
+trap cleanup_drill EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 echo "==> Restore into isolated project: $DRILL_PROJECT"
+DRILL_STARTED=1
 COMPOSE_FILE="$COMPOSE_FILES:ops/restore-drill.compose.yml" COMPOSE_PROJECT_NAME="$DRILL_PROJECT" \
   RESTORE_READY_URL=http://127.0.0.1:18001/ready \
   bash ops/restore-pilot.sh "$BACKUP_DIR" --wipe-volumes --allow-project-mismatch
@@ -68,6 +112,3 @@ if [[ ! "$DOC_COUNT" =~ ^[0-9]+$ ]] || (( DOC_COUNT == 0 )); then
 fi
 
 echo "==> Restore drill passed: ready_documents=$DOC_COUNT backup=$BACKUP_DIR"
-echo "==> Remove isolated containers and volumes"
-COMPOSE_FILE="$COMPOSE_FILES:ops/restore-drill.compose.yml" COMPOSE_PROJECT_NAME="$DRILL_PROJECT" \
-  docker compose down --volumes --remove-orphans

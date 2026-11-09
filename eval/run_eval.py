@@ -7,6 +7,7 @@ Not invoked by default CI: needs an LLM key and indexed fixture documents.
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import logging
 import os
@@ -55,7 +56,11 @@ from app.services.chat import build_messages  # noqa: E402
 from app.services.chat.prompt import no_context_answer  # noqa: E402
 from app.services.chat.llm import LLMUsage, OpenAINotConfiguredError, openai_is_configured, stream_openai  # noqa: E402
 from app.services.retrieval import finish_retrieval, hybrid_search, retrieve  # noqa: E402
-from app.services.retrieval.reranker import get_reranker, select_evaluation_reranker_profile  # noqa: E402
+from app.services.retrieval.reranker import (  # noqa: E402
+    get_reranker,
+    reset_reranker_cache,
+    select_evaluation_reranker_profile,
+)
 from app.services.retrieval.types import HybridPool, RetrievedChunk  # noqa: E402
 from app.services.org.tenancy import resolve_principal  # noqa: E402
 
@@ -324,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
         batch_size=args.rerank_batch_size,
     )
     summary.rerank_ms = (perf_counter() - rerank_started) * 1000
+    _release_reranker_after_retrieval()
     logger.info(
         "Reranked %s candidate pairs in %.1f ms (batch_size=%s)",
         summary.rerank_pair_count,
@@ -676,6 +682,12 @@ def _select_eval_model_profile(key: str) -> None:
     chunker.CHUNK_MAX_TOKENS = profile.eval_chunk_max_tokens
     chunker.CHUNK_MIN_TOKENS = profile.eval_chunk_min_tokens
     chunker.CHUNK_OVERLAP_TOKENS = profile.eval_chunk_overlap_tokens
+
+
+def _release_reranker_after_retrieval() -> None:
+    """Free the one-shot eval reranker before loading answer-relevance encoders."""
+    reset_reranker_cache()
+    gc.collect()
 
 
 def _generate(question: str, chunks) -> str:

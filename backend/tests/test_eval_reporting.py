@@ -1101,6 +1101,17 @@ def test_answer_relevance_batch_encodes_many_cases_in_one_call_per_profile(monke
     ]
 
 
+def test_eval_releases_reranker_cache_after_retrieval(monkeypatch):
+    run_eval = _eval_module("run_eval")
+    from app.services.retrieval import reranker
+
+    monkeypatch.setattr(reranker, "_reranker", object())
+
+    run_eval._release_reranker_after_retrieval()
+
+    assert reranker._reranker is None
+
+
 @pytest.mark.parametrize(("leaks", "errors", "expected_name"), [(1, 0, "ACL leaks"), (0, 1, "Case errors")])
 def test_quality_gates_always_fail_for_acl_leaks_or_case_errors(leaks, errors, expected_name):
     gates = _eval_module("quality_gates")
