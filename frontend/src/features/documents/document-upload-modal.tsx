@@ -98,10 +98,12 @@ export function DocumentUploadModal({
         next.type ===
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       if (!isPdf && !isDocx) {
+        setFile(null);
         setError(t("documents.onlyPdfDocx"));
         return;
       }
       if (next.size > MAX_UPLOAD_BYTES) {
+        setFile(null);
         setError(t("documents.fileTooLarge"));
         return;
       }

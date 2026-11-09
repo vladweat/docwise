@@ -37,9 +37,12 @@ export function ChatPanel({
   const router = useRouter();
   const user = useAuth().user;
   const userId = user?.id;
+  const organizationId = user?.organization_id;
   const [question, setQuestion] = useState("");
   const [showCitationHint, setShowCitationHint] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(Boolean(sessionId));
+  const [historyLoadError, setHistoryLoadError] = useState(false);
+  const [historyRetryCount, setHistoryRetryCount] = useState(0);
   const messages = useChatStore((state) => state.messages);
   const sending = useChatStore((state) => state.sending);
   const listRef = useRef<HTMLDivElement>(null);
@@ -59,6 +62,7 @@ export function ChatPanel({
     const store = useChatStore.getState();
 
     if (!sessionId) {
+      setHistoryLoadError(false);
       if (store.sending || store.sessionId) {
         setLoadingHistory(false);
         return;
@@ -78,6 +82,9 @@ export function ChatPanel({
     }
 
     setLoadingHistory(true);
+    setHistoryLoadError(false);
+    abortRef.current?.abort();
+    store.resetNew();
     void fetchChatSession(sessionId)
       .then((detail) => {
         if (cancelled) return;
@@ -100,8 +107,8 @@ export function ChatPanel({
           router.replace("/");
           return;
         }
-        const message = t("errors.loadChatHistoryFailed");
-        useToastStore.getState().push(message);
+        useChatStore.getState().resetNew();
+        setHistoryLoadError(true);
       })
       .finally(() => {
         if (!cancelled) setLoadingHistory(false);
@@ -110,7 +117,7 @@ export function ChatPanel({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, userId, router]);
+  }, [sessionId, userId, organizationId, router, historyRetryCount]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -144,7 +151,7 @@ export function ChatPanel({
   async function send(text: string) {
     const trimmed = text.trim();
     const store = useChatStore.getState();
-    if (!trimmed || store.sending || loadingHistory) return;
+    if (!trimmed || store.sending || loadingHistory || historyLoadError) return;
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -207,10 +214,11 @@ export function ChatPanel({
       if (event.type === "error") {
         const message = chatErrorMessage(undefined, event.content);
         useToastStore.getState().push(message);
-        chat.patchMessage(assistantId, (item) => {
-          if (item.content.trim()) return item;
-          return { ...item, content: message, error: true };
-        });
+        chat.patchMessage(assistantId, (item) => ({
+          ...item,
+          content: item.content.trim() ? item.content : message,
+          error: true,
+        }));
       }
     };
 
@@ -262,6 +270,21 @@ export function ChatPanel({
               <Skeleton className="h-16 w-5/6 self-end" />
               <Skeleton className="h-24 w-full" />
             </div>
+          ) : historyLoadError ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10">
+              <Alert variant="destructive">{t("errors.loadChatHistoryFailed")}</Alert>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setLoadingHistory(true);
+                  setHistoryLoadError(false);
+                  setHistoryRetryCount((count) => count + 1);
+                }}
+              >
+                {t("common.retry")}
+              </Button>
+            </div>
           ) : messages.length === 0 ? (
             <ChatEmptyState onSend={(text) => void send(text)} />
           ) : (
@@ -309,7 +332,7 @@ export function ChatPanel({
               }}
               onKeyDown={handleKeyDown}
               placeholder={t("chat.placeholder")}
-              disabled={sending || loadingHistory}
+              disabled={sending || loadingHistory || historyLoadError}
               rows={1}
               className="max-h-32 min-h-11 min-w-0 flex-1 resize-none overflow-y-auto rounded-xl border-0 bg-transparent px-1 py-[10px] leading-6 sm:max-h-40"
             />
@@ -317,7 +340,7 @@ export function ChatPanel({
               type="button"
               size="icon"
               className="size-10 shrink-0 sm:size-9"
-              disabled={sending || loadingHistory || !question.trim()}
+              disabled={sending || loadingHistory || historyLoadError || !question.trim()}
               onClick={() => void send(question)}
               aria-label={t("chat.send")}
             >

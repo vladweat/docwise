@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useAuth } from "@/features/auth/auth-provider";
@@ -24,6 +25,8 @@ function emailInitials(email: string): string {
 export function UserAccountMenu() {
   const { t } = useI18n();
   const { user, logout, switchOrganization } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
   const pushToast = useToastStore((state) => state.push);
 
   if (!user) return null;
@@ -59,9 +62,11 @@ export function UserAccountMenu() {
               <Select
                 value={user.organization_id}
                 onValueChange={(organizationId) => {
-                  void switchOrganization(organizationId).catch(() => {
-                    pushToast(t("nav.switchOrgFailed"), "error");
-                  });
+                  void switchOrganization(organizationId)
+                    .then(() => {
+                      if (pathname.startsWith("/chat/")) router.replace("/");
+                    })
+                    .catch(() => pushToast(t("nav.switchOrgFailed"), "error"));
                 }}
               >
                 <SelectTrigger size="sm" className="h-8 w-full bg-slate-900" aria-label={t("nav.organization")}>

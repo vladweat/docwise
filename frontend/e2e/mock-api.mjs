@@ -2,9 +2,18 @@ import { createServer } from "node:http";
 
 const port = Number(process.env.E2E_API_PORT ?? 18081);
 const sessionId = "22222222-2222-4222-8222-222222222222";
+const sessionAlpha = "66666666-6666-4666-8666-666666666666";
+const sessionBeta = "77777777-7777-4777-8777-777777777777";
 const documentId = "11111111-1111-4111-8111-111111111111";
 const createdAt = "2026-01-01T00:00:00Z";
+const secondOrganization = {
+  id: "88888888-8888-4888-8888-888888888888",
+  name: "Workspace Two",
+  role: "employee",
+  departments: [],
+};
 let sessionCreated = false;
+let betaLoadFailures = 0;
 
 const baseUser = {
   id: "33333333-3333-4333-8333-333333333333",
@@ -112,8 +121,21 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === "/api/v1/auth/login" && request.method === "POST") {
     const payload = await readJson(request);
-    currentUser = payload.email === "admin@docwise.example.com" ? { ...baseUser, role: "admin" } : baseUser;
+    currentUser = payload.email === "admin@docwise.example.com"
+      ? { ...baseUser, role: "admin" }
+      : payload.email === "qa@docwise.example.com"
+        ? { ...baseUser, email: payload.email, organizations: [...baseUser.organizations, secondOrganization] }
+        : baseUser;
+    if (payload.email === "qa@docwise.example.com") betaLoadFailures = 0;
     sendJson(response, 200, currentUser, { "set-cookie": "docwise_e2e=1; HttpOnly; Path=/; SameSite=Lax" });
+    return;
+  }
+  if (url.pathname === "/api/v1/auth/switch-organization" && request.method === "POST") {
+    const payload = await readJson(request);
+    currentUser = payload.organization_id === secondOrganization.id
+      ? { ...currentUser, organization_id: secondOrganization.id, organization_name: secondOrganization.name }
+      : { ...currentUser, organization_id: baseUser.organization_id, organization_name: baseUser.organization_name };
+    sendJson(response, 200, currentUser);
     return;
   }
   if (url.pathname === "/api/v1/documents/access-options") {
@@ -154,12 +176,55 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (url.pathname === "/api/v1/chat/sessions") {
+    if (currentUser.email === "qa@docwise.example.com") {
+      const items = [
+        { id: sessionAlpha, title: "Session Alpha", created_at: createdAt, updated_at: createdAt },
+        { id: sessionBeta, title: "Session Beta", created_at: createdAt, updated_at: createdAt },
+      ];
+      sendJson(response, 200, { items, total: items.length, limit: 50, offset: 0 });
+      return;
+    }
     const items = sessionCreated ? [{ id: sessionId, title: "What are the core working hours?", created_at: createdAt, updated_at: createdAt }] : [];
     sendJson(response, 200, { items, total: items.length, limit: 50, offset: 0 });
     return;
   }
+  if (url.pathname === `/api/v1/chat/sessions/${sessionAlpha}`) {
+    if (currentUser.organization_id !== baseUser.organization_id) {
+      sendJson(response, 404, { detail: "Session not found" });
+      return;
+    }
+    sendJson(response, 200, {
+      id: sessionAlpha,
+      title: "Session Alpha",
+      created_at: createdAt,
+      updated_at: createdAt,
+      messages: [
+        { id: "99999999-9999-4999-8999-999999999991", role: "user", content: "Alpha question", sources: [], created_at: createdAt },
+        { id: "99999999-9999-4999-8999-999999999992", role: "assistant", content: "History from session Alpha", sources: [], created_at: createdAt },
+      ],
+    });
+    return;
+  }
+  if (url.pathname === `/api/v1/chat/sessions/${sessionBeta}`) {
+    if (betaLoadFailures === 0) {
+      betaLoadFailures += 1;
+      sendJson(response, 503, { detail: "Temporary test failure" });
+      return;
+    }
+    sendJson(response, 200, {
+      id: sessionBeta,
+      title: "Session Beta",
+      created_at: createdAt,
+      updated_at: createdAt,
+      messages: [
+        { id: "99999999-9999-4999-8999-999999999993", role: "user", content: "Beta question", sources: [], created_at: createdAt },
+        { id: "99999999-9999-4999-8999-999999999994", role: "assistant", content: "History from session Beta", sources: [], created_at: createdAt },
+      ],
+    });
+    return;
+  }
   if (url.pathname === "/api/v1/chat/stream" && request.method === "POST") {
-    await readJson(request);
+    const payload = await readJson(request);
     sessionCreated = true;
     response.writeHead(200, {
       "content-type": "text/event-stream",
@@ -168,6 +233,12 @@ const server = createServer(async (request, response) => {
       "access-control-allow-credentials": "true",
     });
     response.write(`data: ${JSON.stringify({ type: "meta", cached: false, tokens_used: null, cost_usd: null, session_id: sessionId, message_id: null })}\n\n`);
+    if (payload.query === "Trigger the broken stream") {
+      response.write(`data: ${JSON.stringify({ type: "token", content: "Partial answer before stream failure" })}\n\n`);
+      response.write(`data: ${JSON.stringify({ type: "error", content: "Chat failed. Try again." })}\n\n`);
+      response.end(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+      return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 1500));
     response.write(`data: ${JSON.stringify({ type: "citations", citations: [{ doc_id: documentId, doc_title: document.title, page: 1, snippet: "Core working hours are 09:00 to 18:00." }] })}\n\n`);
     response.write(`data: ${JSON.stringify({ type: "token", content: "Core working hours are 09:00 to 18:00." })}\n\n`);

@@ -55,15 +55,26 @@ export async function streamChat(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let completed = false;
+  let failed = false;
+
+  const dispatch = (event: ChatStreamEvent) => {
+    if (event.type === "done") completed = true;
+    if (event.type === "error") failed = true;
+    onEvent(event);
+  };
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    buffer = consumeSseBuffer(buffer, onEvent);
+    buffer = consumeSseBuffer(buffer, dispatch);
   }
   if (buffer.trim()) {
     const event = parseSseBlock(buffer);
-    if (event) onEvent(event);
+    if (event) dispatch(event);
+  }
+  if (!completed && !failed) {
+    throw new ApiRequestError("Chat stream ended before completion", response.status);
   }
 }
