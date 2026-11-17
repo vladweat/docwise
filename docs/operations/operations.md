@@ -46,8 +46,8 @@ curl -fsS http://localhost:8001/ready | python3 -m json.tool
 ```
 
 `/health` проверяет только процесс. `/ready` проверяет PostgreSQL/pgvector, Redis, S3 и обработчик оплаты;
-при деградации возвращает `503`. Этот endpoint не проверяет внешний LLM provider или Celery; здоровье Celery отдельно
-видно по Compose healthcheck и `make check-pilot-alerts`.
+при деградации возвращает `503`. Этот маршрут не проверяет внешнего поставщика языковой модели или Celery; состояние Celery отдельно
+видно по проверке работоспособности Compose и `make check-pilot-alerts`.
 
 Единственная задача `db-migrate` создаёт или проверяет `docwise_rls`, выдаёт разрешения и применяет миграции.
 Ошибка этой задачи блокирует API и фоновый обработчик. За пределами этих профилей Compose миграции и роль
